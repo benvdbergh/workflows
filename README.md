@@ -108,6 +108,9 @@ docs/RFC/          # Full protocol specification (9 sections)
 docs/poc-scope.md  # POC subset — what the first engine milestone must support
 schemas/           # JSON Schema Draft 2020-12 bundle for the POC subset
 examples/          # Golden fixtures: workflow + RFC-04 trace companions
+packages/engine/   # POC Node.js engine — validation, history store, orchestration (see package README)
+scripts/           # validate-workflows.mjs (AJV, CI-aligned)
+.github/workflows/ # CI: validate-workflows
 ```
 
 ---
@@ -159,15 +162,11 @@ The [`examples/`](examples/) directory contains the canonical lighthouse fixture
 
 ---
 
-## Reference implementation (planned)
+## Reference implementation
 
-Per [RFC-08](docs/RFC/rfc-08-reference-implementation.md), the MVP engine will ship:
+**In this repository (POC, Node.js):** [`packages/engine/`](packages/engine/README.md) implements EPIC-1–aligned definition validation, an append-only command/event history (`SqliteExecutionHistoryStore` via `node:sqlite` or in-memory), and orchestration for the POC node subset including linear runs, `switch` routing, and `interrupt` / resume. Requires Node.js **≥ 22.5.0** (see root `package.json` `engines`).
 
-- **Core binary** (Rust or Go) — validation, graph walk, command/event loop, replay
-- **SQLite checkpoint store** for durable resume
-- **Python SDK** — local embedding via FFI or subprocess RPC
-- **MCP stdio adapter** — minimal tool set per §5.2
-- **Conformance suite** — schema, replay, reducer, interrupt, and MCP roundtrip test vectors
+**Longer term (RFC-08):** [RFC-08](docs/RFC/rfc-08-reference-implementation.md) still describes a production-style MVP: **core binary** (Rust or Go), **Python SDK**, **MCP stdio adapter**, and a **conformance suite** beyond what this POC package covers. Replay/checkpoint semantics and MCP integration are tracked in later epics.
 
 ---
 

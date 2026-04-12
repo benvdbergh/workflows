@@ -4,27 +4,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-A specification and artifact repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. There is no application code yet; current content is:
+A specification, contract, and **POC engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. Besides the RFCs and schemas, it ships a Node.js workspace package that validates POC definitions and runs durable orchestration against the EPIC-1 subset.
 
 - `docs/RFC/` — nine-section RFC defining the protocol (workflow definition schema, execution model, MCP/REST/SDK integration, security, governance)
 - `docs/poc-scope.md` — **authoritative POC subset**: which node types, commands/events, and reducers the first engine milestone must support (read this before implementing anything)
 - `schemas/workflow-definition-poc.json` — JSON Schema Draft 2020-12 entry schema; validates POC workflow documents
 - `examples/` — golden fixtures (workflow + happy-path and failure/retry trace companions) for the lighthouse demo
+- `packages/engine/` — **`@agent-workflow-protocol/engine`**: POC validation (CLI + library), append-only command/event history (SQLite or in-memory), linear runner, and full POC walker with `switch` and `interrupt` / resume (see `packages/engine/README.md`)
+- `scripts/validate-workflows.mjs` — repo-wide AJV validation used by CI and aligned with the engine’s schema options
 - `docs/epics/` and `docs/stories/` — agile work items with YAML frontmatter (managed by the `project-planning` skill)
 
-## Schema validation command
+## Validation and engine commands
+
+From the repository root (after `npm install`):
+
+| Command | Purpose |
+|--------|---------|
+| `npm run validate-workflows` | Validate every `*.workflow.json` under `examples/`, schema smoke, and invalid fixture rejection (same as CI) |
+| `npm run engine:validate -- path/to/workflow.json` | Validate a single file with the engine CLI (stderr lists AJV errors) |
+| `npm test` | Run engine package tests |
+
+One-off validation with **ajv-cli** (no `npm install` required):
 
 ```bash
 npx --yes ajv-cli@5 validate -s schemas/workflow-definition-poc.json -d path/to/workflow.json --spec=draft2020
 ```
 
-To validate the lighthouse fixture specifically:
+Lighthouse fixture:
 
 ```bash
 npx --yes ajv-cli@5 validate -s schemas/workflow-definition-poc.json -d examples/lighthouse-customer-routing.workflow.json --spec=draft2020
 ```
 
-No CI pipeline exists yet; validation is manual (STORY-1-4 tracks wiring this into CI).
+**CI:** `.github/workflows/validate-workflows.yml` runs `npm ci` and `npm run validate-workflows` on pushes and pull requests to `main` and `master` (Node.js 24 on the runner).
 
 ## Key architectural decisions
 
