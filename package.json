@@ -3,8 +3,13 @@
   "private": true,
   "description": "Agent Workflow Protocol — POC contracts, fixtures, and tooling",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "validate-workflows": "node scripts/validate-workflows.mjs"
+    "validate-workflows": "node scripts/validate-workflows.mjs",
+    "engine:validate": "node packages/engine/src/cli.mjs validate",
+    "test": "npm test --workspace=@agent-workflow-protocol/engine"
   },
   "engines": {
     "node": ">=20"
