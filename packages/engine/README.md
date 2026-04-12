@@ -1,6 +1,6 @@
 # `@agent-workflow-protocol/engine`
 
-Private workspace package: **definition-time** validation for Agent Workflow Protocol POC workflow documents, plus an **append-only execution history** port (SQLite or in-memory) for durable command/event streams. Orchestration and graph walking are not implemented here (later stories).
+Private workspace package: **definition-time** validation for Agent Workflow Protocol POC workflow documents, an **append-only execution history** port (SQLite or in-memory), and a **linear graph runner** (STORY-2-3) for single-path workflows.
 
 ## Entrypoint (CLI)
 
@@ -36,6 +36,24 @@ The package exports:
 - `validateWorkflowDefinition(data)` — returns `{ ok: true }` or `{ ok: false, errors }` where `errors` is AJV’s `ErrorObject[]` (includes `instancePath`, `keyword`, `schemaPath`, etc.).
 - `compileWorkflowValidator()` — returns a reusable `(data) => { ok: true } | { ok: false, errors }` function; the compiled schema is cached per process.
 - `findWorkflowRepoRoot(startDir?)` — locates the checkout root that contains `schemas/workflow-definition-poc.json` (used to resolve the schema path).
+
+### Linear orchestration (STORY-2-3)
+
+**API:** `runLinearWorkflow({ definition, input, executionId, store, stubActivityOutputs? })` → `Promise<{ status: 'completed'|'failed', finalState?, result?, error? }>`.
+
+Phases: **validate** (POC schema + reject `state_schema.properties.*.reducer === "custom"`) → **start** (`ExecutionStarted`) → **walk** each node on the unique chain from `__start__` through exactly one `start` … `end` → **complete** (`ExecutionCompleted` with jq result) or **fail** (`ExecutionFailed`, plus `FailNode` command when failure happens after start).
+
+**Graph rules:** Edges must form a **single linear path** covering every node: exactly one edge from `__start__`, at most one outgoing edge per node, no cycles, exactly one `start` and one `end`. `switch` and `interrupt` nodes are rejected (STORY-2-5). Unknown topology errors throw from `computeLinearNodePath` or return `{ status: 'failed', error }` from `runLinearWorkflow`.
+
+**Node types in this runner:** `start`, `end`, and **`step` / `llm_call` / `tool_call` as synchronous placeholders** — no real I/O. Placeholder outputs default to `{}`; override per node id with `stubActivityOutputs[nodeId]` (merged into state via reducers).
+
+**State:** Initial state is a shallow copy of `input`. After each non-`end` node, outputs are merged using `state_schema.properties.<key>.reducer`: `overwrite` (default), `append` (array concat), `merge` (deep object merge). After each merge, state is validated with Ajv against `state_schema` (reducer annotations are stripped for compilation only).
+
+**`end` node `config.output_mapping`:** Must be a **jq** program string. It is evaluated with **jq’s input root = the current workflow state object** (after all reducer updates from prior nodes). If `output_mapping` is omitted, the runner uses `.` (identity). Evaluation uses the **`jq-wasm`** package (WebAssembly jq — no native compile).
+
+**History (POC names):** Appends include at least `ExecutionStarted`; for each node `ScheduleNode` (command) and `NodeScheduled` (event); for placeholders `ActivityRequested` / `ActivityCompleted` (events); `CompleteNode` (command); `StateUpdated` (event) after state changes; terminal `ExecutionCompleted` or `ExecutionFailed`. Payloads include `executionId` and `nodeId` where applicable.
+
+**Helpers (also exported):** `assertNoCustomReducers(definition)`, `applyOutputWithReducers(state, output, stateSchema)`, `computeLinearNodePath(nodes, outgoingMap)`.
 
 ### Execution history (STORY-2-2)
 

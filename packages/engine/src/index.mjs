@@ -4,3 +4,9 @@
 export * from "./validate.mjs";
 export { MemoryExecutionHistoryStore } from "./persistence/memory-history-store.mjs";
 export { SqliteExecutionHistoryStore } from "./persistence/sqlite-history-store.mjs";
+export {
+  assertNoCustomReducers,
+  applyOutputWithReducers,
+  computeLinearNodePath,
+  runLinearWorkflow,
+} from "./orchestrator/linear-runner.mjs";

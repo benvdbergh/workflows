@@ -1,0 +1,53 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/v1",
+    "name": "linear-fixture",
+    "version": "1.0.0",
+    "description": "Minimal linear graph for STORY-2-3 tests (start → step → end)."
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "ticket_text": { "type": "string" },
+      "intent": { "type": "string" },
+      "tags": {
+        "type": "array",
+        "items": { "type": "string" },
+        "reducer": "append"
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "begin",
+      "type": "start",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticket_text": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "id": "enrich",
+      "type": "step",
+      "config": {
+        "handler": "noop"
+      }
+    },
+    {
+      "id": "finish",
+      "type": "end",
+      "config": {
+        "output_mapping": "{ result: { text: .ticket_text, label: .intent, allTags: .tags } }"
+      }
+    }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "begin" },
+    { "source": "begin", "target": "enrich" },
+    { "source": "enrich", "target": "finish" }
+  ]
+}
