@@ -15,3 +15,4 @@ export {
   computeLinearNodePath,
   runLinearWorkflow,
 } from "./orchestrator/linear-runner.mjs";
+export { runPocWorkflow, resumePocWorkflow } from "./orchestrator/poc-runner.mjs";

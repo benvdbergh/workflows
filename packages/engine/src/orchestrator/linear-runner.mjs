@@ -37,7 +37,7 @@ export function assertNoCustomReducers(definition) {
  * Clone JSON-schema property shapes for Ajv by stripping non-schema `reducer` annotations.
  * @param {object} stateSchema
  */
-function stateSchemaForValidation(stateSchema) {
+export function stateSchemaForValidation(stateSchema) {
   const raw = /** @type {{ properties?: Record<string, unknown> }} */ (stateSchema);
   const props = raw.properties;
   if (!props) return { ...raw };

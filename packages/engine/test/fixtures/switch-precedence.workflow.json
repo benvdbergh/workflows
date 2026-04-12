@@ -1,0 +1,65 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/v1",
+    "name": "switch-precedence",
+    "version": "1.0.0",
+    "description": "Switch has static edges from sw plus cases; engine must follow cases/default only."
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "pick": { "type": "string" },
+      "via": { "type": "string" }
+    }
+  },
+  "nodes": [
+    {
+      "id": "begin",
+      "type": "start",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": { "pick": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "id": "sw",
+      "type": "switch",
+      "config": {
+        "cases": [{ "when": ".pick == \"good\"", "target": "good_step" }],
+        "default": "bad_step"
+      }
+    },
+    {
+      "id": "good_step",
+      "type": "step",
+      "config": { "handler": "noop" }
+    },
+    {
+      "id": "bad_step",
+      "type": "step",
+      "config": { "handler": "noop" }
+    },
+    {
+      "id": "wrong_only_via_edge",
+      "type": "step",
+      "config": { "handler": "noop" }
+    },
+    {
+      "id": "finish",
+      "type": "end",
+      "config": {
+        "output_mapping": "{ \"via\": .via }"
+      }
+    }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "begin" },
+    { "source": "begin", "target": "sw" },
+    { "source": "sw", "target": "wrong_only_via_edge" },
+    { "source": "good_step", "target": "finish" },
+    { "source": "bad_step", "target": "finish" },
+    { "source": "wrong_only_via_edge", "target": "finish" }
+  ]
+}

@@ -1,6 +1,6 @@
 # `@agent-workflow-protocol/engine`
 
-Private workspace package: **definition-time** validation for Agent Workflow Protocol POC workflow documents, an **append-only execution history** port (SQLite or in-memory), and a **linear graph runner** (STORY-2-3) for single-path workflows.
+Private workspace package: **definition-time** validation for Agent Workflow Protocol POC workflow documents, an **append-only execution history** port (SQLite or in-memory), a **linear graph runner** (STORY-2-3), and a **general POC walker** (STORY-2-5) with `switch` and `interrupt` / resume.
 
 ## Entrypoint (CLI)
 
@@ -36,6 +36,7 @@ The package exports:
 - `validateWorkflowDefinition(data)` — returns `{ ok: true }` or `{ ok: false, errors }` where `errors` is AJV’s `ErrorObject[]` (includes `instancePath`, `keyword`, `schemaPath`, etc.).
 - `compileWorkflowValidator()` — returns a reusable `(data) => { ok: true } | { ok: false, errors }` function; the compiled schema is cached per process.
 - `findWorkflowRepoRoot(startDir?)` — locates the checkout root that contains `schemas/workflow-definition-poc.json` (used to resolve the schema path).
+- `runPocWorkflow(...)` / `resumePocWorkflow(...)` — general POC graph walker with `switch` and `interrupt` (see **General POC orchestration** below).
 
 ### Linear orchestration (STORY-2-3, STORY-2-4)
 
@@ -58,6 +59,18 @@ Phases: **validate** (POC schema + reject `state_schema.properties.*.reducer ===
 **History (POC names):** Appends include at least `ExecutionStarted`; for each node `ScheduleNode` (command) and `NodeScheduled` (event); for activities `ActivityRequested` then `ActivityCompleted` or `ActivityFailed`; `CompleteNode` (command); `StateUpdated` (event) after state changes; terminal `ExecutionCompleted` or `ExecutionFailed`. On activity failure the runner records `ActivityFailed`, then `FailNode` (`reason: "activity_failed"`), then `ExecutionFailed`. Payloads include `executionId` and `nodeId` where applicable.
 
 **Helpers (also exported):** `assertNoCustomReducers(definition)`, `applyOutputWithReducers(state, output, stateSchema)`, `computeLinearNodePath(nodes, outgoingMap)`.
+
+### General POC orchestration (STORY-2-5)
+
+**API:** `runPocWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor? })` and `resumePocWorkflow({ definition, executionId, store, resumePayload, stubActivityOutputs?, activityExecutor? })`.
+
+`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, and `interrupt`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
+
+**`switch` routing:** Successors come **only** from `config.cases` (first jq match wins; jq input root is the **current workflow state object**, same as STORY-2-3) and `config.default` when no case matches. If any `cases` exist and none match and `default` is omitted, the run fails with a clear error. **Static `edges` whose `source` is the switch node id are ignored for routing** (they may exist in documents; the engine does not follow them). This matches the POC recommendation in `docs/poc-scope.md` (avoid duplicate routing channels).
+
+**Static `edges` (non-switch):** Exactly one outgoing edge from `__start__`, and from each of `start`, `step`, `llm_call`, `tool_call`, and `interrupt`; none from `end`. The walker does not require outgoing edges from `switch` nodes.
+
+**Resume:** `resumePocWorkflow` loads history, takes the latest `StateUpdated` payload `state`, validates `resumePayload` with Ajv against the interrupt node’s `config.resume_schema` (reducer annotations stripped the same way as workflow `state_schema`), merges resume fields into state (overwrite keys), then continues from the **single** static successor of the interrupt node. Invalid resume appends `FailNode` (`reason: "resume_validation_failed"` when schema fails) and `ExecutionFailed`. If the last event is not `InterruptRaised`, resume fails with `FailNode` / `ExecutionFailed` and `reason: "resume_not_allowed"`.
 
 ### Execution history (STORY-2-2)
 
