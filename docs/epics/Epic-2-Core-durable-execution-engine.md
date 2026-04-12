@@ -15,8 +15,6 @@ traces_to:
   - path: docs/poc-scope.md
   - path: packages/engine/README.md
   - path: packages/engine/src/index.mjs
-  - path: CLAUDE.md
-  - path: README.md
 slice: vertical
 invest_check:
   independent: false
