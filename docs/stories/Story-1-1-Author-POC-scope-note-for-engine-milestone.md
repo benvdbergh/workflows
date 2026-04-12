@@ -25,7 +25,7 @@ acceptance_criteria:
 epic_title: "POC execution contract and artifacts"
 project: workflows
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 ---
 
 # Story-1-1: Author POC scope note for engine milestone
@@ -54,6 +54,11 @@ None. This story unblocks [STORY-1-2](Story-1-2-Publish-POC-JSON-Schema-bundle-u
 ## Related stories
 
 - Next: [STORY-1-2 — Publish POC JSON Schema bundle under schemas](Story-1-2-Publish-POC-JSON-Schema-bundle-under-schemas.md)
+
+## Delivered
+
+- [`docs/poc-scope.md`](../poc-scope.md) — authoritative POC subset (node kinds, edges, reducers, explicit out-of-scope), with pointers to RFC-03/RFC-04 and a §8 link to the schema bundle added in STORY-1-2.
+- Epic sign-off: [EPIC-1 closure](../epics/Epic-1-POC-execution-contract-and-artifacts.md#closure).
 
 ## Notes
 

@@ -30,7 +30,7 @@ acceptance_criteria:
 epic_title: "POC execution contract and artifacts"
 project: workflows
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 ---
 
 # Story-1-4: Wire schema validation into CI or documented command
@@ -60,6 +60,14 @@ See frontmatter `acceptance_criteria`.
 ## Related stories
 
 - Depends on: [STORY-1-2](Story-1-2-Publish-POC-JSON-Schema-bundle-under-schemas.md), [STORY-1-3](Story-1-3-Add-golden-workflow-fixture-and-trace-companions.md)
+
+## Delivered
+
+- [`package.json`](../../package.json) — `npm run validate-workflows` (Ajv 8, Draft 2020-12); `engines.node` ≥ 20 for local use.
+- [`scripts/validate-workflows.mjs`](../../scripts/validate-workflows.mjs) — validates all `examples/*.workflow.json`, `schemas/examples/minimal-valid.workflow.json`, and asserts [`examples/fixtures.invalid/extensions.workflow.json`](../../examples/fixtures.invalid/extensions.workflow.json) is rejected.
+- [`.github/workflows/validate-workflows.yml`](../../.github/workflows/validate-workflows.yml) — CI on `push` / `pull_request` to `main` and `master` using Node.js 24, `actions/checkout@v5`, `actions/setup-node@v5`.
+- [`README.md`](../../README.md) — contributor-facing validation instructions (under two minutes).
+- Epic sign-off: [EPIC-1 closure](../epics/Epic-1-POC-execution-contract-and-artifacts.md#closure).
 
 ## Notes
 

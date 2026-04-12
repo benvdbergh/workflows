@@ -32,7 +32,7 @@ acceptance_criteria:
 epic_title: "POC execution contract and artifacts"
 project: workflows
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 ---
 
 # Story-1-3: Add golden workflow fixture and trace companions
@@ -62,6 +62,13 @@ See frontmatter `acceptance_criteria`.
 
 - Previous: [STORY-1-2](Story-1-2-Publish-POC-JSON-Schema-bundle-under-schemas.md)
 - Next: [STORY-1-4](Story-1-4-Wire-schema-validation-into-CI-or-documented-command.md)
+
+## Delivered
+
+- [`examples/lighthouse-customer-routing.workflow.json`](../../examples/lighthouse-customer-routing.workflow.json) — golden lighthouse-shaped definition (`llm_call`, `switch`, `interrupt`, MCP `tool_call`); validates against the POC schema.
+- [`examples/lighthouse-customer-routing.trace.happy.json`](../../examples/lighthouse-customer-routing.trace.happy.json) and [`examples/lighthouse-customer-routing.trace.failure-and-retry.json`](../../examples/lighthouse-customer-routing.trace.failure-and-retry.json) — RFC-04 §4.4–4.5 command/event prefix narratives (happy path + retry + invalid resume).
+- [`examples/README.md`](../../examples/README.md) — fixture index and validation pointer.
+- Epic sign-off: [EPIC-1 closure](../epics/Epic-1-POC-execution-contract-and-artifacts.md#closure).
 
 ## Notes
 

@@ -27,7 +27,7 @@ acceptance_criteria:
 epic_title: "POC execution contract and artifacts"
 project: workflows
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 ---
 
 # Story-1-2: Publish POC JSON Schema bundle under schemas
@@ -58,6 +58,13 @@ See frontmatter `acceptance_criteria`.
 
 - Previous: [STORY-1-1](Story-1-1-Author-POC-scope-note-for-engine-milestone.md)
 - Next: [STORY-1-3](Story-1-3-Add-golden-workflow-fixture-and-trace-companions.md)
+
+## Delivered
+
+- [`schemas/workflow-definition-poc.json`](../../schemas/workflow-definition-poc.json) — JSON Schema Draft 2020-12 entry schema with `$defs` for POC node kinds only; root `additionalProperties: false` rejects `extensions`.
+- [`schemas/README.md`](../../schemas/README.md) — dialect, `$id`, validation commands (npm + optional `ajv-cli`).
+- [`schemas/examples/minimal-valid.workflow.json`](../../schemas/examples/minimal-valid.workflow.json) — minimal valid instance for tooling smoke tests.
+- Epic sign-off: [EPIC-1 closure](../epics/Epic-1-POC-execution-contract-and-artifacts.md#closure).
 
 ## Notes
 
