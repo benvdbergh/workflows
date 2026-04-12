@@ -10,11 +10,12 @@ jobs:
   validate-workflows:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # checkout@v5 / setup-node@v5 run on Node 24 (GitHub deprecation of Node 20 on Actions)
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
 
       - name: Install dependencies

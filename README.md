@@ -133,7 +133,7 @@ examples/          # Golden fixtures: workflow + RFC-04 trace companions
 
 The [`schemas/`](schemas/) directory contains the **POC JSON Schema bundle** (Draft 2020-12) covering the first engine milestone subset. See [`docs/poc-scope.md`](docs/poc-scope.md) for exactly which node types, commands, events, and reducers are in scope for this milestone — notably, `parallel`, `agent_delegate`, `subworkflow`, `wait`, and `set_state` are deferred.
 
-Validate all golden fixtures (requires Node.js 18+):
+Validate all golden fixtures locally (Node.js 20+). **CI** uses Node.js **24** with `actions/checkout@v5` and `actions/setup-node@v5` per [GitHub’s Node 20 deprecation on runners](https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/).
 
 ```bash
 npm ci

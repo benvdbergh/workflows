@@ -7,7 +7,7 @@
     "validate-workflows": "node scripts/validate-workflows.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "devDependencies": {
     "ajv": "^8.17.1"
