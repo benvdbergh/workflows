@@ -1,0 +1,154 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/v1",
+    "name": "lighthouse-customer-routing",
+    "version": "1.0.0",
+    "description": "Golden POC fixture: customer-style routing using llm_call, switch, interrupt, and MCP-shaped tool_call. Intended for reuse as the Epic 6 lighthouse definition."
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "messages": {
+        "type": "array",
+        "reducer": "append"
+      },
+      "intent": {
+        "type": "string"
+      },
+      "confidence": {
+        "type": "number"
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "begin",
+      "type": "start",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "ticket_text": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "classify",
+      "type": "llm_call",
+      "config": {
+        "model": "stub-or-live",
+        "system_prompt": "Classify the customer intent and confidence.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "intent": {
+              "type": "string"
+            },
+            "confidence": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "intent",
+            "confidence"
+          ]
+        }
+      },
+      "retry": {
+        "max_attempts": 3,
+        "backoff_coefficient": 2
+      },
+      "timeout": "30s"
+    },
+    {
+      "id": "route",
+      "type": "switch",
+      "config": {
+        "cases": [
+          {
+            "when": ".intent == \"billing\" and .confidence > 0.8",
+            "target": "open_ticket"
+          },
+          {
+            "when": ".intent == \"technical\"",
+            "target": "search_kb"
+          }
+        ],
+        "default": "human_review"
+      }
+    },
+    {
+      "id": "human_review",
+      "type": "interrupt",
+      "config": {
+        "prompt": "Agent is unsure. Please review and classify.",
+        "timeout": "24h",
+        "resume_schema": {
+          "type": "object",
+          "properties": {
+            "intent": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "intent"
+          ]
+        }
+      }
+    },
+    {
+      "id": "open_ticket",
+      "type": "tool_call",
+      "config": {
+        "server": "support-mcp",
+        "tool": "create_ticket",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "search_kb",
+      "type": "tool_call",
+      "config": {
+        "server": "support-mcp",
+        "tool": "search_kb",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "finish",
+      "type": "end",
+      "config": {
+        "output_mapping": "{ \"intent\": .intent, \"confidence\": .confidence }"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "__start__",
+      "target": "begin"
+    },
+    {
+      "source": "begin",
+      "target": "classify"
+    },
+    {
+      "source": "classify",
+      "target": "route"
+    },
+    {
+      "source": "human_review",
+      "target": "open_ticket"
+    },
+    {
+      "source": "open_ticket",
+      "target": "finish"
+    },
+    {
+      "source": "search_kb",
+      "target": "finish"
+    }
+  ]
+}

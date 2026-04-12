@@ -1,0 +1,61 @@
+{
+  "$comment": "Expected command/event prefixes for RFC-04 POC taxonomies. Not an exhaustive log; order within groups may embed engine-specific detail.",
+  "fixture": "lighthouse-customer-routing.workflow.json",
+  "normative_taxonomy": "docs/RFC/rfc-04-execution-model.md §4.4 (commands), §4.5 (events)",
+  "jq_binding": "switch.when expressions use root workflow state: .intent, .confidence, .messages (see fixture state_schema).",
+  "scenario": "happy_path_technical",
+  "description": "User intent classifies as technical with sufficient confidence; route selects search_kb; tools succeed; terminal success.",
+  "command_prefix": [
+    "ScheduleNode",
+    "CompleteNode",
+    "ScheduleNode",
+    "ScheduleNode",
+    "CompleteNode",
+    "ScheduleNode",
+    "CompleteNode",
+    "ScheduleNode",
+    "CompleteNode"
+  ],
+  "command_prefix_annotated": [
+    "ScheduleNode (begin)",
+    "CompleteNode (begin)",
+    "ScheduleNode (classify)",
+    "ScheduleNode (route) — orchestration may collapse switch into same tick as classify completion",
+    "CompleteNode (classify) / activity completion drives state",
+    "ScheduleNode (search_kb)",
+    "CompleteNode (search_kb)",
+    "ScheduleNode (finish)",
+    "CompleteNode (finish) / terminal aggregation"
+  ],
+  "event_prefix": [
+    "ExecutionStarted",
+    "NodeScheduled",
+    "NodeScheduled",
+    "ActivityRequested",
+    "ActivityCompleted",
+    "StateUpdated",
+    "NodeScheduled",
+    "NodeScheduled",
+    "ActivityRequested",
+    "ActivityCompleted",
+    "StateUpdated",
+    "NodeScheduled",
+    "ExecutionCompleted"
+  ],
+  "event_prefix_annotated": [
+    "ExecutionStarted — inputs + definition hash/version",
+    "NodeScheduled (begin)",
+    "NodeScheduled (classify)",
+    "ActivityRequested — llm_call classify",
+    "ActivityCompleted — structured model output",
+    "StateUpdated — intent/confidence merged per reducers",
+    "NodeScheduled (route) — if emitted as distinct step",
+    "NodeScheduled (search_kb)",
+    "ActivityRequested — tool_call search_kb",
+    "ActivityCompleted",
+    "StateUpdated",
+    "NodeScheduled (finish)",
+    "ExecutionCompleted"
+  ],
+  "implementation_note": "Engines MAY coalesce NodeScheduled for switch with CompleteNode(classify) in one transition; companions remain valid if the observed prefix is a refinement of this order (no reordering across activities)."
+}

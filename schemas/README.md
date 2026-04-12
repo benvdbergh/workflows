@@ -33,6 +33,10 @@ npx --yes ajv-cli@5 validate -s schemas/workflow-definition-poc.json -d path/to/
 
 On Windows PowerShell, the same command works from the repository root.
 
+## Golden fixtures
+
+Validated example workflows and RFC-04 trace companions: [examples/README.md](../examples/README.md).
+
 ## Versioning
 
 Bump **`document.schema`** in workflow instances and revise this bundle together when the POC contract changes; keep [docs/poc-scope.md](../docs/poc-scope.md) and these files aligned in the same change set where possible.

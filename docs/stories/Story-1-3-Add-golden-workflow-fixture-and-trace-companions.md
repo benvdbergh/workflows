@@ -2,7 +2,7 @@
 kind: story
 id: STORY-1-3
 title: "Add golden workflow fixture and trace companions"
-status: draft
+status: done
 priority: high
 parent: EPIC-1
 depends_on:
@@ -12,7 +12,11 @@ traces_to:
     anchor: "#44-command-taxonomy-normative"
   - path: docs/RFC/rfc-04-execution-model.md
     anchor: "#45-event-taxonomy-normative"
-  - path: schemas
+  - path: schemas/workflow-definition-poc.json
+  - path: examples/lighthouse-customer-routing.workflow.json
+  - path: examples/lighthouse-customer-routing.trace.happy.json
+  - path: examples/lighthouse-customer-routing.trace.failure-and-retry.json
+  - path: examples/README.md
 slice: vertical
 invest_check:
   independent: false

@@ -1,0 +1,83 @@
+{
+  "$comment": "Two POC scenarios: (1) activity retry on classify, (2) invalid interrupt resume. Command/event names per RFC-04 §4.4–4.5.",
+  "fixture": "lighthouse-customer-routing.workflow.json",
+  "normative_taxonomy": "docs/RFC/rfc-04-execution-model.md §4.4 (commands), §4.5 (events)",
+  "scenarios": {
+    "activity_retry_classify": {
+      "description": "classify llm_call fails on first attempt; policy retries; second attempt succeeds; then technical path to search_kb and success.",
+      "command_prefix": [
+        "ScheduleNode",
+        "CompleteNode",
+        "ScheduleNode",
+        "FailNode",
+        "ScheduleNode",
+        "CompleteNode",
+        "ScheduleNode",
+        "CompleteNode",
+        "ScheduleNode",
+        "CompleteNode",
+        "ScheduleNode",
+        "CompleteNode"
+      ],
+      "command_prefix_abbrev": [
+        "ScheduleNode (begin)",
+        "CompleteNode (begin)",
+        "ScheduleNode (classify)",
+        "FailNode (classify, attempt 1)",
+        "ScheduleNode (classify retry)",
+        "CompleteNode (classify, attempt 2)",
+        "ScheduleNode (route)",
+        "ScheduleNode (search_kb)",
+        "CompleteNode (search_kb)",
+        "ScheduleNode (finish)",
+        "CompleteNode (finish)"
+      ],
+      "event_prefix": [
+        "ExecutionStarted",
+        "NodeScheduled",
+        "NodeScheduled",
+        "ActivityRequested",
+        "ActivityFailed",
+        "NodeScheduled",
+        "ActivityRequested",
+        "ActivityCompleted",
+        "StateUpdated",
+        "NodeScheduled",
+        "NodeScheduled",
+        "ActivityRequested",
+        "ActivityCompleted",
+        "StateUpdated",
+        "NodeScheduled",
+        "ExecutionCompleted"
+      ],
+      "notes": "ActivityFailed MUST record attempt/retry metadata per engine profile; subsequent ActivityRequested MAY share the same node id with incremented attempt."
+    },
+    "invalid_resume_human_review": {
+      "description": "Switch default sends execution to human_review; RaiseInterrupt; external resume payload fails resume_schema validation; execution fails terminally (or engine-specific compensation before ExecutionFailed).",
+      "command_prefix": [
+        "ScheduleNode",
+        "CompleteNode",
+        "ScheduleNode",
+        "CompleteNode",
+        "ScheduleNode",
+        "RaiseInterrupt",
+        "ResumeInterrupt",
+        "FailNode"
+      ],
+      "event_prefix": [
+        "ExecutionStarted",
+        "NodeScheduled",
+        "NodeScheduled",
+        "ActivityRequested",
+        "ActivityCompleted",
+        "StateUpdated",
+        "NodeScheduled",
+        "InterruptRaised",
+        "ActivityFailed",
+        "ExecutionFailed"
+      ],
+      "notes": "Assumes validation fails before a successful InterruptResumed is recorded. If the engine instead emits InterruptResumed then fails downstream, insert InterruptResumed before ActivityFailed. Document the chosen profile in engine docs and align this companion."
+    }
+  },
+  "implementation_mapping": "If code uses different symbol names, publish a table mapping engine identifiers to RFC-04 names; do not fork the taxonomy silently (see Story-1-3 technical notes)."
+}
