@@ -1,0 +1,15 @@
+{
+  "name": "workflows",
+  "private": true,
+  "description": "Agent Workflow Protocol — POC contracts, fixtures, and tooling",
+  "type": "module",
+  "scripts": {
+    "validate-workflows": "node scripts/validate-workflows.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1"
+  }
+}

@@ -2,7 +2,7 @@
 kind: story
 id: STORY-1-4
 title: "Wire schema validation into CI or documented command"
-status: draft
+status: done
 priority: medium
 parent: EPIC-1
 depends_on:
@@ -11,7 +11,10 @@ depends_on:
 traces_to:
   - path: docs/RFC/rfc-08-reference-implementation.md
     anchor: "#82-conformance-tests"
-  - path: schemas
+  - path: schemas/workflow-definition-poc.json
+  - path: scripts/validate-workflows.mjs
+  - path: .github/workflows/validate-workflows.yml
+  - path: README.md
 slice: vertical
 invest_check:
   independent: false

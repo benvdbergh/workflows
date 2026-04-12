@@ -25,6 +25,19 @@ Machine-readable contract for the **POC workflow definition** subset. Human-read
 
 Authoring in YAML is fine for humans; **normalize to JSON** before validation (per [RFC-03 §3.1](../docs/RFC/rfc-03-workflow-definition-schema.md)).
 
+### Repository command (CI and local)
+
+From the repo root (see [README.md](../README.md)):
+
+```bash
+npm ci
+npm run validate-workflows
+```
+
+This validates every `examples/*.workflow.json`, the minimal instance under `schemas/examples/`, and checks that `examples/fixtures.invalid/extensions.workflow.json` is **rejected** (top-level `extensions` is out of POC scope).
+
+### One-off validation with ajv-cli
+
 Using [ajv-cli](https://github.com/ajv-validator/ajv-cli) (no project install required):
 
 ```bash

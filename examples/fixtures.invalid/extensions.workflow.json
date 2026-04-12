@@ -1,0 +1,25 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/v1",
+    "name": "intentionally-invalid",
+    "version": "0.0.0"
+  },
+  "state_schema": {
+    "type": "object"
+  },
+  "nodes": [
+    {
+      "id": "only",
+      "type": "start"
+    }
+  ],
+  "edges": [
+    {
+      "source": "__start__",
+      "target": "only"
+    }
+  ],
+  "extensions": {
+    "com.example.should-not-exist": true
+  }
+}
