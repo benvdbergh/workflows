@@ -1,0 +1,19 @@
+# Copy to your project root as `.project-planning.yaml` and adjust.
+# See references/frontmatter-schema.md for work-item YAML in epic/story files.
+
+version: 1
+
+defaults:
+  epics_dir: docs/epics
+  stories_dir: docs/stories
+  # tasks_dir: planning/tasks   # optional
+
+source_globs:
+  - PRD.md
+  - "docs/**/*.md"
+  - "**/adr/**/*.md"
+
+naming:
+  epic_prefix: Epic-
+  story_prefix: Story-
+  task_prefix: Task-
