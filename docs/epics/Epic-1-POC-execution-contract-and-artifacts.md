@@ -2,7 +2,7 @@
 kind: epic
 id: EPIC-1
 title: "POC execution contract and artifacts"
-status: draft
+status: done
 priority: high
 parent: ""
 depends_on: []
@@ -12,6 +12,11 @@ traces_to:
   - path: docs/RFC/rfc-04-execution-model.md
   - path: docs/RFC/rfc-08-reference-implementation.md
     anchor: "#82-conformance-tests"
+  - path: docs/poc-scope.md
+  - path: schemas/workflow-definition-poc.json
+  - path: examples/lighthouse-customer-routing.workflow.json
+  - path: README.md
+  - path: .github/workflows/validate-workflows.yml
 slice: vertical
 invest_check:
   independent: true
@@ -27,7 +32,7 @@ acceptance_criteria:
   - "Fixtures validate against the published schema in CI or a documented one-shot validation command."
 project: workflows
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 ---
 
 # Epic-1: POC execution contract and artifacts
@@ -66,3 +71,14 @@ None. This epic is the root of the POC dependency chain. Downstream epics consum
 ## Notes
 
 Prefer a **single lighthouse workflow** contract that the later demo epic will execute unchanged, rather than many partial fixtures.
+
+## Closure
+
+All four stories (STORY-1-1 through STORY-1-4) are **implemented and marked done**. Final check: `npm run validate-workflows` passes locally; **Validate workflow definitions** GitHub Action runs the same on `push` / `pull_request` to `main` and `master` (Node.js 24, `actions/checkout@v5`, `actions/setup-node@v5`).
+
+| Acceptance criterion (frontmatter) | Primary evidence |
+|-----------------------------------|------------------|
+| POC scope note (node kinds, edges, reducers, out-of-scope) | [docs/poc-scope.md](../poc-scope.md) |
+| Machine-readable schema bundle under `schemas/` | [schemas/workflow-definition-poc.json](../../schemas/workflow-definition-poc.json), [schemas/README.md](../../schemas/README.md) |
+| Golden fixture + command/event trace companions | [examples/lighthouse-customer-routing.workflow.json](../../examples/lighthouse-customer-routing.workflow.json), trace JSON under [examples/](../../examples/) |
+| Fixtures validated in CI or documented command | [README.md](../../README.md) (`npm run validate-workflows`), [.github/workflows/validate-workflows.yml](../../.github/workflows/validate-workflows.yml) |
