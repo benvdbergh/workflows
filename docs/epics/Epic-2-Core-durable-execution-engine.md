@@ -23,7 +23,7 @@ invest_check:
 acceptance_criteria:
   - "Engine loads a POC workflow definition, validates it against the EPIC-1 schema subset, and rejects invalid documents with actionable errors."
   - "Running an execution produces a monotonic append-only command and event stream persisted to SQLite (or agreed store) keyed by execution id."
-  - "Phases through graph walk are implemented for the POC subset (e.g. linear flow plus agreed branch/parallel/interrupt minimal forms per contract)."
+  - "Phases through graph walk are implemented for the POC subset per docs/poc-scope.md (linear flow, switch branching, interrupt/resume; parallel and other deferred node types remain out of scope)."
   - "Activities (tool/LLM or stubs) execute outside pure orchestration; results are recorded as events suitable for later replay."
 project: workflows
 created: 2026-04-12
@@ -43,7 +43,11 @@ Implement validate–start–walk phases: graph traversal for the POC node subse
 
 ## User stories (links)
 
-- To be added under `docs/stories/` (e.g. engine bootstrap, persistence layer, activity executor).
+- [STORY-2-1 — Engine bootstrap and POC workflow validation](../stories/Story-2-1-Engine-bootstrap-and-POC-workflow-validation.md)
+- [STORY-2-2 — SQLite append-only command and event persistence](../stories/Story-2-2-SQLite-append-only-command-and-event-persistence.md)
+- [STORY-2-3 — Orchestration phases and linear graph walk](../stories/Story-2-3-Orchestration-phases-and-linear-graph-walk.md)
+- [STORY-2-4 — Activity boundary with stubbed tool and LLM execution](../stories/Story-2-4-Activity-boundary-with-stubbed-tool-and-llm-execution.md)
+- [STORY-2-5 — Switch routing and interrupt resume](../stories/Story-2-5-Switch-routing-and-interrupt-resume.md)
 
 ## Acceptance criteria
 
