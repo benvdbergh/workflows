@@ -12,7 +12,7 @@
     "test": "npm test --workspace=@agent-workflow-protocol/engine"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5.0"
   },
   "devDependencies": {
     "ajv": "^8.17.1"
