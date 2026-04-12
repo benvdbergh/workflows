@@ -1,0 +1,21 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/v1",
+    "name": "minimal-poc-smoke",
+    "version": "0.0.0"
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "ok": { "type": "boolean" }
+    }
+  },
+  "nodes": [
+    { "id": "begin", "type": "start" },
+    { "id": "finish", "type": "end" }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "begin" },
+    { "source": "begin", "target": "finish" }
+  ]
+}

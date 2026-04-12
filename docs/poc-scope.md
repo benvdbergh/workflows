@@ -151,3 +151,5 @@ The [Lighthouse demo workflow](epics/Epic-6-Lighthouse-demo-workflow.md) is expe
 ## 8. Change control
 
 Updates to this file **SHOULD** be paired with schema bundle version bumps and fixture updates ([STORY-1-2](stories/Story-1-2-Publish-POC-JSON-Schema-bundle-under-schemas.md) and following stories).
+
+**Machine-readable contract:** [schemas/workflow-definition-poc.json](../schemas/workflow-definition-poc.json) (see [schemas/README.md](../schemas/README.md)).
