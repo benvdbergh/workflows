@@ -1,17 +1,176 @@
-# Workflows
+# Agent Workflow Protocol
 
-Repository for the **Agent Workflow Protocol** POC: scope notes, JSON Schema, golden examples, and validation tooling.
+> **Status: Working draft** — protocol name, schema URIs, and governance home are TBD. Breaking changes may occur in any pre-1.0 revision.
 
-## Validate workflow definitions (under two minutes)
+A vendor-neutral, declarative standard for **stateful, multi-step AI agent workflow execution** with deterministic replay, durable checkpoints, human-in-the-loop interrupts, and MCP-compatible tool integration.
 
-1. Install [Node.js](https://nodejs.org/) 18+.
-2. From the repository root:
+---
+
+## Why this exists
+
+Agentic platforms deliver strong model reasoning and tool use, but they lack a shared standard for what happens *after* a model chooses a multi-step plan: coordinating steps, branching, parallel execution, human review pauses, crash recovery, and cross-platform reuse.
+
+The emerging agent stack has a gap at the orchestration layer:
+
+| Layer | Role | Examples |
+|-------|------|----------|
+| Knowledge / behavior | Skills, agent instructions | Agent Skills, AGENTS.md |
+| Agent-to-agent | Delegation, tasks | A2A |
+| **Workflow orchestration** | **Stateful plans — this protocol** | **(gap)** |
+| Tool connectivity | Atomic capabilities | MCP |
+| Infrastructure | Discovery, identity, observability | AGNTCY |
+
+This protocol fills that gap — sitting **between** atomic MCP tool calls and multi-agent coordination — while composing both rather than replacing them.
+
+---
+
+## What the protocol defines
+
+- **Declarative workflow definition** — canonical JSON (YAML authoring supported), versioned, signable, portable across engines
+- **Event-sourced execution model** — append-only history of Commands and Events enabling deterministic replay after process failure
+- **Eleven node types** — `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `parallel`, `interrupt`, `agent_delegate`, `subworkflow`, `wait`, `set_state`
+- **State reducers** — `overwrite`, `append`, `merge` policies applied when node outputs merge into workflow state
+- **Retry and timeout policies** as first-class data on any node
+- **Integration interfaces** — MCP stdio adapter, REST/OpenAPI, Python and TypeScript SDKs compiling to the same canonical JSON
+- **Security model** — authentication, authorization, secret handling, and audit logging as first-class concerns
+
+---
+
+## Quick example
+
+```yaml
+document:
+  schema: "https://example.org/agent-workflow/v1"
+  name: "customer-support"
+  version: "1.0.0"
+
+state_schema:
+  type: object
+  properties:
+    intent:     { type: string }
+    confidence: { type: number }
+
+nodes:
+  - id: classify
+    type: llm_call
+    config:
+      model: "claude-sonnet-4-20250514"
+      system_prompt: "Classify the user intent"
+      output_schema:
+        type: object
+        properties:
+          intent:     { type: string }
+          confidence: { type: number }
+    retry:   { max_attempts: 3, backoff_coefficient: 2 }
+    timeout: "30s"
+
+  - id: route
+    type: switch
+    config:
+      cases:
+        - when: '.intent == "billing" and .confidence > 0.8'
+          target: billing_handler
+        - when: '.intent == "technical"'
+          target: tech_handler
+      default: human_review
+
+  - id: human_review
+    type: interrupt
+    config:
+      prompt: "Agent is unsure — please review and classify."
+      timeout: "24h"
+      resume_schema:
+        type: object
+        properties:
+          intent: { type: string }
+
+  - id: billing_handler
+    type: tool_call
+    config: { tool: "create_ticket", server: "support-mcp" }
+
+  - id: tech_handler
+    type: tool_call
+    config: { tool: "search_kb", server: "support-mcp" }
+
+edges:
+  - { source: __start__, target: classify }
+  - { source: classify,  target: route }
+```
+
+Workflow definitions must be normalized to canonical JSON before validation or execution. YAML is a supported authoring form.
+
+---
+
+## Repository layout
+
+```
+docs/RFC/          # Full protocol specification (9 sections)
+docs/poc-scope.md  # POC subset — what the first engine milestone must support
+schemas/           # JSON Schema Draft 2020-12 bundle for the POC subset
+examples/          # Golden fixtures: workflow + RFC-04 trace companions
+```
+
+---
+
+## Specification
+
+| § | Document | Summary |
+|---|----------|---------|
+| 0 | [Overview](docs/RFC/rfc-00-overview.md) | Entry point and executive summary |
+| 1 | [Abstract and Motivation](docs/RFC/rfc-01-abstract-motivation.md) | Problem statement, standards stack, opportunity |
+| 2 | [Design Principles](docs/RFC/rfc-02-design-principles.md) | Eight non-negotiable principles |
+| 3 | [Workflow Definition Schema](docs/RFC/rfc-03-workflow-definition-schema.md) | Document format, node types, edges, reducers, retry |
+| 4 | [Execution Model](docs/RFC/rfc-04-execution-model.md) | Commands, events, replay, parallelism, interrupts, checkpoints |
+| 5 | [Integration Interfaces](docs/RFC/rfc-05-integration-interfaces.md) | MCP, REST, Python/TypeScript SDKs, wire protocol |
+| 6 | [Interoperability](docs/RFC/rfc-06-interoperability.md) | MCP, A2A, LangGraph import, pluggable backends |
+| 7 | [Security Model](docs/RFC/rfc-07-security-model.md) | AuthZ, secrets, audit logging, LLM risk surface |
+| 8 | [Reference Implementation Plan](docs/RFC/rfc-08-reference-implementation.md) | MVP engine (Rust/Go), SQLite checkpoints, conformance suite |
+| 9 | [Governance and Adoption](docs/RFC/rfc-09-governance-adoption.md) | License (Apache-2.0), versioning, foundation path |
+
+---
+
+## POC schema and validation
+
+The [`schemas/`](schemas/) directory contains the **POC JSON Schema bundle** (Draft 2020-12) covering the first engine milestone subset. See [`docs/poc-scope.md`](docs/poc-scope.md) for exactly which node types, commands, events, and reducers are in scope for this milestone — notably, `parallel`, `agent_delegate`, `subworkflow`, `wait`, and `set_state` are deferred.
+
+Validate all golden fixtures (requires Node.js 18+):
 
 ```bash
 npm ci
 npm run validate-workflows
 ```
 
-This checks every STORY-1-3 golden `*.workflow.json` under `examples/` plus the minimal schema smoke instance, and asserts that an intentionally invalid fixture (top-level `extensions`) is **rejected**.
+This validates every `*.workflow.json` under `examples/`, the minimal schema smoke instance, and asserts that a deliberately invalid fixture (containing the out-of-scope `extensions` field) is correctly rejected.
 
-More detail: [schemas/README.md](schemas/README.md) and [examples/README.md](examples/README.md).
+The [`examples/`](examples/) directory contains the canonical lighthouse fixture and RFC-04 trace companions (happy path and failure/retry) used as golden test vectors.
+
+---
+
+## Design principles
+
+1. **Vendor-neutral** — canonical JSON independent of any SDK or runtime
+2. **Declarative-first** — YAML/SDK authoring compiles to the same canonical form; no semantics unavailable declaratively
+3. **Deterministic replay** — orchestration logic is pure; non-determinism is confined to recorded activities
+4. **Checkpointable** — durable resume after process failure without re-executing completed activities
+5. **MCP-compatible** — `tool_call` nodes align with MCP semantics for portable cross-platform execution
+6. **Security first** — auth, secrets, and audit are in scope from version one
+7. **Composability** — composes with MCP, A2A, and existing durable workflow backends rather than replacing them
+8. **Small surface** — bounded node set, single expression language (jq), clear command/event model
+
+---
+
+## Reference implementation (planned)
+
+Per [RFC-08](docs/RFC/rfc-08-reference-implementation.md), the MVP engine will ship:
+
+- **Core binary** (Rust or Go) — validation, graph walk, command/event loop, replay
+- **SQLite checkpoint store** for durable resume
+- **Python SDK** — local embedding via FFI or subprocess RPC
+- **MCP stdio adapter** — minimal tool set per §5.2
+- **Conformance suite** — schema, replay, reducer, interrupt, and MCP roundtrip test vectors
+
+---
+
+## License
+
+Apache-2.0 (per [RFC-09 §9.1](docs/RFC/rfc-09-governance-adoption.md#91-license)).
