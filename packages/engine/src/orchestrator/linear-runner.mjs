@@ -4,6 +4,7 @@
 import Ajv2020 from "ajv/dist/2020.js";
 import { createRequire } from "node:module";
 import { validateWorkflowDefinition } from "../validate.mjs";
+import { StubActivityExecutor } from "./activity-executor.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -223,7 +224,8 @@ function assertLinearNodeTypesOnPath(definition) {
  * @property {Record<string, unknown>} input Initial execution state (workflow input object).
  * @property {string} executionId Correlation id for history rows.
  * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store Append-only history store.
- * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs] Per-node stub outputs for `step` / `llm_call` / `tool_call` (default `{}`).
+ * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs] Per-node stub outputs for the default stub executor (default `{}`). Ignored if `activityExecutor` is set.
+ * @property {import("./activity-executor.mjs").ActivityExecutor} [activityExecutor] Activity port (default `new StubActivityExecutor(stubActivityOutputs)`).
  */
 
 /**
@@ -231,7 +233,8 @@ function assertLinearNodeTypesOnPath(definition) {
  * @returns {Promise<{ status: 'completed'; finalState: unknown; result?: unknown } | { status: 'failed'; error: string; finalState?: Record<string, unknown> }>}
  */
 export async function runLinearWorkflow(options) {
-  const { definition, input, executionId, store, stubActivityOutputs = {} } = options;
+  const { definition, input, executionId, store, stubActivityOutputs = {}, activityExecutor } = options;
+  const executor = activityExecutor ?? new StubActivityExecutor(stubActivityOutputs);
 
   if (!definition || typeof definition !== "object") {
     return { status: "failed", error: "definition must be a non-null object" };
@@ -327,7 +330,28 @@ export async function runLinearWorkflow(options) {
         output = {};
       } else if (PLACEHOLDER_TYPES.has(node.type)) {
         appendEvt("ActivityRequested", { nodeId, nodeType: node.type });
-        output = { ...(stubActivityOutputs[nodeId] ?? {}) };
+        const activityResult = await executor.executeActivity({
+          executionId,
+          node: /** @type {{ id: string; type: string; config?: object }} */ (node),
+          state,
+        });
+        if (!activityResult.ok) {
+          const { error, code } = activityResult;
+          appendEvt("ActivityFailed", { nodeId, error, ...(code !== undefined ? { code } : {}) });
+          appendCmd("FailNode", {
+            nodeId,
+            reason: "activity_failed",
+            message: error,
+            ...(code !== undefined ? { code } : {}),
+          });
+          appendEvt("ExecutionFailed", { error });
+          return {
+            status: "failed",
+            error,
+            finalState: state,
+          };
+        }
+        output = activityResult.output;
         appendEvt("ActivityCompleted", { nodeId, result: output });
       } else {
         throw new Error(`Unsupported node type "${node.type}" on path`);

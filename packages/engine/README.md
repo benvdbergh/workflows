@@ -37,21 +37,25 @@ The package exports:
 - `compileWorkflowValidator()` — returns a reusable `(data) => { ok: true } | { ok: false, errors }` function; the compiled schema is cached per process.
 - `findWorkflowRepoRoot(startDir?)` — locates the checkout root that contains `schemas/workflow-definition-poc.json` (used to resolve the schema path).
 
-### Linear orchestration (STORY-2-3)
+### Linear orchestration (STORY-2-3, STORY-2-4)
 
-**API:** `runLinearWorkflow({ definition, input, executionId, store, stubActivityOutputs? })` → `Promise<{ status: 'completed'|'failed', finalState?, result?, error? }>`.
+**API:** `runLinearWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor? })` → `Promise<{ status: 'completed'|'failed', finalState?, result?, error? }>`.
 
 Phases: **validate** (POC schema + reject `state_schema.properties.*.reducer === "custom"`) → **start** (`ExecutionStarted`) → **walk** each node on the unique chain from `__start__` through exactly one `start` … `end` → **complete** (`ExecutionCompleted` with jq result) or **fail** (`ExecutionFailed`, plus `FailNode` command when failure happens after start).
 
 **Graph rules:** Edges must form a **single linear path** covering every node: exactly one edge from `__start__`, at most one outgoing edge per node, no cycles, exactly one `start` and one `end`. `switch` and `interrupt` nodes are rejected (STORY-2-5). Unknown topology errors throw from `computeLinearNodePath` or return `{ status: 'failed', error }` from `runLinearWorkflow`.
 
-**Node types in this runner:** `start`, `end`, and **`step` / `llm_call` / `tool_call` as synchronous placeholders** — no real I/O. Placeholder outputs default to `{}`; override per node id with `stubActivityOutputs[nodeId]` (merged into state via reducers).
+**Activity boundary (STORY-2-4):** `step`, `llm_call`, and `tool_call` are executed through an **`ActivityExecutor`** port (`executeActivity(ctx)` → success with `output` or failure with `error` / optional `code`). The walker only calls this port (no MCP, HTTP, or provider SDKs inside the runner). **`StubActivityExecutor`** is the default: deterministic, returns `{}` or per-node outputs from an `outputsByNodeId` map. Pass `activityExecutor` to inject real adapters; pass `stubActivityOutputs` only affects the default stub when `activityExecutor` is omitted.
+
+**Limitation:** Per-node **`retry`** and **`timeout`** settings from the workflow definition are **not** applied by this runner yet; failures return immediately after a single `executeActivity` call.
+
+**Node types in this runner:** `start`, `end`, and **`step` / `llm_call` / `tool_call`** behind the activity executor. Default stub outputs are `{}`; override per node id with `stubActivityOutputs[nodeId]` (merged into state via reducers).
 
 **State:** Initial state is a shallow copy of `input`. After each non-`end` node, outputs are merged using `state_schema.properties.<key>.reducer`: `overwrite` (default), `append` (array concat), `merge` (deep object merge). After each merge, state is validated with Ajv against `state_schema` (reducer annotations are stripped for compilation only).
 
 **`end` node `config.output_mapping`:** Must be a **jq** program string. It is evaluated with **jq’s input root = the current workflow state object** (after all reducer updates from prior nodes). If `output_mapping` is omitted, the runner uses `.` (identity). Evaluation uses the **`jq-wasm`** package (WebAssembly jq — no native compile).
 
-**History (POC names):** Appends include at least `ExecutionStarted`; for each node `ScheduleNode` (command) and `NodeScheduled` (event); for placeholders `ActivityRequested` / `ActivityCompleted` (events); `CompleteNode` (command); `StateUpdated` (event) after state changes; terminal `ExecutionCompleted` or `ExecutionFailed`. Payloads include `executionId` and `nodeId` where applicable.
+**History (POC names):** Appends include at least `ExecutionStarted`; for each node `ScheduleNode` (command) and `NodeScheduled` (event); for activities `ActivityRequested` then `ActivityCompleted` or `ActivityFailed`; `CompleteNode` (command); `StateUpdated` (event) after state changes; terminal `ExecutionCompleted` or `ExecutionFailed`. On activity failure the runner records `ActivityFailed`, then `FailNode` (`reason: "activity_failed"`), then `ExecutionFailed`. Payloads include `executionId` and `nodeId` where applicable.
 
 **Helpers (also exported):** `assertNoCustomReducers(definition)`, `applyOutputWithReducers(state, output, stateSchema)`, `computeLinearNodePath(nodes, outgoingMap)`.
 

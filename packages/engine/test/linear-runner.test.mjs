@@ -105,6 +105,53 @@ describe("runLinearWorkflow", () => {
     assert.equal(out.status, "failed");
     assert.match(out.error ?? "", /Non-linear|branch/i);
   });
+
+  it("activity executor failure emits ActivityFailed, FailNode, ExecutionFailed in order", async () => {
+    const definition = JSON.parse(readFileSync(fixturePath, "utf8"));
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-activity-fail";
+
+    /** @type {import("../src/orchestrator/activity-executor.mjs").ActivityExecutor} */
+    const failingExecutor = {
+      async executeActivity(ctx) {
+        if (ctx.node.id === "enrich") {
+          return { ok: false, error: "mock activity error", code: "MOCK" };
+        }
+        return { ok: true, output: {} };
+      },
+    };
+
+    const out = await runLinearWorkflow({
+      definition,
+      input: { ticket_text: "hello" },
+      executionId,
+      store,
+      activityExecutor: failingExecutor,
+    });
+
+    assert.equal(out.status, "failed");
+    assert.equal(out.error, "mock activity error");
+
+    const names = store.listByExecution(executionId).map((r) => `${r.kind}:${r.name}`);
+    const required = [
+      "event:ActivityRequested",
+      "event:ActivityFailed",
+      "command:FailNode",
+      "event:ExecutionFailed",
+    ];
+    let j = 0;
+    for (const token of required) {
+      const idx = names.indexOf(token, j);
+      assert.ok(idx >= 0, `expected ${token} after index ${j}, got ${names.slice(j).join(", ")}`);
+      j = idx + 1;
+    }
+
+    const failedRow = store.listByExecution(executionId).find((r) => r.name === "ActivityFailed");
+    assert.ok(failedRow);
+    assert.equal(failedRow.payload.nodeId, "enrich");
+    assert.equal(failedRow.payload.error, "mock activity error");
+    assert.equal(failedRow.payload.code, "MOCK");
+  });
 });
 
 describe("applyOutputWithReducers", () => {
