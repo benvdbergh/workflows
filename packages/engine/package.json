@@ -16,8 +16,8 @@
     "README.md"
   ],
   "bin": {
-    "workflows-engine": "./src/cli.mjs",
-    "workflows-engine-mcp": "./src/mcp-stdio-server.mjs"
+    "workflows-engine": "src/cli.mjs",
+    "workflows-engine-mcp": "src/mcp-stdio-server.mjs"
   },
   "scripts": {
     "test": "node --test test/*.mjs",
