@@ -96,6 +96,7 @@ Publish workflow prerequisites:
 2. npm trusted publishing is configured for this repository and package in npm settings.
 3. Release operator has repository rights to dispatch manual workflows.
 4. Intended version has not already been published for the selected dist-tag.
+5. Published package `package.json` includes `repository.url` matching the GitHub repo used for trusted publishing (npm validates this when using `--provenance`; an empty or wrong URL yields `E422`).
 
 Trusted publish runbook:
 
