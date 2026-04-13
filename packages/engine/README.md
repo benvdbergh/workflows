@@ -32,6 +32,8 @@ npx workflows-engine-mcp
 
 This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
 
+Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
+
 ### MCP tool contracts (minimum set)
 
 - `workflow_start`

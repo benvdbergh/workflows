@@ -26,7 +26,7 @@ acceptance_criteria:
   - "Errors from the engine are surfaced through MCP in a structured way (not opaque crashes)."
 project: workflows
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 ---
 
 # Epic-4: MCP stdio integration surface
@@ -42,7 +42,9 @@ Ship an MCP server (stdio) exposing the minimal tool set from [Integration Inter
 
 ## User stories (links)
 
-- To be added under `docs/stories/` (MCP tool mapping, auth stub, packaging).
+- [STORY-4-1](../stories/Story-4-1-MCP-stdio-adapter-bootstrap-and-core-port.md) — bootstrap stdio adapter and engine-facing port with structured error mapping.
+- [STORY-4-2](../stories/Story-4-2-Implement-minimal-MCP-tools-start-status-resume.md) — implement minimal tool surface (`start`, `status`, `resume`) against deterministic engine behavior.
+- [STORY-4-3](../stories/Story-4-3-MCP-host-smoke-path-and-operator-docs.md) — add host smoke path and operator-facing integration documentation.
 
 ## Acceptance criteria
 
@@ -61,3 +63,7 @@ See frontmatter `acceptance_criteria`.
 ## Notes
 
 Security hardening (authZ, secret handling) may remain **document-only** for POC; reference [Security Model](../RFC/rfc-07-security-model.md) for follow-on work.
+
+## Evidence
+
+- Story-4-3 smoke path and operator runbook: [MCP stdio host smoke path](../architecture/mcp-stdio-host-smoke.md)
