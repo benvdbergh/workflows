@@ -47,7 +47,7 @@ npx @agent-workflow/engine@alpha workflows-engine-mcp
 ### Reproducible install (exact pinned version)
 
 ```bash
-npx @agent-workflow/engine@0.7.0-alpha.3 workflows-engine-mcp
+npx @agent-workflow/engine@0.0.1 workflows-engine-mcp
 ```
 
 ### Provider-neutral MCP client configuration examples
@@ -76,7 +76,7 @@ Pinned, immutable client configuration:
     "agent-workflow-engine": {
       "command": "npx",
       "args": [
-        "@agent-workflow/engine@0.7.0-alpha.3",
+        "@agent-workflow/engine@0.0.1",
         "workflows-engine-mcp"
       ]
     }
@@ -100,7 +100,7 @@ Run this sequence for every alpha publish event.
      - `dist_tag`: `alpha` for pre-release channel (use `latest` only for promoted baseline).
 3. Post-publish smoke test:
    - `npx @agent-workflow/engine@alpha workflows-engine-mcp --help`
-   - `npx @agent-workflow/engine@0.7.0-alpha.3 workflows-engine-mcp --help`
+   - `npx @agent-workflow/engine@0.0.1 workflows-engine-mcp --help`
 4. Announcement update:
    - Update launch templates and release notes with the published version.
    - Publish channel posts from `docs/community-launch-playbook.md`.

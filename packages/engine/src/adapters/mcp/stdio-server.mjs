@@ -13,7 +13,7 @@ import { createMcpWorkflowToolHandlers } from "./workflow-tools.mjs";
 export function createMcpWorkflowStdioServer(workflowPort) {
   const server = new McpServer({
     name: "@agent-workflow/engine-mcp-stdio",
-    version: "0.0.0",
+    version: "0.0.1",
   });
   const handlers = createMcpWorkflowToolHandlers(workflowPort);
 

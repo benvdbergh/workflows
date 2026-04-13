@@ -37,7 +37,7 @@ No-install npm usage for MCP hosts:
 npx @agent-workflow/engine@alpha workflows-engine-mcp
 
 # consume a pinned, reproducible package version
-npx @agent-workflow/engine@0.7.0-alpha.3 workflows-engine-mcp
+npx @agent-workflow/engine@0.0.1 workflows-engine-mcp
 ```
 
 This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
