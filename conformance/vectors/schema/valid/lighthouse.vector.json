@@ -1,0 +1,9 @@
+{
+  "id": "schema.valid.lighthouse",
+  "description": "Canonical lighthouse fixture validates against the POC schema.",
+  "kind": "schema",
+  "definition": "examples/lighthouse-customer-routing.workflow.json",
+  "expect": {
+    "ok": true
+  }
+}

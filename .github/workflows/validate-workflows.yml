@@ -23,3 +23,6 @@ jobs:
 
       - name: Validate POC workflow JSON against schema
         run: npm run validate-workflows
+
+      - name: Run conformance harness
+        run: npm run conformance

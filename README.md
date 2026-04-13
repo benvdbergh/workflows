@@ -108,6 +108,7 @@ docs/RFC/          # Full protocol specification (9 sections)
 docs/poc-scope.md  # POC subset — what the first engine milestone must support
 schemas/           # JSON Schema Draft 2020-12 bundle for the POC subset
 examples/          # Golden fixtures: workflow + RFC-04 trace companions
+conformance/       # Conformance harness vectors + deterministic runner entrypoint
 packages/engine/   # POC Node.js engine — validation, history store, orchestration (see package README)
 scripts/           # validate-workflows.mjs (AJV, CI-aligned)
 .github/workflows/ # CI: validate-workflows
@@ -141,6 +142,7 @@ Validate all golden fixtures locally (Node.js 20+). **CI** uses Node.js **24** w
 ```bash
 npm ci
 npm run validate-workflows
+npm run conformance
 ```
 
 This validates every `*.workflow.json` under `examples/`, the minimal schema smoke instance, and asserts that a deliberately invalid fixture (containing the out-of-scope `extensions` field) is correctly rejected.

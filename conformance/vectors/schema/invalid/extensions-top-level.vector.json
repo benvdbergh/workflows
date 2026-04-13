@@ -1,0 +1,9 @@
+{
+  "id": "schema.invalid.extensions-top-level",
+  "description": "Out-of-scope extensions top-level field must be rejected.",
+  "kind": "schema",
+  "definition": "examples/fixtures.invalid/extensions.workflow.json",
+  "expect": {
+    "ok": false
+  }
+}
