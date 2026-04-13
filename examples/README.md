@@ -67,6 +67,7 @@ From your MCP-capable host, execute:
 3. `workflow_resume` when interrupted at `human_review` with `resume_payload = { "intent": "billing" }` or `{ "intent": "technical" }`
 
 Tool contracts and error codes are documented in `packages/engine/README.md`, and an end-to-end host smoke flow is documented in `docs/architecture/mcp-stdio-host-smoke.md`.
+Lighthouse-specific host walkthrough: `docs/architecture/lighthouse-mcp-host-guided-demo-walkthrough.md`.
 
 ### Crash-resume replay proof
 

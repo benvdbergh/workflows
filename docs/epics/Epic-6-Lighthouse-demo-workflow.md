@@ -43,7 +43,10 @@ End-to-end reference scenario (e.g. customer support routing: `llm_call`, `switc
 
 ## User stories (links)
 
-- To be added under `docs/stories/` (example authoring, demo script, recording).
+- [STORY-6-1: Author lighthouse customer-routing workflow and runbook](../stories/Story-6-1-Author-lighthouse-customer-routing-workflow-and-runbook.md)
+- [STORY-6-2: Add replay-proof demo script and crash-resume narrative](../stories/Story-6-2-Add-replay-proof-demo-script-and-crash-resume-narrative.md)
+- [STORY-6-3: Publish MCP host guided demo walkthrough](../stories/Story-6-3-Publish-MCP-host-guided-demo-walkthrough.md)
+- [STORY-6-4: Add lighthouse happy path to conformance vectors](../stories/Story-6-4-Add-lighthouse-happy-path-to-conformance-vectors.md)
 
 ## Acceptance criteria
 
@@ -63,3 +66,8 @@ See frontmatter `acceptance_criteria`.
 ## Notes
 
 If timeline pressure hits, ship **stubbed LLM** with a fixed transcript first, then swap in a live model without changing the workflow document structure.
+Implement in this sequence to keep architecture boundaries clean: **6-1 -> 6-2 and 6-3 in parallel -> 6-4**.
+
+## Evidence
+
+- MCP host walkthrough for lighthouse: [Lighthouse MCP host guided demo walkthrough](../architecture/lighthouse-mcp-host-guided-demo-walkthrough.md)
