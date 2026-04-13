@@ -145,6 +145,12 @@ npm run validate-workflows
 npm run conformance
 ```
 
+Before opening a PR, run the same conformance command used by CI from the repository root:
+
+```bash
+npm run conformance
+```
+
 This validates every `*.workflow.json` under `examples/`, the minimal schema smoke instance, and asserts that a deliberately invalid fixture (containing the out-of-scope `extensions` field) is correctly rejected.
 
 The [`examples/`](examples/) directory contains the canonical lighthouse fixture and RFC-04 trace companions (happy path and failure/retry) used as golden test vectors.
