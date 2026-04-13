@@ -1,0 +1,372 @@
+{
+  "id": "replay.prefix.tail.agentic-intake.workflow-route",
+  "description": "Narrative prefix confirms deterministic routing to workflow publication when execution_mode=workflow.",
+  "kind": "replay",
+  "definition": "examples/agentic-task-intake-prompt-improver.workflow.json",
+  "input": {
+    "user_request": "Create a deterministic workflow draft for an API migration.",
+    "execution_mode": "workflow"
+  },
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "agentic-task-intake-prompt-improver",
+        "workflowVersion": "1.0.0",
+        "inputKeys": [
+          "user_request",
+          "execution_mode"
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "intake_start"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "intake_start"
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "intake_start",
+        "output": {}
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "intake_start",
+        "state": {
+          "user_request": "Create a deterministic workflow draft for an API migration.",
+          "execution_mode": "workflow"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "detect_intention"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "detect_intention"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "detect_intention",
+        "result": {
+          "intention": "workflow_authoring"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "detect_intention",
+        "output": {
+          "intention": "workflow_authoring"
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "detect_intention",
+        "state": {
+          "user_request": "Create a deterministic workflow draft for an API migration.",
+          "execution_mode": "workflow",
+          "intention": "workflow_authoring"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "estimate_task_size"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "estimate_task_size"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "estimate_task_size",
+        "result": {
+          "task_size": "medium"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "estimate_task_size",
+        "output": {
+          "task_size": "medium"
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "estimate_task_size",
+        "state": {
+          "user_request": "Create a deterministic workflow draft for an API migration.",
+          "execution_mode": "workflow",
+          "intention": "workflow_authoring",
+          "task_size": "medium"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "gather_capabilities"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "gather_capabilities"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "gather_capabilities",
+        "result": {
+          "selected_skills": [
+            "minimalist-coding"
+          ],
+          "selected_tools": [
+            "conformance-runner"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "gather_capabilities",
+        "output": {
+          "selected_skills": [
+            "minimalist-coding"
+          ],
+          "selected_tools": [
+            "conformance-runner"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "gather_capabilities",
+        "state": {
+          "user_request": "Create a deterministic workflow draft for an API migration.",
+          "execution_mode": "workflow",
+          "intention": "workflow_authoring",
+          "task_size": "medium",
+          "selected_skills": [
+            "minimalist-coding"
+          ],
+          "selected_tools": [
+            "conformance-runner"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "gather_workspace_context"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "gather_workspace_context"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "gather_workspace_context",
+        "result": {
+          "context_bundle": {
+            "repo": "workflows",
+            "focus": "conformance"
+          }
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "gather_workspace_context",
+        "output": {
+          "context_bundle": {
+            "repo": "workflows",
+            "focus": "conformance"
+          }
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "gather_workspace_context",
+        "state": {
+          "user_request": "Create a deterministic workflow draft for an API migration.",
+          "execution_mode": "workflow",
+          "intention": "workflow_authoring",
+          "task_size": "medium",
+          "selected_skills": [
+            "minimalist-coding"
+          ],
+          "selected_tools": [
+            "conformance-runner"
+          ],
+          "context_bundle": {
+            "repo": "workflows",
+            "focus": "conformance"
+          }
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "compose_prompt"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "compose_prompt"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "compose_prompt",
+        "result": {
+          "improved_prompt": "Draft workflow first.",
+          "workflow_draft": {
+            "name": "api-migration-intake"
+          }
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "compose_prompt",
+        "output": {
+          "improved_prompt": "Draft workflow first.",
+          "workflow_draft": {
+            "name": "api-migration-intake"
+          }
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "compose_prompt",
+        "state": {
+          "user_request": "Create a deterministic workflow draft for an API migration.",
+          "execution_mode": "workflow",
+          "intention": "workflow_authoring",
+          "task_size": "medium",
+          "selected_skills": [
+            "minimalist-coding"
+          ],
+          "selected_tools": [
+            "conformance-runner"
+          ],
+          "context_bundle": {
+            "repo": "workflows",
+            "focus": "conformance"
+          },
+          "improved_prompt": "Draft workflow first.",
+          "workflow_draft": {
+            "name": "api-migration-intake"
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      {
+        "name": "ScheduleNode",
+        "nodeId": "route_mode"
+      },
+      {
+        "name": "CompleteNode",
+        "nodeId": "route_mode"
+      },
+      {
+        "name": "ScheduleNode",
+        "nodeId": "publish_workflow"
+      },
+      {
+        "name": "CompleteNode",
+        "nodeId": "publish_workflow"
+      },
+      {
+        "name": "ScheduleNode",
+        "nodeId": "finish"
+      },
+      {
+        "name": "CompleteNode",
+        "nodeId": "finish"
+      }
+    ]
+  }
+}

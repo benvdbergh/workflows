@@ -1,0 +1,363 @@
+{
+  "id": "replay.prefix.tail.agentic-intake.open-agentic-default-route",
+  "description": "Narrative prefix confirms deterministic default routing to open-agentic bridge for non-workflow execution_mode.",
+  "kind": "replay",
+  "definition": "examples/agentic-task-intake-prompt-improver.workflow.json",
+  "input": {
+    "user_request": "Handle this task in an autonomous agent loop.",
+    "execution_mode": "open_agentic"
+  },
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "agentic-task-intake-prompt-improver",
+        "workflowVersion": "1.0.0",
+        "inputKeys": [
+          "user_request",
+          "execution_mode"
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "intake_start"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "intake_start"
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "intake_start",
+        "output": {}
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "intake_start",
+        "state": {
+          "user_request": "Handle this task in an autonomous agent loop.",
+          "execution_mode": "open_agentic"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "detect_intention"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "detect_intention"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "detect_intention",
+        "result": {
+          "intention": "open_agentic_execution"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "detect_intention",
+        "output": {
+          "intention": "open_agentic_execution"
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "detect_intention",
+        "state": {
+          "user_request": "Handle this task in an autonomous agent loop.",
+          "execution_mode": "open_agentic",
+          "intention": "open_agentic_execution"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "estimate_task_size"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "estimate_task_size"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "estimate_task_size",
+        "result": {
+          "task_size": "large"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "estimate_task_size",
+        "output": {
+          "task_size": "large"
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "estimate_task_size",
+        "state": {
+          "user_request": "Handle this task in an autonomous agent loop.",
+          "execution_mode": "open_agentic",
+          "intention": "open_agentic_execution",
+          "task_size": "large"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "gather_capabilities"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "gather_capabilities"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "gather_capabilities",
+        "result": {
+          "selected_skills": [
+            "software-architecture"
+          ],
+          "selected_tools": [
+            "open-agent-dispatch"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "gather_capabilities",
+        "output": {
+          "selected_skills": [
+            "software-architecture"
+          ],
+          "selected_tools": [
+            "open-agent-dispatch"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "gather_capabilities",
+        "state": {
+          "user_request": "Handle this task in an autonomous agent loop.",
+          "execution_mode": "open_agentic",
+          "intention": "open_agentic_execution",
+          "task_size": "large",
+          "selected_skills": [
+            "software-architecture"
+          ],
+          "selected_tools": [
+            "open-agent-dispatch"
+          ]
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "gather_workspace_context"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "gather_workspace_context"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "gather_workspace_context",
+        "result": {
+          "context_bundle": {
+            "repo": "workflows",
+            "risk_profile": "dynamic"
+          }
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "gather_workspace_context",
+        "output": {
+          "context_bundle": {
+            "repo": "workflows",
+            "risk_profile": "dynamic"
+          }
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "gather_workspace_context",
+        "state": {
+          "user_request": "Handle this task in an autonomous agent loop.",
+          "execution_mode": "open_agentic",
+          "intention": "open_agentic_execution",
+          "task_size": "large",
+          "selected_skills": [
+            "software-architecture"
+          ],
+          "selected_tools": [
+            "open-agent-dispatch"
+          ],
+          "context_bundle": {
+            "repo": "workflows",
+            "risk_profile": "dynamic"
+          }
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "compose_prompt"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "compose_prompt"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "compose_prompt",
+        "result": {
+          "improved_prompt": "Run open agent with full context bundle."
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "compose_prompt",
+        "output": {
+          "improved_prompt": "Run open agent with full context bundle."
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "compose_prompt",
+        "state": {
+          "user_request": "Handle this task in an autonomous agent loop.",
+          "execution_mode": "open_agentic",
+          "intention": "open_agentic_execution",
+          "task_size": "large",
+          "selected_skills": [
+            "software-architecture"
+          ],
+          "selected_tools": [
+            "open-agent-dispatch"
+          ],
+          "context_bundle": {
+            "repo": "workflows",
+            "risk_profile": "dynamic"
+          },
+          "improved_prompt": "Run open agent with full context bundle."
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      {
+        "name": "ScheduleNode",
+        "nodeId": "route_mode"
+      },
+      {
+        "name": "CompleteNode",
+        "nodeId": "route_mode"
+      },
+      {
+        "name": "ScheduleNode",
+        "nodeId": "dispatch_open_agent"
+      },
+      {
+        "name": "CompleteNode",
+        "nodeId": "dispatch_open_agent"
+      },
+      {
+        "name": "ScheduleNode",
+        "nodeId": "finish"
+      },
+      {
+        "name": "CompleteNode",
+        "nodeId": "finish"
+      }
+    ]
+  }
+}

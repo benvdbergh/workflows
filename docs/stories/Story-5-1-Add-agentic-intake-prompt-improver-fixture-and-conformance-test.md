@@ -2,7 +2,7 @@
 kind: story
 id: STORY-5-1
 title: "Add agentic intake prompt-improver fixture and conformance test"
-status: draft
+status: done
 priority: medium
 parent: EPIC-5
 depends_on:
@@ -61,3 +61,12 @@ See frontmatter `acceptance_criteria`.
 ## Related stories
 
 - Previous: [STORY-1-3](Story-1-3-Add-golden-workflow-fixture-and-trace-companions.md), [STORY-2-5](Story-2-5-Switch-routing-and-interrupt-resume.md)
+
+## Delivered
+
+- Added `examples/agentic-task-intake-prompt-improver.workflow.json` to model agentic intake, task sizing, capability/context gathering, prompt composition, and `execution_mode` routing using only POC-supported node types.
+- Added conformance schema coverage via `conformance/vectors/schema/valid/agentic-task-intake-prompt-improver.vector.json`.
+- Added deterministic replay routing assertions with narrative command/event prefixes:
+  - `conformance/vectors/replay/prefix-tail/agentic-intake-route-workflow.vector.json`
+  - `conformance/vectors/replay/prefix-tail/agentic-intake-route-open-agentic-default.vector.json`
+- Updated `examples/README.md` to document route separation: workflow publication and open-agentic execution are separate paths.

@@ -1,0 +1,182 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/v1",
+    "name": "agentic-task-intake-prompt-improver",
+    "version": "1.0.0",
+    "description": "POC-friendly agentic intake fixture with deterministic execution_mode routing between workflow publication and open-agentic execution bridge."
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "user_request": {
+        "type": "string"
+      },
+      "intention": {
+        "type": "string"
+      },
+      "task_size": {
+        "type": "string"
+      },
+      "selected_skills": {
+        "type": "array",
+        "reducer": "append"
+      },
+      "selected_tools": {
+        "type": "array",
+        "reducer": "append"
+      },
+      "context_bundle": {
+        "type": "object"
+      },
+      "execution_mode": {
+        "type": "string"
+      },
+      "improved_prompt": {
+        "type": "string"
+      },
+      "workflow_draft": {
+        "type": "object"
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "intake_start",
+      "type": "start",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "user_request": {
+              "type": "string"
+            },
+            "execution_mode": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "user_request"
+          ]
+        }
+      }
+    },
+    {
+      "id": "detect_intention",
+      "type": "llm_call",
+      "config": {
+        "model": "stub-or-live",
+        "system_prompt": "Infer user intent from request."
+      }
+    },
+    {
+      "id": "estimate_task_size",
+      "type": "llm_call",
+      "config": {
+        "model": "stub-or-live",
+        "system_prompt": "Estimate task size as small, medium, or large."
+      }
+    },
+    {
+      "id": "gather_capabilities",
+      "type": "tool_call",
+      "config": {
+        "server": "orchestration-mcp",
+        "tool": "capability.catalog.lookup",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "gather_workspace_context",
+      "type": "tool_call",
+      "config": {
+        "server": "orchestration-mcp",
+        "tool": "workspace.context.collect",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "compose_prompt",
+      "type": "llm_call",
+      "config": {
+        "model": "stub-or-live",
+        "system_prompt": "Compose an improved execution prompt and optional workflow draft."
+      }
+    },
+    {
+      "id": "route_mode",
+      "type": "switch",
+      "config": {
+        "cases": [
+          {
+            "when": ".execution_mode == \"workflow\"",
+            "target": "publish_workflow"
+          }
+        ],
+        "default": "dispatch_open_agent"
+      }
+    },
+    {
+      "id": "publish_workflow",
+      "type": "tool_call",
+      "config": {
+        "server": "orchestration-mcp",
+        "tool": "workflow.publish_draft",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "dispatch_open_agent",
+      "type": "tool_call",
+      "config": {
+        "server": "orchestration-mcp",
+        "tool": "open_agent.dispatch",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "finish",
+      "type": "end",
+      "config": {
+        "output_mapping": "{ \"execution_mode\": .execution_mode, \"improved_prompt\": .improved_prompt, \"workflow_draft\": .workflow_draft }"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "__start__",
+      "target": "intake_start"
+    },
+    {
+      "source": "intake_start",
+      "target": "detect_intention"
+    },
+    {
+      "source": "detect_intention",
+      "target": "estimate_task_size"
+    },
+    {
+      "source": "estimate_task_size",
+      "target": "gather_capabilities"
+    },
+    {
+      "source": "gather_capabilities",
+      "target": "gather_workspace_context"
+    },
+    {
+      "source": "gather_workspace_context",
+      "target": "compose_prompt"
+    },
+    {
+      "source": "compose_prompt",
+      "target": "route_mode"
+    },
+    {
+      "source": "publish_workflow",
+      "target": "finish"
+    },
+    {
+      "source": "dispatch_open_agent",
+      "target": "finish"
+    }
+  ]
+}

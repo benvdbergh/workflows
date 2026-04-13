@@ -1,0 +1,9 @@
+{
+  "id": "schema.valid.agentic-task-intake-prompt-improver",
+  "description": "Agentic intake and prompt improver fixture remains valid under current POC schema constraints.",
+  "kind": "schema",
+  "definition": "examples/agentic-task-intake-prompt-improver.workflow.json",
+  "expect": {
+    "ok": true
+  }
+}
