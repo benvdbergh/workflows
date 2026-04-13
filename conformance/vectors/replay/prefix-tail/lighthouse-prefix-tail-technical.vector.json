@@ -1,5 +1,6 @@
 {
   "id": "replay.prefix.tail.lighthouse.technical",
+  "description": "Deterministic lighthouse happy-path replay tail (classify replayed from prefix, then route->search_kb->finish).",
   "kind": "replay",
   "definition": "examples/lighthouse-customer-routing.workflow.json",
   "input": {
