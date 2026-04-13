@@ -67,3 +67,13 @@ From your MCP-capable host, execute:
 3. `workflow_resume` when interrupted at `human_review` with `resume_payload = { "intent": "billing" }` or `{ "intent": "technical" }`
 
 Tool contracts and error codes are documented in `packages/engine/README.md`, and an end-to-end host smoke flow is documented in `docs/architecture/mcp-stdio-host-smoke.md`.
+
+### Crash-resume replay proof
+
+Run the deterministic replay demo script:
+
+```bash
+node scripts/demo-lighthouse-replay-crash-resume.mjs
+```
+
+Runbook and evidence interpretation: `docs/architecture/lighthouse-replay-crash-resume-demo.md`.
