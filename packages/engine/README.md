@@ -32,6 +32,29 @@ npx workflows-engine-mcp
 
 This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
 
+### MCP tool contracts (minimum set)
+
+- `workflow_start`
+  - args: `{ execution_id?: string, definition: object, input: object }`
+  - returns: `{ execution_id, status, final_state?, result?, error?, node_id? }`
+  - notes: if `execution_id` is omitted, the engine generates a stable UUID and returns it for follow-up calls.
+- `workflow_status`
+  - args: `{ execution_id: string }`
+  - returns: `{ execution_id, phase, current_node_id?, last_error? }`
+  - notes: `phase/current_node_id/last_error` are projected deterministically from persisted execution history (including resume/checkpoint-driven progress), not adapter-local mutable state.
+- `workflow_resume`
+  - args: `{ execution_id: string, definition: object, resume_payload: object }`
+  - returns: `{ execution_id, status, final_state?, result?, error?, node_id? }`
+  - notes: resume payloads are validated against the interrupt node `resume_schema`; invalid or stale resume attempts return structured tool errors.
+
+Structured adapter error codes:
+
+- `VALIDATION_ERROR` — MCP request payload fails contract validation.
+- `EXECUTION_NOT_FOUND` — requested execution id has no persisted history.
+- `INVALID_RESUME_PAYLOAD` — resume payload fails schema or resume is stale/not allowed.
+- `ENGINE_FAILURE` — engine reported workflow failure that is not an adapter contract issue.
+- `INTERNAL_ERROR` — unexpected adapter failure.
+
 - **File argument:** Path to a file containing **canonical JSON** (RFC-03: normalized JSON, not YAML at runtime).
 - **Stdin:** Omit the file argument or pass `-` to read JSON from stdin.
 
