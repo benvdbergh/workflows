@@ -1,0 +1,15 @@
+{
+  "id": "schema.invalid.unsupported-node-type",
+  "description": "Out-of-scope node type must be rejected by the POC schema node union.",
+  "kind": "schema",
+  "definition": "examples/fixtures.invalid/unsupported-node-type.workflow.json",
+  "expect": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "instancePath": "/nodes/1/type",
+        "keyword": "const"
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "schema.valid.minimal-linear",
+  "description": "Minimal EPIC-1 style linear workflow validates against the POC schema.",
+  "kind": "schema",
+  "definition": "examples/fixtures.valid/minimal-linear.workflow.json",
+  "expect": {
+    "ok": true
+  }
+}

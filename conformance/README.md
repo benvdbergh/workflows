@@ -38,6 +38,19 @@ Each vector file is JSON:
 - `kind`: vector executor (`schema` currently supported).
 - `definition`: path relative to repository root.
 - `expect.ok`: expected validation outcome.
+- `expect.diagnostics` (optional): stable failure signals for expected-invalid vectors.
+
+Diagnostic signal shape:
+
+```json
+{
+  "instancePath": "/nodes/1/type",
+  "keyword": "const",
+  "messageIncludes": "must be equal to constant"
+}
+```
+
+At least one diagnostic signal must match an AJV error when `expect.ok` is `false`.
 
 ## Discovery contract
 
@@ -56,6 +69,7 @@ npm run conformance
 Output behavior:
 
 - Human-readable context (PASS/FAIL, reason, AJV diagnostics) prints to stderr.
+- PASS output includes category labels: `schema-pass` and `schema-fail-by-design`.
 - Machine-readable summary JSON prints to stdout with `status`, aggregate counts, and per-vector results.
 - Exit code is `0` when all vectors pass, `1` otherwise.
 

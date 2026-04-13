@@ -13,7 +13,14 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *   description?: string;
  *   kind: "schema";
  *   definition: string;
- *   expect: { ok: boolean };
+ *   expect: {
+ *     ok: boolean;
+ *     diagnostics?: Array<{
+ *       instancePath?: string;
+ *       keyword?: string;
+ *       messageIncludes?: string;
+ *     }>;
+ *   };
  * }} ConformanceVector
  */
 
@@ -67,6 +74,46 @@ function runSchemaVector(vector) {
 }
 
 /**
+ * @param {import("ajv").ErrorObject} error
+ * @param {{ instancePath?: string, keyword?: string, messageIncludes?: string }} signal
+ */
+function matchesDiagnosticSignal(error, signal) {
+  if (signal.instancePath !== undefined && error.instancePath !== signal.instancePath) {
+    return false;
+  }
+  if (signal.keyword !== undefined && error.keyword !== signal.keyword) {
+    return false;
+  }
+  if (signal.messageIncludes !== undefined) {
+    const message = error.message ?? "";
+    if (!message.toLowerCase().includes(signal.messageIncludes.toLowerCase())) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * @param {import("ajv").ErrorObject[]} errors
+ * @param {Array<{ instancePath?: string, keyword?: string, messageIncludes?: string }>} signals
+ */
+function evaluateDiagnosticSignals(errors, signals) {
+  if (signals.length === 0) {
+    return { ok: true, reason: "" };
+  }
+  const matched = signals.some((signal) =>
+    errors.some((error) => matchesDiagnosticSignal(error, signal))
+  );
+  if (matched) {
+    return { ok: true, reason: "" };
+  }
+  return {
+    ok: false,
+    reason: "Validation failed as expected, but none of the expected diagnostic signals matched.",
+  };
+}
+
+/**
  * @param {{ file: string, vector: ConformanceVector }} discovered
  */
 export function runVector(discovered) {
@@ -82,10 +129,31 @@ export function runVector(discovered) {
 
   try {
     const execution = runSchemaVector(vector);
+    const category = vector.expect.ok ? "schema-pass" : "schema-fail-by-design";
+    const diagnosticSignals = vector.expect.diagnostics ?? [];
+    if (!vector.expect.ok && execution.actualOk === false) {
+      const diagnosticsCheck = evaluateDiagnosticSignals(execution.errors, diagnosticSignals);
+      if (!diagnosticsCheck.ok) {
+        return {
+          id: vector.id,
+          file: path.relative(repoRoot, file),
+          category,
+          passed: false,
+          reason: diagnosticsCheck.reason,
+          context: {
+            definition: vector.definition,
+            expectedSignals: diagnosticSignals,
+            errors: execution.errors.slice(0, 5),
+          },
+        };
+      }
+    }
+
     if (execution.passed) {
       return {
         id: vector.id,
         file: path.relative(repoRoot, file),
+        category,
         passed: true,
       };
     }
@@ -93,6 +161,7 @@ export function runVector(discovered) {
     return {
       id: vector.id,
       file: path.relative(repoRoot, file),
+      category,
       passed: false,
       reason: `Expected ok=${execution.expectedOk} but got ok=${execution.actualOk}`,
       context: {
@@ -104,6 +173,7 @@ export function runVector(discovered) {
     return {
       id: vector.id,
       file: path.relative(repoRoot, file),
+      category: "unexpected",
       passed: false,
       reason: error instanceof Error ? error.message : String(error),
     };

@@ -1,0 +1,46 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "name": "minimal-linear",
+    "version": "0.1.0"
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "customer": {
+        "type": "object"
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "lookup_customer",
+      "type": "step",
+      "config": {
+        "handler": "lookupCustomer"
+      }
+    },
+    {
+      "id": "end",
+      "type": "end"
+    }
+  ],
+  "edges": [
+    {
+      "source": "__start__",
+      "target": "start"
+    },
+    {
+      "source": "start",
+      "target": "lookup_customer"
+    },
+    {
+      "source": "lookup_customer",
+      "target": "end"
+    }
+  ]
+}

@@ -4,6 +4,13 @@
   "kind": "schema",
   "definition": "examples/fixtures.invalid/extensions.workflow.json",
   "expect": {
-    "ok": false
+    "ok": false,
+    "diagnostics": [
+      {
+        "instancePath": "",
+        "keyword": "additionalProperties",
+        "messageIncludes": "must NOT have additional properties"
+      }
+    ]
   }
 }

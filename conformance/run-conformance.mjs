@@ -6,11 +6,11 @@ const failed = results.filter((result) => !result.passed);
 
 for (const result of results) {
   if (result.passed) {
-    console.error(`PASS ${result.id} (${result.file})`);
+    console.error(`PASS [${result.category}] ${result.id} (${result.file})`);
     continue;
   }
 
-  console.error(`FAIL ${result.id} (${result.file})`);
+  console.error(`FAIL [${result.category ?? "unexpected"}] ${result.id} (${result.file})`);
   console.error(`  reason: ${result.reason}`);
   if (result.context?.definition) {
     console.error(`  definition: ${result.context.definition}`);
@@ -28,6 +28,11 @@ const summary = {
   total: results.length,
   passed: results.length - failed.length,
   failed: failed.length,
+  counts: {
+    schemaPass: results.filter((result) => result.category === "schema-pass").length,
+    schemaFailByDesign: results.filter((result) => result.category === "schema-fail-by-design").length,
+    unexpected: results.filter((result) => result.category === "unexpected").length,
+  },
   vectors: results,
 };
 

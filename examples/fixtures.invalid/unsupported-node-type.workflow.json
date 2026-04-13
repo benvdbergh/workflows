@@ -1,0 +1,33 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "name": "invalid-unsupported-node-kind",
+    "version": "0.0.0"
+  },
+  "state_schema": {
+    "type": "object"
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "fanout",
+      "type": "parallel",
+      "config": {
+        "branches": []
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "__start__",
+      "target": "start"
+    },
+    {
+      "source": "start",
+      "target": "fanout"
+    }
+  ]
+}
