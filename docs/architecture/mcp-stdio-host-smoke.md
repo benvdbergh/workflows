@@ -10,8 +10,8 @@ This runbook verifies the EPIC-4 MCP stdio adapter from an MCP-capable host usin
 ## Prerequisites
 
 - Node.js `>=22.5.0`
-- **Operator setup:** no repository clone required; the host spawns `npx` and the published [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) package.
-- **Development setup:** clone this repository and install dependencies:
+- **Operator setup:** the host runs the published [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) via `npx` (no clone). Use **`0.0.2`** or **`@alpha`** once it resolves to a build that bundles the POC schema; see [No-install MCP quickstart](../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx).
+- **Development setup:** clone this repository, then from the repo root:
 
 ```bash
 npm install
@@ -19,7 +19,7 @@ npm install
 
 ## 1) Launch the MCP stdio server (development setup only)
 
-Skip this section if your MCP host launches the server via **operator setup** (see section 2).
+Skip this section if the host starts the server for you (**operator setup**; see section 2).
 
 From repository root:
 
@@ -36,8 +36,6 @@ Expected behavior:
 
 ### Operator setup (published package)
 
-Default wiring for evaluators and operators: no local checkout, uses the package bin `workflows-engine-mcp`.
-
 ```json
 {
   "mcpServers": {
@@ -49,7 +47,7 @@ Default wiring for evaluators and operators: no local checkout, uses the package
 }
 ```
 
-Pin a version instead of `@alpha` when you need a fixed build (see [No-install MCP quickstart](../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)).
+Pin a version instead of `@alpha` when you need a fixed build ([release notes](../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)).
 
 ### Development setup (local engine checkout)
 
@@ -66,77 +64,26 @@ Pin a version instead of `@alpha` when you need a fixed build (see [No-install M
 
 Use an absolute path in `args` for **development setup**.
 
-After connect, discover tools and confirm the host sees:
+After connect, discover tools and confirm the host exposes:
 
 - `workflow_start`
 - `workflow_status`
 - `workflow_resume`
 
+## Canonical workflow definition
+
+Use **one** parsed JSON object for every `definition` field in section 3: the **lighthouse golden fixture** in `examples/lighthouse-customer-routing.workflow.json` (same definition CI validates with `schemas/workflow-definition-poc.json`).
+
+| Context | How to obtain it |
+|--------|------------------|
+| Clone present | Read and parse `examples/lighthouse-customer-routing.workflow.json` at the repository root. Pass the **parsed root object** as `definition` (not a file path string). |
+| No clone (operator) | Download and parse the same file from the default branch, e.g. `https://raw.githubusercontent.com/benvdbergh/workflows/master/examples/lighthouse-customer-routing.workflow.json`. |
+
+Reuse the **same in-memory object** for `workflow_start` and `workflow_resume`. For any other workflow, validate from a clone first: `npm run engine:validate -- path/to/workflow.json`.
+
 ## 3) Deterministic smoke flow with expected outputs
 
-Use this workflow definition payload in host tool calls (`definition` argument):
-
-```json
-{
-  "document": { "schema": "https://agent-workflow-protocol.dev/schema/workflow-definition-poc/v1" },
-  "workflow_id": "smoke-lighthouse",
-  "version": "1.0.0",
-  "state_schema": {
-    "type": "object",
-    "properties": {
-      "ticket_text": { "type": "string" },
-      "intent": { "type": "string" },
-      "confidence": { "type": ["number", "null"] }
-    },
-    "required": ["ticket_text"],
-    "additionalProperties": true
-  },
-  "nodes": [
-    { "id": "start", "type": "start", "config": {} },
-    { "id": "classify", "type": "step", "config": { "activity": "classify_ticket" } },
-    {
-      "id": "route",
-      "type": "switch",
-      "config": {
-        "cases": [
-          { "when": ".intent == \"billing\"", "next": "end_billing" },
-          { "when": ".intent == \"technical\"", "next": "end_technical" }
-        ],
-        "default": "human_review"
-      }
-    },
-    {
-      "id": "human_review",
-      "type": "interrupt",
-      "config": {
-        "prompt": "Please classify ticket intent manually.",
-        "resume_schema": {
-          "type": "object",
-          "properties": { "intent": { "type": "string", "enum": ["billing", "technical"] } },
-          "required": ["intent"],
-          "additionalProperties": false
-        }
-      }
-    },
-    {
-      "id": "end_billing",
-      "type": "end",
-      "config": { "output_mapping": "{ intent: .intent, confidence: .confidence }" }
-    },
-    {
-      "id": "end_technical",
-      "type": "end",
-      "config": { "output_mapping": "{ intent: .intent, confidence: .confidence }" }
-    }
-  ],
-  "edges": [
-    { "source": "__start__", "target": "start" },
-    { "source": "start", "target": "classify" },
-    { "source": "classify", "target": "route" },
-    { "source": "human_review", "target": "end_billing" }
-  ]
-}
-```
+Use the lighthouse object from the **Canonical workflow definition** table above for each `definition` below.
 
 ### 3.1 `workflow_start`
 
@@ -145,7 +92,7 @@ Args:
 ```json
 {
   "execution_id": "story-4-3-smoke-1",
-  "definition": "<paste definition JSON above as object>",
+  "definition": "<lighthouse fixture from the table above>",
   "input": { "ticket_text": "unclear issue from customer" }
 }
 ```
@@ -185,7 +132,7 @@ Args:
 ```json
 {
   "execution_id": "story-4-3-smoke-1",
-  "definition": "<same definition object>",
+  "definition": "<same object as in 3.1>",
   "resume_payload": { "intent": "billing" }
 }
 ```
@@ -196,9 +143,11 @@ Expected structured result shape:
 {
   "execution_id": "story-4-3-smoke-1",
   "status": "completed",
-  "result": { "intent": "billing", "confidence": null }
+  "result": { "intent": "billing", "confidence": 0.3 }
 }
 ```
+
+With the default POC stub, `confidence` is deterministic for this fixture (see `packages/engine/test/poc-runner.test.mjs`). Assert `status` and `intent` first; treat numeric fields as stub-specific unless a real activity adapter is configured.
 
 ## 4) Structured error assertion (required)
 
@@ -223,7 +172,7 @@ Expected tool error result (shape):
 }
 ```
 
-This verifies adapter-level structured mapping instead of opaque process crashes.
+Some MCP hosts surface the same failure as plain text; the required behavior is **`EXECUTION_NOT_FOUND`**, not the exact JSON wrapper.
 
 ## POC security posture and deferred hardening
 
