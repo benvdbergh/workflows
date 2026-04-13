@@ -55,7 +55,9 @@ Ship runnable examples (definitions + seeds):
 
 Additional informative example (non-MVP candidate):
 
-4. **Agentic task intake and prompt improver** — intention detection, task sizing, skills/tools/context gathering, and a `switch` that routes to either workflow draft publication or open agent execution.
+4. **Agentic task intake and prompt improver** — intention detection, task sizing, skills/tools/context gathering, and a `switch` that routes to either workflow draft publication or delegated agent execution.
+
+POC note: where the active profile excludes `agent_delegate`, implementations MAY use a documented `tool_call` bridge for delegated execution semantics and map back to the same observable lifecycle.
 
 ## 8.4 Repository layout (informative)
 

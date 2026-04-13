@@ -419,10 +419,12 @@ nodes:
       tool: "workflow.publish_draft"
       server: "orchestration-mcp"
   - id: dispatch_open_agent
-    type: tool_call
+    type: agent_delegate
     config:
-      tool: "agent.execute"
-      server: "orchestration-mcp"
+      agent_id: "generalist-agent"
+      protocol: "a2a"
+      input_mapping:
+        prompt: "${ .improved_prompt }"
 edges:
   - { source: __start__, target: detect_intention }
   - { source: detect_intention, target: estimate_task_size }

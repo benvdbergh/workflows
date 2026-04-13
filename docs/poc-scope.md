@@ -58,6 +58,13 @@ Implementers **MUST NOT** infer support from the full RFC for:
 
 POC validators **MUST** reject unknown `type` values (including the above until promoted into a future scope revision).
 
+### 2.2 Delegation profile boundary (north star vs POC bridge)
+
+The protocol north-star for delegated autonomous work is **`agent_delegate`** (see [RFC-03 §3.7](rfc-03-workflow-definition-schema.md#37-node-types-normative) and [RFC-06 §6.2](rfc-06-interoperability.md#62-composing-a2a-and-agent-delegation)).  
+For this POC profile, where `agent_delegate` is out of scope, implementations **MAY** use a documented bridge via `tool_call` (for example, `agent.execute` / `agent.status`) to emulate delegation.
+
+When bridge mode is used, engines **SHOULD** preserve delegation-equivalent lifecycle and correlation semantics in history so workflows can be promoted to native `agent_delegate` with minimal definition changes in a future scope revision.
+
 ---
 
 ## 3. Edges (in scope)
