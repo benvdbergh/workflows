@@ -53,6 +53,10 @@ Ship runnable examples (definitions + seeds):
 2. **Research and summarize** — `parallel` + multiple `tool_call` + final `llm_call`.  
 3. **Multi-agent coding** — `agent_delegate` (mock A2A) + `subworkflow` + approval interrupt.
 
+Additional informative example (non-MVP candidate):
+
+4. **Agentic task intake and prompt improver** — intention detection, task sizing, skills/tools/context gathering, and a `switch` that routes to either workflow draft publication or open agent execution.
+
 ## 8.4 Repository layout (informative)
 
 ```

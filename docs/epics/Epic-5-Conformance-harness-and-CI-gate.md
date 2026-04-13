@@ -27,7 +27,7 @@ acceptance_criteria:
   - "Optional POC coverage for reducers, parallel joins, or interrupt resume is documented as implemented vs deferred."
 project: workflows
 created: 2026-04-12
-updated: 2026-04-12
+updated: 2026-04-13
 ---
 
 # Epic-5: Conformance harness and CI gate
@@ -43,7 +43,7 @@ Automated conformance: schema validation vectors, replay inject tests, and reduc
 
 ## User stories (links)
 
-- To be added under `docs/stories/` (fixture layout, test harness, CI workflow file).
+- [STORY-5-1: Add agentic intake prompt-improver fixture and conformance test](../stories/Story-5-1-Add-agentic-intake-prompt-improver-fixture-and-conformance-test.md)
 
 ## Acceptance criteria
 

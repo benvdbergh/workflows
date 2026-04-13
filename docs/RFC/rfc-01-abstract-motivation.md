@@ -75,6 +75,7 @@ A workflow protocol that is:
 - **Replay-friendly** via explicit commands and events,
 - **Checkpoint-capable** per node or policy,
 - **MCP- and HTTP-friendly** for assistants and automation tools,
+- Able to model **agentic task intake** (intent detection, task sizing, capability/context gathering, prompt composition) with flexible routing to either **workflow publication** or **open agentic execution**,
 
 can become the **shared orchestration layer** between atomic tool calls and multi-agent collaboration — analogous to how MCP normalized tools across clients.
 

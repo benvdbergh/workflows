@@ -355,6 +355,83 @@ edges:
   - { source: verify, target: review }
 ```
 
+### Example D — Agentic task intake and prompt improver
+
+```yaml
+document:
+  schema: "https://example.org/agent-workflow/v1"
+  name: "agentic-task-intake"
+  version: "1.0.0"
+state_schema:
+  type: object
+  properties:
+    user_request: { type: string }
+    intention: { type: string }
+    task_size: { type: string }
+    selected_skills: { type: array, reducer: append }
+    selected_tools: { type: array, reducer: append }
+    context_bundle: { type: object }
+    execution_mode: { type: string }   # "workflow" | "open_agentic"
+    improved_prompt: { type: string }
+    workflow_draft: { type: object }
+nodes:
+  - id: detect_intention
+    type: llm_call
+    config:
+      model: "gpt-4.1-mini"
+      system_prompt: "Infer user intent from request."
+  - id: estimate_task_size
+    type: llm_call
+    config:
+      model: "gpt-4.1-mini"
+      system_prompt: "Estimate complexity and classify as small, medium, or large."
+  - id: gather_capabilities
+    type: tool_call
+    config:
+      tool: "capability.catalog.lookup"
+      server: "orchestration-mcp"
+  - id: gather_workspace_context
+    type: tool_call
+    config:
+      tool: "workspace.context.collect"
+      server: "orchestration-mcp"
+  - id: compose_plan_prompt
+    type: llm_call
+    config:
+      model: "gpt-4.1"
+      system_prompt: "Compose an execution-ready prompt and choose execution_mode."
+      output_schema:
+        type: object
+        properties:
+          execution_mode: { type: string }
+          improved_prompt: { type: string }
+          workflow_draft: { type: object }
+  - id: route_mode
+    type: switch
+    config:
+      cases:
+        - when: '.execution_mode == "workflow"'
+          target: publish_workflow
+      default: dispatch_open_agent
+  - id: publish_workflow
+    type: tool_call
+    config:
+      tool: "workflow.publish_draft"
+      server: "orchestration-mcp"
+  - id: dispatch_open_agent
+    type: tool_call
+    config:
+      tool: "agent.execute"
+      server: "orchestration-mcp"
+edges:
+  - { source: __start__, target: detect_intention }
+  - { source: detect_intention, target: estimate_task_size }
+  - { source: estimate_task_size, target: gather_capabilities }
+  - { source: gather_capabilities, target: gather_workspace_context }
+  - { source: gather_workspace_context, target: compose_plan_prompt }
+  - { source: compose_plan_prompt, target: route_mode }
+```
+
 ---
 
 ## 3.12 Extensibility
