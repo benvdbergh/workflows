@@ -44,6 +44,10 @@ Automated conformance: schema validation vectors, replay inject tests, and reduc
 ## User stories (links)
 
 - [STORY-5-1: Add agentic intake prompt-improver fixture and conformance test](../stories/Story-5-1-Add-agentic-intake-prompt-improver-fixture-and-conformance-test.md)
+- [STORY-5-2: Establish conformance harness layout and test entrypoint](../stories/Story-5-2-Establish-conformance-harness-layout-and-test-entrypoint.md)
+- [STORY-5-3: Add schema conformance vectors and diagnostic assertions](../stories/Story-5-3-Add-schema-conformance-vectors-and-diagnostic-assertions.md)
+- [STORY-5-4: Add replay prefix injection and tail command stream assertions](../stories/Story-5-4-Add-replay-prefix-injection-and-tail-command-stream-assertions.md)
+- [STORY-5-5: Wire conformance suite into CI with coverage matrix and deferral register](../stories/Story-5-5-Wire-conformance-suite-into-CI-with-coverage-matrix-and-deferral-register.md)
 
 ## Acceptance criteria
 
@@ -65,3 +69,4 @@ May proceed in parallel with [EPIC-4](Epic-4-MCP-stdio-integration-surface.md) o
 ## Notes
 
 Start narrow: **schema + replay** gates deliver most signal; expand matrices only when the engine claims support.
+Use the story sequence **5-2 -> (5-3 + 5-4 + 5-1) -> 5-5** to preserve architectural layering (harness foundation first, then vectors, then CI governance gate).
