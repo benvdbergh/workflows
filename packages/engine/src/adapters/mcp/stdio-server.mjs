@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -7,13 +9,16 @@ import {
 } from "./contracts.mjs";
 import { createMcpWorkflowToolHandlers } from "./workflow-tools.mjs";
 
+const enginePackageJsonPath = fileURLToPath(new URL("../../../package.json", import.meta.url));
+const enginePackageVersion = JSON.parse(readFileSync(enginePackageJsonPath, "utf8")).version;
+
 /**
  * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function }} workflowPort
  */
 export function createMcpWorkflowStdioServer(workflowPort) {
   const server = new McpServer({
     name: "@agent-workflow/engine-mcp-stdio",
-    version: "0.0.1",
+    version: enginePackageVersion,
   });
   const handlers = createMcpWorkflowToolHandlers(workflowPort);
 

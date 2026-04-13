@@ -1,6 +1,6 @@
 {
   "name": "@agent-workflow/engine",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Agent Workflow Protocol — POC engine (definition validation entrypoint)",
   "license": "Apache-2.0",
   "repository": {
@@ -17,6 +17,7 @@
   },
   "files": [
     "src/",
+    "schemas/",
     "README.md"
   ],
   "bin": {
@@ -24,6 +25,7 @@
     "workflows-engine-mcp": "src/mcp-stdio-server.mjs"
   },
   "scripts": {
+    "prepack": "node ../../scripts/sync-engine-poc-schema.mjs",
     "test": "node --test test/*.mjs",
     "mcp:stdio": "node ./src/mcp-stdio-server.mjs"
   },

@@ -24,6 +24,8 @@ This index makes the documentation information architecture explicit:
 
 ## Architecture and Demo Walkthroughs
 
+MCP guides default to **operator setup** (published `@agent-workflow/engine` via `npx`); use **development setup** (local `mcp-stdio-server.mjs`) only when hacking the adapter or engine.
+
 - Guided MCP host demo: [architecture/lighthouse-mcp-host-guided-demo-walkthrough.md](architecture/lighthouse-mcp-host-guided-demo-walkthrough.md)
 - Crash/resume replay demo: [architecture/lighthouse-replay-crash-resume-demo.md](architecture/lighthouse-replay-crash-resume-demo.md)
 - MCP stdio host smoke walkthrough: [architecture/mcp-stdio-host-smoke.md](architecture/mcp-stdio-host-smoke.md)

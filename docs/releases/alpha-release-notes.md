@@ -36,18 +36,22 @@ These notes are for external evaluators and early adopters validating the curren
 
 Use the published package directly from npm without cloning this repository.
 
+**Operator vs development MCP wiring:** treat the **operator setup** (published `@agent-workflow/engine` via `npx`, below) as the default for MCP-capable hosts and demos. Use a **development setup** (absolute path to `packages/engine/src/mcp-stdio-server.mjs` in your clone) only when you are modifying the engine or MCP adapter. Step-by-step host guides: [MCP stdio host smoke](../architecture/mcp-stdio-host-smoke.md), [Lighthouse MCP walkthrough](../architecture/lighthouse-mcp-host-guided-demo-walkthrough.md).
+
 The package is published under the npm organization scope **`@agent-workflow`** ([npm org](https://www.npmjs.com/org/agent-workflow)), not a separate `agent-workflow-protocol` scope.
+
+Because the package exposes **two** CLI bins (`workflows-engine` and `workflows-engine-mcp`), use **`-p` / `--package`** so `npx` knows which package to install and which bin name to run. Omitting `-p` can yield `npm error could not determine executable to run` (npm treats the invocation as ambiguous).
 
 ### Fast channel install (moving alpha tag)
 
 ```bash
-npx @agent-workflow/engine@alpha workflows-engine-mcp
+npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 ```
 
 ### Reproducible install (exact pinned version)
 
 ```bash
-npx @agent-workflow/engine@0.0.1 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp
 ```
 
 ### Provider-neutral MCP client configuration examples
@@ -60,6 +64,8 @@ Generic JSON-style client configuration:
     "agent-workflow-engine": {
       "command": "npx",
       "args": [
+        "-y",
+        "-p",
         "@agent-workflow/engine@alpha",
         "workflows-engine-mcp"
       ]
@@ -76,7 +82,9 @@ Pinned, immutable client configuration:
     "agent-workflow-engine": {
       "command": "npx",
       "args": [
-        "@agent-workflow/engine@0.0.1",
+        "-y",
+        "-p",
+        "@agent-workflow/engine@0.0.2",
         "workflows-engine-mcp"
       ]
     }
@@ -97,10 +105,11 @@ Run this sequence for every alpha publish event.
    - Trigger `Release npm publish (manual)` in GitHub Actions.
    - Inputs:
      - `release_ref`: release tag, branch, or SHA.
-     - `dist_tag`: `alpha` for pre-release channel (use `latest` only for promoted baseline).
+     - `dist_tag`: `alpha` for pre-release channel (use `latest` only if you want the publish step itself to target `latest`).
+     - `also_point_latest_dist_tag`: `true` (default) runs `npm dist-tag add @agent-workflow/engine@<version> latest` after publish so **`alpha` and `latest` both resolve to the same tarball** (typical for a promoted patch like `0.0.2`). Set `false` if you intentionally want `latest` left on an older build.
 3. Post-publish smoke test:
-   - `npx @agent-workflow/engine@alpha workflows-engine-mcp --help`
-   - `npx @agent-workflow/engine@0.0.1 workflows-engine-mcp --help`
+   - `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp --help`
+   - `npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp --help`
 4. Announcement update:
    - Update launch templates and release notes with the published version.
    - Publish channel posts from `docs/community-launch-playbook.md`.

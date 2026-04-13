@@ -103,6 +103,7 @@ Trusted publish runbook:
 1. Trigger `Release npm publish (manual)` with:
    - `release_ref`: intended tag/branch/SHA
    - `dist_tag`: `alpha` for channel builds, `latest` for accepted baseline promotions
+   - `also_point_latest_dist_tag`: `true` (default) to run `npm dist-tag add @agent-workflow/engine@<version> latest` after publish so `latest` matches the new build while `alpha` still receives the publish tag
 2. Confirm `release-quality-gates` passes.
 3. Verify `publish-engine-package` success and capture npm publish logs in release evidence.
 4. Update release notes/tag metadata with published version and dist-tag.

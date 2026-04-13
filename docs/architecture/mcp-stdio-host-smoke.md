@@ -10,13 +10,16 @@ This runbook verifies the EPIC-4 MCP stdio adapter from an MCP-capable host usin
 ## Prerequisites
 
 - Node.js `>=22.5.0`
-- Repository dependencies installed:
+- **Operator setup:** no repository clone required; the host spawns `npx` and the published [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) package.
+- **Development setup:** clone this repository and install dependencies:
 
 ```bash
 npm install
 ```
 
-## 1) Launch the MCP stdio server (copy/paste)
+## 1) Launch the MCP stdio server (development setup only)
+
+Skip this section if your MCP host launches the server via **operator setup** (see section 2).
 
 From repository root:
 
@@ -31,18 +34,37 @@ Expected behavior:
 
 ## 2) Connect from an MCP-capable host (copy/paste)
 
-Example host wiring for clients that accept command-based MCP server config:
+### Operator setup (published package)
+
+Default wiring for evaluators and operators: no local checkout, uses the package bin `workflows-engine-mcp`.
+
+```json
+{
+  "mcpServers": {
+    "workflow-engine": {
+      "command": "npx",
+      "args": ["-y", "-p", "@agent-workflow/engine@alpha", "workflows-engine-mcp"]
+    }
+  }
+}
+```
+
+Pin a version instead of `@alpha` when you need a fixed build (see [No-install MCP quickstart](../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)).
+
+### Development setup (local engine checkout)
 
 ```json
 {
   "mcpServers": {
     "workflow-engine": {
       "command": "node",
-      "args": ["C:/Users/vandenbb/repos/workflows/packages/engine/src/mcp-stdio-server.mjs"]
+      "args": ["C:/path/to/your/workflows/packages/engine/src/mcp-stdio-server.mjs"]
     }
   }
 }
 ```
+
+Use an absolute path in `args` for **development setup**.
 
 After connect, discover tools and confirm the host sees:
 

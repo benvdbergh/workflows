@@ -33,12 +33,27 @@ npx workflows-engine-mcp
 No-install npm usage for MCP hosts:
 
 ```bash
-# consume the latest alpha channel publish
-npx @agent-workflow/engine@alpha workflows-engine-mcp
+# consume the latest alpha channel publish (use -p: package ships two bins)
+npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 
 # consume a pinned, reproducible package version
-npx @agent-workflow/engine@0.0.1 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp
 ```
+
+**Operator setup (default for MCP clients)** — register the published package; the host runs `npx` and does not need this repository on disk. Use `-y` (non-interactive) and `-p` so npm selects the `workflows-engine-mcp` bin when both `workflows-engine` and `workflows-engine-mcp` are present:
+
+```json
+{
+  "mcpServers": {
+    "workflow-engine": {
+      "command": "npx",
+      "args": ["-y", "-p", "@agent-workflow/engine@alpha", "workflows-engine-mcp"]
+    }
+  }
+}
+```
+
+**Development setup** — point `node` at `packages/engine/src/mcp-stdio-server.mjs` inside your clone when working on the adapter or engine.
 
 This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
 
@@ -93,7 +108,7 @@ The package exports:
 
 - `validateWorkflowDefinition(data)` — returns `{ ok: true }` or `{ ok: false, errors }` where `errors` is AJV’s `ErrorObject[]` (includes `instancePath`, `keyword`, `schemaPath`, etc.).
 - `compileWorkflowValidator()` — returns a reusable `(data) => { ok: true } | { ok: false, errors }` function; the compiled schema is cached per process.
-- `findWorkflowRepoRoot(startDir?)` — locates the checkout root that contains `schemas/workflow-definition-poc.json` (used to resolve the schema path).
+- `findWorkflowRepoRoot(startDir?)` — locates the **workflows** monorepo root (lighthouse fixture + root `package.json` named `workflows`) for tests and examples; schema loading prefers the bundled `packages/engine/schemas/workflow-definition-poc.json` when present.
 - `runPocWorkflow(...)` / `resumePocWorkflow(...)` — general POC graph walker with `switch` and `interrupt` (see **General POC orchestration** below).
 
 ### Linear orchestration (STORY-2-3, STORY-2-4)
@@ -189,7 +204,7 @@ history.close();
 - **Schema contract:** The engine validates against the same file as CI and `scripts/validate-workflows.mjs`: **`schemas/workflow-definition-poc.json`** (JSON Schema Draft 2020-12).
 - **Ajv options:** `allErrors: true`, `strict: false` — identical to `scripts/validate-workflows.mjs` to avoid drift from “repo truth.”
 - **Engine-specific limits:** None beyond the schema and JSON parse rules. The engine does **not** enforce file size limits, `document.schema` version bumps, or trace companions; only the POC workflow **definition** JSON shape is checked.
-- **Resolution rule:** The schema file is found by walking upward from `packages/engine/src/` until a directory containing `schemas/workflow-definition-poc.json` is found. Running the CLI or library **outside** this repository layout will throw or fail until that layout exists.
+- **Resolution rule:** The engine loads `schemas/workflow-definition-poc.json` from the **published package** (`packages/engine/schemas/` next to `src/`, kept in sync with the repo canonical schema). In a full **workflows** monorepo checkout it can fall back to the root `schemas/` copy. `findWorkflowRepoRoot()` locates the monorepo root via `examples/lighthouse-customer-routing.workflow.json` and the root `package.json` named `workflows` (for tests and fixtures), not via schema path alone.
 
 ## Tests
 
@@ -209,5 +224,6 @@ Check that:
 
 - tarball metadata resolves to `@agent-workflow/engine` with the intended version/tag source,
 - both binaries are present: `src/cli.mjs` and `src/mcp-stdio-server.mjs`,
+- bundled POC schema is present: `schemas/workflow-definition-poc.json`,
 - runtime/library entrypoint is present: `src/index.mjs`,
-- payload is minimal (runtime `src/` plus package docs), with no test fixtures or unrelated repository files.
+- payload is minimal (runtime `src/`, bundled `schemas/`, package docs), with no test fixtures or unrelated repository files.

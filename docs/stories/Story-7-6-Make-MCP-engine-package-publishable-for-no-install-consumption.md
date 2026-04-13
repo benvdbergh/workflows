@@ -71,7 +71,7 @@ Supporting skill: `repo-docs`.
   - added package payload controls with `files` limited to runtime/package docs.
 - Documented no-install execution via `npx` in `packages/engine/README.md`:
   - alpha channel usage example (`@alpha`),
-  - pinned version usage example (`@0.0.1`),
+  - pinned version usage example (`@0.0.2`),
   - host compatibility constraints (Node version and stdio expectations).
 - Added packaging verification guidance to `packages/engine/README.md` with `npm pack --dry-run` and explicit payload checks.
 - Packaging verification evidence path:

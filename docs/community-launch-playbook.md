@@ -37,8 +37,8 @@ Template:
 > We are sharing an alpha of the Agent Workflow Protocol: a vendor-neutral way to define and run stateful agent workflows with deterministic replay and MCP-compatible tool integration.  
 >  
 > Start here: `README.md` + `docs/releases/alpha-release-notes.md`  
-> Quick try (alpha channel): `npx @agent-workflow/engine@alpha workflows-engine-mcp`  
-> Reproducible pin: `npx @agent-workflow/engine@0.0.1 workflows-engine-mcp`  
+> Quick try (alpha channel): `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp`  
+> Reproducible pin: `npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp`  
 >  
 > Looking for feedback on:  
 > 1) workflow definition clarity, 2) replay semantics, 3) conformance usability.  
@@ -57,8 +57,8 @@ Template:
 > - one high-value next improvement.  
 >  
 > Copy/paste run commands:  
-> - `npx @agent-workflow/engine@alpha workflows-engine-mcp`  
-> - `npx @agent-workflow/engine@0.0.1 workflows-engine-mcp`  
+> - `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp`  
+> - `npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp`  
 >  
 > Routing and support boundaries: `SUPPORT.md`.
 
@@ -74,8 +74,8 @@ Template:
 > - conformance fixture proposals aligned to `docs/poc-scope.md`.  
 >  
 > Repro command baseline:  
-> - channel: `npx @agent-workflow/engine@alpha workflows-engine-mcp`  
-> - pinned: `npx @agent-workflow/engine@0.0.1 workflows-engine-mcp`  
+> - channel: `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp`  
+> - pinned: `npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp`  
 >  
 > Use `CONTRIBUTING.md` for issue labels, SLAs, and escalation rules.
 
@@ -121,8 +121,8 @@ Every launch message should include:
 ## Operational checklist for launch day
 
 - Confirm the published package smoke checks pass:
-  - `npx @agent-workflow/engine@alpha workflows-engine-mcp --help`
-  - `npx @agent-workflow/engine@0.0.1 workflows-engine-mcp --help`
+  - `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp --help`
+  - `npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp --help`
 - Ensure `README.md`, `CONTRIBUTING.md`, `SUPPORT.md`, and `SECURITY.md` links are valid.
 - Confirm label set exists in GitHub repository settings.
 - Confirm issue forms/templates and Discussion settings (if used) are configured.

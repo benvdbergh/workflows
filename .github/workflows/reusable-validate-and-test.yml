@@ -47,6 +47,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify engine bundled POC schema matches canonical
+        run: npm run check-engine-poc-schema-sync
+
       - name: Validate POC workflow JSON against schema
         run: npm run validate-workflows
 

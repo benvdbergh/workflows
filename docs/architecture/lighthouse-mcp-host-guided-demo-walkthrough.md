@@ -10,25 +10,38 @@ This guide runs the lighthouse scenario through MCP host tools without redefinin
 ## Prerequisites
 
 - Node.js `>=22.5.0`
-- Dependencies installed:
-
-```bash
-npm install
-```
-
 - Lighthouse definition path: `examples/lighthouse-customer-routing.workflow.json`
 - Contract baseline: `docs/architecture/mcp-stdio-host-smoke.md`
 
+For **development setup** only (local engine source): clone this repository and run `npm install` at the repo root.
+
 ## 1) Configure your MCP client (Cursor / Claude-style)
 
-Add a server entry that points to the local stdio adapter:
+Pick one wiring mode. **Operator setup** is the default for MCP hosts: it runs the published package with `npx` and does not require a local clone. **Development setup** runs the adapter script from your checkout when you are changing engine or adapter code.
+
+### Operator setup (published package)
+
+Uses the npm package [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine). `@alpha` tracks the latest alpha publish; pin an exact version (for example `@0.0.2`) when you need reproducible bug reports or demos.
+
+```json
+{
+  "mcpServers": {
+    "workflow-engine": {
+      "command": "npx",
+      "args": ["-y", "-p", "@agent-workflow/engine@alpha", "workflows-engine-mcp"]
+    }
+  }
+}
+```
+
+### Development setup (local engine checkout)
 
 ```json
 {
   "mcpServers": {
     "workflow-engine": {
       "command": "node",
-      "args": ["C:/Users/vandenbb/repos/workflows/packages/engine/src/mcp-stdio-server.mjs"]
+      "args": ["C:/path/to/your/workflows/packages/engine/src/mcp-stdio-server.mjs"]
     }
   }
 }
@@ -36,13 +49,15 @@ Add a server entry that points to the local stdio adapter:
 
 Notes:
 
-- Use an absolute path in `args` so the client can launch the server reliably.
+- With **development setup**, use an absolute path in `args` so the client can launch the server reliably.
 - Restart or reload your MCP host/client after saving config so tools are rediscovered.
 - Expected tools: `workflow_start`, `workflow_status`, `workflow_resume`.
 
-## 2) Launch MCP stdio adapter
+## 2) Launch MCP stdio adapter (development setup only)
 
-From repository root:
+If you use **operator setup**, the MCP host starts the server for you; skip this step.
+
+From repository root (local checkout):
 
 ```bash
 npm run engine:mcp:stdio

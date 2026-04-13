@@ -9,11 +9,18 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** @type {string | null} */
-let cachedRepoRoot = null;
+/**
+ * POC schema shipped next to `src/` inside the published package (no-install / npx).
+ * @returns {string}
+ */
+function bundledPocSchemaPath() {
+  return path.join(__dirname, "..", "schemas", "workflow-definition-poc.json");
+}
 
 /**
- * Walks upward from `startDir` to find the repository root that contains `schemas/workflow-definition-poc.json`.
+ * Walks upward from `startDir` to find the **workflows** monorepo root (fixtures, shared scripts).
+ * Uses `examples/lighthouse-customer-routing.workflow.json` plus root `package.json` named `workflows`
+ * so this does not stop at `packages/engine` when that directory also carries a bundled schema copy.
  * @param {string} startDir
  * @returns {string}
  */
@@ -21,28 +28,32 @@ export function findWorkflowRepoRoot(startDir = __dirname) {
   let dir = path.resolve(startDir);
   const root = path.parse(dir).root;
   while (dir !== root) {
-    const candidate = path.join(dir, "schemas", "workflow-definition-poc.json");
-    if (existsSync(candidate)) return dir;
+    const lighthouse = path.join(dir, "examples", "lighthouse-customer-routing.workflow.json");
+    const rootPkgPath = path.join(dir, "package.json");
+    if (existsSync(lighthouse) && existsSync(rootPkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(rootPkgPath, "utf8"));
+        if (pkg.name === "workflows") return dir;
+      } catch {
+        // ignore invalid package.json
+      }
+    }
     dir = path.dirname(dir);
   }
   throw new Error(
-    "Could not locate schemas/workflow-definition-poc.json; run the engine from a checkout of the workflows repository."
+    'Could not locate workflows repository root (expected examples/lighthouse-customer-routing.workflow.json and a root package.json with "name": "workflows").'
   );
-}
-
-/**
- * @returns {string}
- */
-function getRepoRoot() {
-  if (!cachedRepoRoot) cachedRepoRoot = findWorkflowRepoRoot(__dirname);
-  return cachedRepoRoot;
 }
 
 /**
  * @returns {import("ajv").AnySchema}
  */
 function loadPocSchema() {
-  const schemaPath = path.join(getRepoRoot(), "schemas", "workflow-definition-poc.json");
+  const bundled = bundledPocSchemaPath();
+  if (existsSync(bundled)) {
+    return JSON.parse(readFileSync(bundled, "utf8"));
+  }
+  const schemaPath = path.join(findWorkflowRepoRoot(__dirname), "schemas", "workflow-definition-poc.json");
   return JSON.parse(readFileSync(schemaPath, "utf8"));
 }
 
