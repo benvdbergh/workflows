@@ -11,6 +11,7 @@ import {
   applyOutputWithReducers,
   stateSchemaForValidation,
 } from "./linear-runner.mjs";
+import { hydrateReplayContext } from "./replay-loader.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -20,6 +21,44 @@ function loadJq() {
 }
 
 const PLACEHOLDER_TYPES = new Set(["step", "llm_call", "tool_call"]);
+const NONDETERMINISM_ERROR_CODE = "NONDETERMINISM_DETECTED";
+
+class NondeterminismError extends Error {
+  /**
+   * @param {string} message
+   * @param {Record<string, unknown>} context
+   */
+  constructor(message, context) {
+    super(message);
+    this.name = "NondeterminismError";
+    this.code = NONDETERMINISM_ERROR_CODE;
+    this.context = context;
+  }
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow} row
+ * @returns {{ name: string; nodeId?: string; seq: number }}
+ */
+function commandIdentity(row) {
+  return {
+    name: row.name,
+    seq: row.seq,
+    ...(typeof row.payload?.nodeId === "string" ? { nodeId: row.payload.nodeId } : {}),
+  };
+}
+
+/**
+ * @param {string} name
+ * @param {Record<string, unknown>} payload
+ * @returns {{ name: string; nodeId?: string }}
+ */
+function expectedCommandIdentity(name, payload) {
+  return {
+    name,
+    ...(typeof payload.nodeId === "string" ? { nodeId: payload.nodeId } : {}),
+  };
+}
 
 /**
  * @param {unknown} jqResult
@@ -220,12 +259,37 @@ export async function runPocWorkflow(options) {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   const validateState = ajv.compile(stateSchemaForValidation(definition.state_schema));
   const jq = loadJq();
+  const replay = hydrateReplayContext({ executionId, store, startMode: "genesis" });
+  let commandCursor = 0;
 
   /** @type {Record<string, unknown>} */
   let state = { ...input };
 
   function appendCmd(name, payload) {
-    store.append(executionId, { kind: "command", name, payload: { executionId, ...payload } });
+    const expected = replay.commands[commandCursor];
+    const fullPayload = { executionId, ...payload };
+    if (expected) {
+      const expectedIdentity = commandIdentity(expected);
+      const actualIdentity = expectedCommandIdentity(name, fullPayload);
+      const namesMatch = expectedIdentity.name === actualIdentity.name;
+      const expectedNode = expectedIdentity.nodeId;
+      const actualNode = actualIdentity.nodeId;
+      const nodesMatch =
+        expectedNode === undefined || actualNode === undefined ? expectedNode === actualNode : expectedNode === actualNode;
+      if (!namesMatch || !nodesMatch) {
+        throw new NondeterminismError(
+          `Deterministic replay mismatch at command index ${commandCursor + 1} (history seq ${expected.seq}).`,
+          {
+            expected: expectedIdentity,
+            actual: actualIdentity,
+          }
+        );
+      }
+      commandCursor += 1;
+      return { replayed: true };
+    }
+    store.append(executionId, { kind: "command", name, payload: fullPayload });
+    return { replayed: false };
   }
   function appendEvt(name, payload) {
     store.append(executionId, { kind: "event", name, payload: { executionId, ...payload } });
@@ -249,7 +313,7 @@ export async function runPocWorkflow(options) {
         throw new Error(`Edge references unknown node id "${current}".`);
       }
 
-      appendCmd("ScheduleNode", { nodeId: current });
+      const scheduled = appendCmd("ScheduleNode", { nodeId: current });
       appendEvt("NodeScheduled", { nodeId: current });
 
       if (node.type === "switch") {
@@ -295,26 +359,32 @@ export async function runPocWorkflow(options) {
       if (node.type === "start" || node.type === "end") {
         output = {};
       } else if (PLACEHOLDER_TYPES.has(node.type)) {
-        appendEvt("ActivityRequested", { nodeId: current, nodeType: node.type });
-        const activityResult = await executor.executeActivity({
-          executionId,
-          node: /** @type {{ id: string; type: string; config?: object }} */ (node),
-          state,
-        });
-        if (!activityResult.ok) {
-          const { error, code } = activityResult;
-          appendEvt("ActivityFailed", { nodeId: current, error, ...(code !== undefined ? { code } : {}) });
-          appendCmd("FailNode", {
-            nodeId: current,
-            reason: "activity_failed",
-            message: error,
-            ...(code !== undefined ? { code } : {}),
+        const replayedOutput = scheduled.replayed ? replay.replayResults.get(current) : undefined;
+        if (replayedOutput) {
+          output = JSON.parse(JSON.stringify(replayedOutput));
+          appendEvt("ActivityCompleted", { nodeId: current, result: output, replayed: true });
+        } else {
+          appendEvt("ActivityRequested", { nodeId: current, nodeType: node.type });
+          const activityResult = await executor.executeActivity({
+            executionId,
+            node: /** @type {{ id: string; type: string; config?: object }} */ (node),
+            state,
           });
-          appendEvt("ExecutionFailed", { error });
-          return { status: "failed", error, finalState: state };
+          if (!activityResult.ok) {
+            const { error, code } = activityResult;
+            appendEvt("ActivityFailed", { nodeId: current, error, ...(code !== undefined ? { code } : {}) });
+            appendCmd("FailNode", {
+              nodeId: current,
+              reason: "activity_failed",
+              message: error,
+              ...(code !== undefined ? { code } : {}),
+            });
+            appendEvt("ExecutionFailed", { error });
+            return { status: "failed", error, finalState: state };
+          }
+          output = activityResult.output;
+          appendEvt("ActivityCompleted", { nodeId: current, result: output });
         }
-        output = activityResult.output;
-        appendEvt("ActivityCompleted", { nodeId: current, result: output });
       } else {
         throw new Error(`Unsupported node type "${node.type}"`);
       }
@@ -357,6 +427,18 @@ export async function runPocWorkflow(options) {
       current = outs[0];
     }
   } catch (e) {
+    if (e instanceof NondeterminismError) {
+      appendEvt("ExecutionFailed", {
+        error: e.message,
+        code: e.code,
+        context: e.context,
+      });
+      return {
+        status: "failed",
+        error: `${e.code}: ${e.message}`,
+        finalState: state,
+      };
+    }
     const msg = e instanceof Error ? e.message : String(e);
     appendCmd("FailNode", { reason: "orchestration_error", message: msg });
     appendEvt("ExecutionFailed", { error: msg });

@@ -169,3 +169,90 @@ describe("runPocWorkflow (switch precedence)", () => {
     assert.ok(!scheduled.includes("wrong_only_via_edge"));
   });
 });
+
+describe("runPocWorkflow (deterministic replay matching)", () => {
+  it("reuses historical activity completion and skips live execution", async () => {
+    const definition = loadLighthouse();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-replay-match";
+
+    let firstCalls = 0;
+    const first = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "My API returns 500" },
+      executionId,
+      store,
+      activityExecutor: {
+        async executeActivity(ctx) {
+          firstCalls += 1;
+          if (ctx.node.id === "classify") return { ok: true, output: { intent: "technical", confidence: 0.9 } };
+          if (ctx.node.id === "search_kb") return { ok: true, output: { snippets: [] } };
+          return { ok: true, output: {} };
+        },
+      },
+    });
+    assert.equal(first.status, "completed");
+    assert.equal(firstCalls, 2);
+
+    let replayCalls = 0;
+    const replayed = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "My API returns 500" },
+      executionId,
+      store,
+      activityExecutor: {
+        async executeActivity() {
+          replayCalls += 1;
+          return { ok: false, error: "should not run activity during replay" };
+        },
+      },
+    });
+
+    assert.equal(replayed.status, "completed");
+    assert.deepEqual(replayed.result, { intent: "technical", confidence: 0.9 });
+    assert.equal(replayCalls, 0);
+  });
+
+  it("fails with nondeterminism error code when replayed command sequence diverges", async () => {
+    const definition = loadLighthouse();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-replay-diverge";
+
+    const first = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "My API returns 500" },
+      executionId,
+      store,
+      stubActivityOutputs: {
+        classify: { intent: "technical", confidence: 0.9 },
+        search_kb: { snippets: [] },
+      },
+    });
+    assert.equal(first.status, "completed");
+
+    const diverged = JSON.parse(JSON.stringify(definition));
+    const routeNode = diverged.nodes.find((n) => n.id === "route");
+    routeNode.config.cases = [
+      {
+        when: '.intent == "technical"',
+        target: "open_ticket",
+      },
+    ];
+    routeNode.config.default = "open_ticket";
+
+    const second = await runPocWorkflow({
+      definition: diverged,
+      input: { ticket_text: "My API returns 500" },
+      executionId,
+      store,
+      stubActivityOutputs: {
+        classify: { intent: "technical", confidence: 0.9 },
+        open_ticket: { ticket_id: "T-2" },
+      },
+    });
+
+    assert.equal(second.status, "failed");
+    assert.match(second.error ?? "", /NONDETERMINISM_DETECTED/);
+    assert.match(second.error ?? "", /Deterministic replay mismatch/);
+  });
+});
