@@ -19,7 +19,28 @@ npm install
 - Lighthouse definition path: `examples/lighthouse-customer-routing.workflow.json`
 - Contract baseline: `docs/architecture/mcp-stdio-host-smoke.md`
 
-## 1) Launch MCP stdio adapter
+## 1) Configure your MCP client (Cursor / Claude-style)
+
+Add a server entry that points to the local stdio adapter:
+
+```json
+{
+  "mcpServers": {
+    "workflow-engine": {
+      "command": "node",
+      "args": ["C:/Users/vandenbb/repos/workflows/packages/engine/src/mcp-stdio-server.mjs"]
+    }
+  }
+}
+```
+
+Notes:
+
+- Use an absolute path in `args` so the client can launch the server reliably.
+- Restart or reload your MCP host/client after saving config so tools are rediscovered.
+- Expected tools: `workflow_start`, `workflow_status`, `workflow_resume`.
+
+## 2) Launch MCP stdio adapter
 
 From repository root:
 
@@ -29,9 +50,9 @@ npm run engine:mcp:stdio
 
 Expected: process stays alive and waits for MCP requests on stdio.
 
-## 2) Run host flow with lighthouse definition
+## 3) Run host flow with lighthouse definition
 
-### 2.1 `workflow_start`
+### 3.1 `workflow_start`
 
 Use arguments:
 
@@ -48,7 +69,7 @@ Expected outcome for this input:
 - `status` is `interrupted`
 - `node_id` is `human_review`
 
-### 2.2 `workflow_status`
+### 3.2 `workflow_status`
 
 Use:
 
@@ -66,7 +87,7 @@ Expected shape:
 }
 ```
 
-### 2.3 `workflow_resume`
+### 3.3 `workflow_resume`
 
 Submit interrupt response:
 
