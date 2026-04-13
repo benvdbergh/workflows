@@ -1,8 +1,42 @@
 # Agent Workflow Protocol
 
 > **Status: Working draft** — protocol name, schema URIs, and governance home are TBD. Breaking changes may occur in any pre-1.0 revision.
+>
+> **Alpha evaluation focus:** this repository now packages a practical alpha narrative for external evaluators. Start with the quickstart and release notes, then dive into architecture and conformance details.
+
+**Last reviewed:** 2026-04-13  
+**Review cadence:** every 30 days while alpha scope is evolving
 
 A vendor-neutral, declarative standard for **stateful, multi-step AI agent workflow execution** with deterministic replay, durable checkpoints, human-in-the-loop interrupts, and MCP-compatible tool integration.
+
+## Alpha quickstart and docs map
+
+Use README for onboarding, and `docs/` for deeper architecture and operations content.
+
+- Quickstart validation commands: [POC schema and validation](#poc-schema-and-validation)
+- Alpha release notes (highlights, caveats, known limitations): [docs/releases/alpha-release-notes.md](docs/releases/alpha-release-notes.md)
+- Alpha versioning and final release commit flow: [docs/releases/alpha-versioning-and-release-commit-flow.md](docs/releases/alpha-versioning-and-release-commit-flow.md)
+- Alpha CI/CD packaging governance (workflow map, checks, permissions): [docs/releases/alpha-ci-cd-packaging-governance.md](docs/releases/alpha-ci-cd-packaging-governance.md)
+- Community launch playbook (channels, templates, triage SLAs): [docs/community-launch-playbook.md](docs/community-launch-playbook.md)
+- Security policy and disclosure process: [SECURITY.md](SECURITY.md)
+- Alpha security baseline posture and gap register: [docs/security/alpha-security-baseline.md](docs/security/alpha-security-baseline.md)
+- Documentation index (information architecture): [docs/README.md](docs/README.md)
+- Guided architecture walkthrough: [docs/architecture/lighthouse-mcp-host-guided-demo-walkthrough.md](docs/architecture/lighthouse-mcp-host-guided-demo-walkthrough.md)
+- Conformance harness guide: [conformance/README.md](conformance/README.md)
+- Contributor guide and intake policy: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Support boundaries and channels: [SUPPORT.md](SUPPORT.md)
+
+---
+
+## Contribute and feedback routing (alpha)
+
+To keep alpha feedback actionable and sustainable, use this intake path:
+
+- Changes and proposals: open an issue following `CONTRIBUTING.md`.
+- Usage questions and help requests: use `SUPPORT.md` channels.
+- Security vulnerabilities: report privately via `SECURITY.md` (do not open a public issue).
+
+The triage loop, expected response windows, and escalation path for critical findings are documented in [docs/community-launch-playbook.md](docs/community-launch-playbook.md).
 
 ---
 

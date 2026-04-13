@@ -1,0 +1,58 @@
+name: Reusable validation and conformance
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: "Git ref (branch/tag/SHA) to checkout"
+        required: false
+        type: string
+        default: ""
+      node_version:
+        description: "Node.js version for CI checks"
+        required: false
+        type: string
+        default: "24"
+      run_tests:
+        description: "Run npm test after validation and conformance"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-test:
+    name: validate-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository (default ref)
+        if: ${{ inputs.checkout_ref == '' }}
+        uses: actions/checkout@v5
+
+      - name: Checkout repository (explicit ref)
+        if: ${{ inputs.checkout_ref != '' }}
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.checkout_ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate POC workflow JSON against schema
+        run: npm run validate-workflows
+
+      - name: Run conformance harness
+        run: npm run conformance
+
+      - name: Run package tests
+        if: ${{ inputs.run_tests }}
+        run: npm test

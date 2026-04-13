@@ -5,24 +5,18 @@ on:
     branches: [master, main]
   pull_request:
     branches: [master, main]
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-workflows-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate-workflows:
-    runs-on: ubuntu-latest
-    steps:
-      # checkout@v5 / setup-node@v5 run on Node 24 (GitHub deprecation of Node 20 on Actions)
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Validate POC workflow JSON against schema
-        run: npm run validate-workflows
-
-      - name: Run conformance harness
-        run: npm run conformance
+    name: validate-workflows
+    uses: ./.github/workflows/reusable-validate-and-test.yml
+    permissions:
+      contents: read
