@@ -15,6 +15,36 @@ function loadLighthouse() {
   return JSON.parse(readFileSync(p, "utf8"));
 }
 
+class CrashAfterHistorySeqStore {
+  /**
+   * @param {MemoryExecutionHistoryStore} inner
+   * @param {string} executionId
+   * @param {number} failAfterSeq
+   */
+  constructor(inner, executionId, failAfterSeq) {
+    this.inner = inner;
+    this.executionId = executionId;
+    this.failAfterSeq = failAfterSeq;
+    this.crashed = false;
+  }
+
+  append(executionId, input) {
+    if (this.crashed) {
+      throw new Error("simulated crash: process terminated");
+    }
+    const persisted = this.inner.listByExecution(executionId).length;
+    if (executionId === this.executionId && persisted >= this.failAfterSeq) {
+      this.crashed = true;
+      throw new Error("simulated crash: process terminated");
+    }
+    return this.inner.append(executionId, input);
+  }
+
+  listByExecution(executionId) {
+    return this.inner.listByExecution(executionId);
+  }
+}
+
 describe("runPocWorkflow (lighthouse)", () => {
   it("technical intent stubs path search_kb → finish → completed", async () => {
     const definition = loadLighthouse();
@@ -171,6 +201,86 @@ describe("runPocWorkflow (switch precedence)", () => {
 });
 
 describe("runPocWorkflow (deterministic replay matching)", () => {
+  it("recovers after deterministic mid-run crash and converges with uninterrupted result", async () => {
+    const definition = loadLighthouse();
+    const executionId = "exec-replay-crash-recovery";
+
+    const uninterruptedStore = new MemoryExecutionHistoryStore();
+    let uninterruptedCalls = 0;
+    const uninterrupted = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "My API returns 500" },
+      executionId: `${executionId}-baseline`,
+      store: uninterruptedStore,
+      activityExecutor: {
+        async executeActivity(ctx) {
+          uninterruptedCalls += 1;
+          if (ctx.node.id === "classify") return { ok: true, output: { intent: "technical", confidence: 0.9 } };
+          if (ctx.node.id === "search_kb") return { ok: true, output: { snippets: [] } };
+          return { ok: true, output: {} };
+        },
+      },
+    });
+    assert.equal(uninterrupted.status, "completed");
+
+    const persistedStore = new MemoryExecutionHistoryStore();
+    const crashStore = new CrashAfterHistorySeqStore(persistedStore, executionId, 9);
+    let crashRunCalls = 0;
+
+    await assert.rejects(
+      runPocWorkflow({
+        definition,
+        input: { ticket_text: "My API returns 500" },
+        executionId,
+        store: crashStore,
+        activityExecutor: {
+          async executeActivity(ctx) {
+            crashRunCalls += 1;
+            if (ctx.node.id === "classify") return { ok: true, output: { intent: "technical", confidence: 0.9 } };
+            if (ctx.node.id === "search_kb") return { ok: true, output: { snippets: [] } };
+            return { ok: true, output: {} };
+          },
+        },
+      }),
+      /simulated crash/
+    );
+
+    const rowsAfterCrash = persistedStore.listByExecution(executionId);
+    assert.ok(rowsAfterCrash.length >= 9);
+    assert.ok(rowsAfterCrash.some((r) => r.name === "ActivityCompleted" && r.payload.nodeId === "classify"));
+    assert.ok(!rowsAfterCrash.some((r) => r.name === "ExecutionFailed"));
+    assert.equal(crashRunCalls, 1);
+
+    let restartCalls = 0;
+    const recovered = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "My API returns 500" },
+      executionId,
+      store: persistedStore,
+      activityExecutor: {
+        async executeActivity(ctx) {
+          restartCalls += 1;
+          if (ctx.node.id === "classify") {
+            return { ok: false, error: "classify should be replayed from persisted history" };
+          }
+          if (ctx.node.id === "search_kb") return { ok: true, output: { snippets: [] } };
+          return { ok: true, output: {} };
+        },
+      },
+    });
+
+    assert.equal(recovered.status, "completed");
+    assert.deepEqual(recovered.result, uninterrupted.result);
+    assert.equal(restartCalls, 1);
+
+    const recoveredRows = persistedStore.listByExecution(executionId);
+    const replayedCompletions = recoveredRows.filter(
+      (r) => r.kind === "event" && r.name === "ActivityCompleted" && r.payload?.replayed === true
+    );
+    assert.ok(replayedCompletions.some((r) => r.payload.nodeId === "classify"));
+    assert.equal(recoveredRows.at(-1)?.name, "ExecutionCompleted");
+  });
+
   it("reuses historical activity completion and skips live execution", async () => {
     const definition = loadLighthouse();
     const store = new MemoryExecutionHistoryStore();
