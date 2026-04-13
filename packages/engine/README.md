@@ -1,6 +1,6 @@
 # `@agent-workflow-protocol/engine`
 
-Private workspace package: **definition-time** validation for Agent Workflow Protocol POC workflow documents, an **append-only execution history** port (SQLite or in-memory), a **linear graph runner** (STORY-2-3), and a **general POC walker** (STORY-2-5) with `switch` and `interrupt` / resume.
+Publishable npm package: **definition-time** validation for Agent Workflow Protocol POC workflow documents, an **append-only execution history** port (SQLite or in-memory), a **linear graph runner** (STORY-2-3), and a **general POC walker** (STORY-2-5) with `switch` and `interrupt` / resume.
 
 ## Entrypoint (CLI)
 
@@ -30,9 +30,26 @@ Or invoke the bin entrypoint directly:
 npx workflows-engine-mcp
 ```
 
+No-install npm usage for MCP hosts:
+
+```bash
+# consume the latest alpha channel publish
+npx @agent-workflow-protocol/engine@alpha workflows-engine-mcp
+
+# consume a pinned, reproducible package version
+npx @agent-workflow-protocol/engine@0.7.0-alpha.3 workflows-engine-mcp
+```
+
 This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
 
 Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
+
+### Host compatibility constraints for no-install use
+
+- **Node runtime:** Node.js `>=22.5.0` is required (uses `node:sqlite`).
+- **Process launch model:** Host must be able to spawn `npx` and execute package bin commands.
+- **Transport expectation:** Host must communicate over MCP stdio with piped `stdin`/`stdout`.
+- **Stderr behavior:** Treat `stderr` as logs/diagnostics; do not parse protocol frames from `stderr`.
 
 ### MCP tool contracts (minimum set)
 
@@ -179,3 +196,18 @@ history.close();
 ```bash
 npm test --workspace=@agent-workflow-protocol/engine
 ```
+
+## Packaging verification guidance
+
+From `packages/engine`, validate the publish payload before release:
+
+```bash
+npm pack --dry-run
+```
+
+Check that:
+
+- tarball metadata resolves to `@agent-workflow-protocol/engine` with the intended version/tag source,
+- both binaries are present: `src/cli.mjs` and `src/mcp-stdio-server.mjs`,
+- runtime/library entrypoint is present: `src/index.mjs`,
+- payload is minimal (runtime `src/` plus package docs), with no test fixtures or unrelated repository files.
