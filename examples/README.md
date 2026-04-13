@@ -27,3 +27,43 @@ npx --yes ajv-cli@5 validate -s schemas/workflow-definition-poc.json -d examples
 ```
 
 Trace companion files are informative and are **not** validated by the workflow schema.
+
+## Lighthouse runbook (CLI + MCP)
+
+The lighthouse fixture is `examples/lighthouse-customer-routing.workflow.json`.
+
+### CLI path
+
+Validate only the lighthouse fixture:
+
+```bash
+npm run engine:validate -- examples/lighthouse-customer-routing.workflow.json
+```
+
+Validate the full examples set (includes invalid-fixture rejection checks):
+
+```bash
+npm run validate-workflows
+```
+
+### Expected branch behavior
+
+- If classification resolves `intent == "billing"` and `confidence > 0.8`, `switch` routes to `open_ticket`.
+- If classification resolves `intent == "technical"`, `switch` routes to `search_kb`.
+- If no case matches, `switch.default` routes to `human_review` and the run interrupts for resume input.
+
+### MCP path
+
+Start the MCP stdio server from repository root:
+
+```bash
+npm run engine:mcp:stdio
+```
+
+From your MCP-capable host, execute:
+
+1. `workflow_start` with `definition = lighthouse-customer-routing.workflow.json` and `input = { "ticket_text": "..." }`
+2. `workflow_status` to inspect phase and current node
+3. `workflow_resume` when interrupted at `human_review` with `resume_payload = { "intent": "billing" }` or `{ "intent": "technical" }`
+
+Tool contracts and error codes are documented in `packages/engine/README.md`, and an end-to-end host smoke flow is documented in `docs/architecture/mcp-stdio-host-smoke.md`.
