@@ -37,6 +37,8 @@ Template:
 > We are sharing an alpha of the Agent Workflow Protocol: a vendor-neutral way to define and run stateful agent workflows with deterministic replay and MCP-compatible tool integration.  
 >  
 > Start here: `README.md` + `docs/releases/alpha-release-notes.md`  
+> Quick try (alpha channel): `npx @agent-workflow-protocol/engine@alpha workflows-engine-mcp`  
+> Reproducible pin: `npx @agent-workflow-protocol/engine@0.7.0-alpha.3 workflows-engine-mcp`  
 >  
 > Looking for feedback on:  
 > 1) workflow definition clarity, 2) replay semantics, 3) conformance usability.  
@@ -54,6 +56,10 @@ Template:
 > - one compatibility risk with your stack,  
 > - one high-value next improvement.  
 >  
+> Copy/paste run commands:  
+> - `npx @agent-workflow-protocol/engine@alpha workflows-engine-mcp`  
+> - `npx @agent-workflow-protocol/engine@0.7.0-alpha.3 workflows-engine-mcp`  
+>  
 > Routing and support boundaries: `SUPPORT.md`.
 
 ### Variant C: Contributor-focused onboarding prompt
@@ -66,6 +72,10 @@ Template:
 > - docs clarity fixes,  
 > - reproducible bug reports,  
 > - conformance fixture proposals aligned to `docs/poc-scope.md`.  
+>  
+> Repro command baseline:  
+> - channel: `npx @agent-workflow-protocol/engine@alpha workflows-engine-mcp`  
+> - pinned: `npx @agent-workflow-protocol/engine@0.7.0-alpha.3 workflows-engine-mcp`  
 >  
 > Use `CONTRIBUTING.md` for issue labels, SLAs, and escalation rules.
 
@@ -110,7 +120,11 @@ Every launch message should include:
 
 ## Operational checklist for launch day
 
+- Confirm the published package smoke checks pass:
+  - `npx @agent-workflow-protocol/engine@alpha workflows-engine-mcp --help`
+  - `npx @agent-workflow-protocol/engine@0.7.0-alpha.3 workflows-engine-mcp --help`
 - Ensure `README.md`, `CONTRIBUTING.md`, `SUPPORT.md`, and `SECURITY.md` links are valid.
 - Confirm label set exists in GitHub repository settings.
 - Confirm issue forms/templates and Discussion settings (if used) are configured.
+- If a publish incident occurred, add a rollback or replacement notice in `docs/releases/alpha-release-notes.md` before posting.
 - Publish channel posts in priority order and monitor feedback intake for the first 72 hours.

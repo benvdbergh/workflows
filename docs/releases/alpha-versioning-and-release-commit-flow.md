@@ -47,6 +47,7 @@ Run from repository root before creating the final release commit/tag:
    - `npm pack --dry-run`
    - Confirm `package.json` version matches intended release tag.
    - Optional governed packaging run: trigger `Release packaging (manual)` workflow with `release_ref` set to the intended tag or commit, then inspect generated `*.tgz` artifact.
+   - Optional governed trusted publish: trigger `Release npm publish (manual)` with explicit `release_ref` and `dist_tag` (`alpha` or `latest`) after packaging confidence is complete.
 4. **Documentation and release narrative**
    - Update `docs/releases/alpha-release-notes.md` using the template/process below.
    - Record known limitations and any upgrade caveats for consumers.
@@ -61,6 +62,7 @@ Run from repository root before creating the final release commit/tag:
 - Workflow and permissions map: [alpha-ci-cd-packaging-governance.md](alpha-ci-cd-packaging-governance.md)
 - Shared quality gate workflow: `.github/workflows/reusable-validate-and-test.yml`
 - Manual packaging workflow: `.github/workflows/release-packaging.yml`
+- Manual trusted publish workflow: `.github/workflows/release-npm-publish.yml`
 
 ## 4) Release notes and changelog process (repeatable)
 

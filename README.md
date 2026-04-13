@@ -15,6 +15,7 @@ Use README for onboarding, and `docs/` for deeper architecture and operations co
 
 - Quickstart validation commands: [POC schema and validation](#poc-schema-and-validation)
 - Alpha release notes (highlights, caveats, known limitations): [docs/releases/alpha-release-notes.md](docs/releases/alpha-release-notes.md)
+- No-install MCP quickstart and publish/operator runbook: [docs/releases/alpha-release-notes.md#no-install-mcp-quickstart-npx](docs/releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)
 - Alpha versioning and final release commit flow: [docs/releases/alpha-versioning-and-release-commit-flow.md](docs/releases/alpha-versioning-and-release-commit-flow.md)
 - Alpha CI/CD packaging governance (workflow map, checks, permissions): [docs/releases/alpha-ci-cd-packaging-governance.md](docs/releases/alpha-ci-cd-packaging-governance.md)
 - Community launch playbook (channels, templates, triage SLAs): [docs/community-launch-playbook.md](docs/community-launch-playbook.md)

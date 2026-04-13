@@ -1,0 +1,67 @@
+name: Release npm publish (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: "Git ref to publish (tag, branch, or SHA)"
+        required: true
+        type: string
+      dist_tag:
+        description: "npm dist-tag to publish under"
+        required: true
+        type: choice
+        options:
+          - alpha
+          - latest
+        default: alpha
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-npm-publish-${{ github.event.inputs.release_ref }}-${{ github.event.inputs.dist_tag }}
+  cancel-in-progress: false
+
+jobs:
+  quality-gates:
+    name: release-quality-gates
+    uses: ./.github/workflows/reusable-validate-and-test.yml
+    with:
+      checkout_ref: ${{ github.event.inputs.release_ref }}
+      node_version: "24"
+      run_tests: true
+    permissions:
+      contents: read
+
+  publish-engine:
+    name: publish-engine-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: quality-gates
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.release_ref }}
+
+      - name: Set up Node.js for npm registry
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify package contents (workspace dry run)
+        run: npm pack --dry-run --workspace @agent-workflow-protocol/engine
+
+      - name: Publish engine package with provenance
+        env:
+          DIST_TAG: ${{ github.event.inputs.dist_tag }}
+        run: npm publish --workspace @agent-workflow-protocol/engine --tag "$DIST_TAG" --access public --provenance

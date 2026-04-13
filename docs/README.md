@@ -11,6 +11,7 @@ This index makes the documentation information architecture explicit:
 ## Start Here
 
 - Alpha release context and caveats: [releases/alpha-release-notes.md](releases/alpha-release-notes.md)
+- No-install MCP quickstart and operator publish runbook: [releases/alpha-release-notes.md#no-install-mcp-quickstart-npx](releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)
 - Alpha versioning and release commit flow: [releases/alpha-versioning-and-release-commit-flow.md](releases/alpha-versioning-and-release-commit-flow.md)
 - Alpha CI/CD packaging governance: [releases/alpha-ci-cd-packaging-governance.md](releases/alpha-ci-cd-packaging-governance.md)
 - Community launch playbook and triage SLAs: [community-launch-playbook.md](community-launch-playbook.md)

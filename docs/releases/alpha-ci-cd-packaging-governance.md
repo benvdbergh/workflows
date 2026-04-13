@@ -2,12 +2,13 @@
 
 **Last reviewed:** 2026-04-13
 
-This document defines the governed GitHub Actions release packaging path for alpha and maps workflows to required checks, permissions, and operational controls.
+This document defines the governed GitHub Actions release packaging and publish paths for alpha, and maps workflows to required checks, permissions, and operational controls.
 
 ## 1) Workflow map (reuse strategy)
 
 - `validate-workflows.yml` (event workflow) calls reusable workflow `.github/workflows/reusable-validate-and-test.yml`.
 - `release-packaging.yml` (manual workflow) calls the same reusable workflow for quality gates, then executes package build/upload.
+- `release-npm-publish.yml` (manual workflow) calls the same reusable workflow for quality gates, then performs trusted npm publish for `@agent-workflow-protocol/engine`.
 - Reuse model: one shared validation unit via `workflow_call` to keep gate logic and command set consistent across CI and release packaging.
 
 ## 2) Required checks mapping and stable names
@@ -17,6 +18,8 @@ For protected branch policy, keep these check names stable:
 - `Validate workflow definitions / validate-workflows` (branch and PR merge gate)
 - `Release packaging (manual) / release-quality-gates` (manual release evidence gate)
 - `Release packaging (manual) / package-npm-artifact` (artifact generation stage)
+- `Release npm publish (manual) / release-quality-gates` (manual publish evidence gate)
+- `Release npm publish (manual) / publish-engine-package` (trusted publish stage)
 
 Policy guidance:
 
@@ -26,25 +29,24 @@ Policy guidance:
 
 ## 3) Permissions map (least privilege)
 
-All workflows default to read-only repository scope:
+All workflows default to read-only repository scope unless a job has an explicit exception:
 
 - Workflow-level permissions:
   - `contents: read`
 - Job-level deltas:
-  - None beyond `contents: read`.
+  - `release-npm-publish.yml` publish job adds `id-token: write` for npm trusted publishing provenance.
 
 No job currently requires:
 
-- `id-token: write`
 - `packages: write`
 - `actions: write`
 - `pull-requests: write`
 
-Because this pipeline is packaging-only and intentionally avoids auto-publish.
+`id-token: write` is only granted to the publish job that performs npm OIDC trusted publishing with `--provenance`.
 
 ## 4) Gate and release path design
 
-Release packaging uses the same core commands contributors run locally:
+Release packaging and publish reuse the same core quality gate commands contributors run locally:
 
 1. `npm run validate-workflows`
 2. `npm run conformance`
@@ -53,6 +55,7 @@ Release packaging uses the same core commands contributors run locally:
 5. `npm pack`
 
 The release path is manual (`workflow_dispatch`) and requires an explicit `release_ref` input (tag/branch/SHA).
+The publish path is also manual (`workflow_dispatch`) and requires both explicit `release_ref` and `dist_tag` (`alpha`/`latest`) inputs.
 
 ## 5) Action pinning inventory
 
@@ -78,18 +81,37 @@ Pinning policy status:
 - Cache strategy: `setup-node` npm cache enabled.
   - Rationale: lower install time and runner minutes while keeping lockfile-resolved installs via `npm ci`.
 - Cost controls:
-  - Manual release trigger only (no automated publish loops).
+  - Manual release/publish triggers only (no automated publish loops).
   - No broad matrix expansion.
-  - Job `timeout-minutes` set on reusable and packaging jobs.
+  - Job `timeout-minutes` set on reusable, packaging, and publish jobs.
   - Concurrency for `validate-workflows` cancels superseded runs on same ref.
 
-## 7) Manual publish handoff (explicitly out of automation)
+## 7) Trusted publish path (manual, in automation)
 
-This pipeline does **not** run `npm publish`.
+Publishing is performed by `release-npm-publish.yml` and is intentionally separated from packaging.
 
-Maintainer handoff after artifact creation:
+Publish workflow prerequisites:
 
-1. Validate tarball contents from workflow artifact.
-2. Confirm release notes and versioning policy alignment.
-3. Perform manual publish from trusted maintainer environment with least-privilege npm token.
-4. Record publish decision and tag/release notes update.
+1. npm package `@agent-workflow-protocol/engine` is configured for public publish (`publishConfig.access=public`).
+2. npm trusted publishing is configured for this repository and package in npm settings.
+3. Release operator has repository rights to dispatch manual workflows.
+4. Intended version has not already been published for the selected dist-tag.
+
+Trusted publish runbook:
+
+1. Trigger `Release npm publish (manual)` with:
+   - `release_ref`: intended tag/branch/SHA
+   - `dist_tag`: `alpha` for channel builds, `latest` for accepted baseline promotions
+2. Confirm `release-quality-gates` passes.
+3. Verify `publish-engine-package` success and capture npm publish logs in release evidence.
+4. Update release notes/tag metadata with published version and dist-tag.
+
+Troubleshooting quick reference:
+
+- `E401`/`E403` from `npm publish`:
+  - Check npm trusted publishing linkage and repository/package mapping in npm settings.
+  - Confirm workflow publish job still has `id-token: write`.
+- `cannot publish over previously published version`:
+  - Bump `packages/engine/package.json` version and retag per versioning policy.
+- Wrong channel published:
+  - Confirm `dist_tag` selection at dispatch; use `alpha` for pre-release iterations and reserve `latest` for approved baseline.
