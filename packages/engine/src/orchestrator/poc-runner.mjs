@@ -3,6 +3,7 @@
  * Switch routing uses only `config.cases` / `config.default` (static edges from the switch id are ignored).
  */
 import Ajv2020 from "ajv/dist/2020.js";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { validateWorkflowDefinition } from "../validate.mjs";
 import { StubActivityExecutor } from "./activity-executor.mjs";
@@ -22,6 +23,7 @@ function loadJq() {
 
 const PLACEHOLDER_TYPES = new Set(["step", "llm_call", "tool_call"]);
 const NONDETERMINISM_ERROR_CODE = "NONDETERMINISM_DETECTED";
+const CHECKPOINT_POLICY = "after_each_node";
 
 class NondeterminismError extends Error {
   /**
@@ -66,6 +68,17 @@ function expectedCommandIdentity(name, payload) {
  */
 function jqTruthy(jqResult) {
   return jqResult !== false && jqResult !== null;
+}
+
+/**
+ * @param {object} definition
+ * @returns {{ workflowVersion?: string; definitionHash: string }}
+ */
+function checkpointDefinitionMeta(definition) {
+  const workflowVersion = typeof definition?.document?.version === "string" ? definition.document.version : undefined;
+  const canonical = JSON.stringify(definition);
+  const definitionHash = createHash("sha256").update(canonical).digest("hex");
+  return { workflowVersion, definitionHash };
 }
 
 /**
@@ -257,6 +270,7 @@ export async function runPocWorkflow(options) {
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const ajv = new Ajv2020({ allErrors: true, strict: false });
+  const definitionMeta = checkpointDefinitionMeta(definition);
   const validateState = ajv.compile(stateSchemaForValidation(definition.state_schema));
   const jq = loadJq();
   const replay = hydrateReplayContext({ executionId, store, startMode: "genesis" });
@@ -292,7 +306,20 @@ export async function runPocWorkflow(options) {
     return { replayed: false };
   }
   function appendEvt(name, payload) {
-    store.append(executionId, { kind: "event", name, payload: { executionId, ...payload } });
+    return store.append(executionId, { kind: "event", name, payload: { executionId, ...payload } });
+  }
+  function appendCheckpoint(nodeId, stateSnapshot, lastAppliedEventSeq) {
+    appendEvt("CheckpointWritten", {
+      policy: CHECKPOINT_POLICY,
+      workflowVersion: definitionMeta.workflowVersion,
+      definitionHash: definitionMeta.definitionHash,
+      lastAppliedEventSeq,
+      nodeId,
+      stateRef: {
+        kind: "inline_state",
+        state: JSON.parse(JSON.stringify(stateSnapshot)),
+      },
+    });
   }
 
   try {
@@ -334,7 +361,8 @@ export async function runPocWorkflow(options) {
         }
 
         appendCmd("CompleteNode", { nodeId: current, output: {} });
-        appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        const stateUpdatedSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        appendCheckpoint(current, state, stateUpdatedSeq);
         throwIfStateInvalid(validateState, state, `State invalid after switch "${current}"`);
 
         current = targetId;
@@ -344,7 +372,8 @@ export async function runPocWorkflow(options) {
       if (node.type === "interrupt") {
         const promptSummary = summarizePrompt(node);
         appendCmd("RaiseInterrupt", { nodeId: current, prompt: promptSummary });
-        appendEvt("InterruptRaised", { nodeId: current, prompt: promptSummary });
+        const interruptSeq = appendEvt("InterruptRaised", { nodeId: current, prompt: promptSummary });
+        appendCheckpoint(current, state, interruptSeq);
         return {
           status: "interrupted",
           executionId,
@@ -461,6 +490,20 @@ function latestStateFromHistory(rows) {
 }
 
 /**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
+ */
+function latestPrimaryEvent(rows) {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind !== "event") continue;
+    if (row.name === "CheckpointWritten") continue;
+    return row;
+  }
+  return undefined;
+}
+
+/**
  * @typedef {object} ResumePocWorkflowOptions
  * @property {object} definition
  * @property {string} executionId
@@ -509,7 +552,7 @@ export async function resumePocWorkflow(options) {
   }
 
   const rows = store.listByExecution(executionId);
-  const lastRow = rows[rows.length - 1];
+  const lastRow = latestPrimaryEvent(rows);
   if (!lastRow || lastRow.name !== "InterruptRaised") {
     const err = 'Cannot resume: last history event is not "InterruptRaised".';
     store.append(executionId, {
@@ -580,6 +623,7 @@ export async function resumePocWorkflow(options) {
   }
 
   const ajv = new Ajv2020({ allErrors: true, strict: false });
+  const definitionMeta = checkpointDefinitionMeta(definition);
   const validateResume = ajv.compile(stateSchemaForValidation(resumeSchemaRaw));
   const okResume = validateResume(resumePayload);
   if (!okResume) {
@@ -622,7 +666,20 @@ export async function resumePocWorkflow(options) {
     store.append(executionId, { kind: "command", name, payload: { executionId, ...payload } });
   }
   function appendEvt(name, payload) {
-    store.append(executionId, { kind: "event", name, payload: { executionId, ...payload } });
+    return store.append(executionId, { kind: "event", name, payload: { executionId, ...payload } });
+  }
+  function appendCheckpoint(nodeId, stateSnapshot, lastAppliedEventSeq) {
+    appendEvt("CheckpointWritten", {
+      policy: CHECKPOINT_POLICY,
+      workflowVersion: definitionMeta.workflowVersion,
+      definitionHash: definitionMeta.definitionHash,
+      lastAppliedEventSeq,
+      nodeId,
+      stateRef: {
+        kind: "inline_state",
+        state: JSON.parse(JSON.stringify(stateSnapshot)),
+      },
+    });
   }
 
   try {
@@ -632,7 +689,8 @@ export async function resumePocWorkflow(options) {
     appendEvt("InterruptResumed", { nodeId: interruptNodeId });
 
     appendCmd("CompleteNode", { nodeId: interruptNodeId, output: { ...resumePayload } });
-    appendEvt("StateUpdated", { nodeId: interruptNodeId, state: JSON.parse(JSON.stringify(state)) });
+    const resumedStateSeq = appendEvt("StateUpdated", { nodeId: interruptNodeId, state: JSON.parse(JSON.stringify(state)) });
+    appendCheckpoint(interruptNodeId, state, resumedStateSeq);
     throwIfStateInvalid(validateState, state, `State invalid after interrupt "${interruptNodeId}" completion`);
 
     const outs = outgoing.get(interruptNodeId) ?? [];
@@ -668,7 +726,8 @@ export async function resumePocWorkflow(options) {
         }
 
         appendCmd("CompleteNode", { nodeId: current, output: {} });
-        appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        const stateUpdatedSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        appendCheckpoint(current, state, stateUpdatedSeq);
         throwIfStateInvalid(validateState, state, `State invalid after switch "${current}"`);
 
         current = targetId;
@@ -678,7 +737,8 @@ export async function resumePocWorkflow(options) {
       if (node.type === "interrupt") {
         const promptSummary = summarizePrompt(node);
         appendCmd("RaiseInterrupt", { nodeId: current, prompt: promptSummary });
-        appendEvt("InterruptRaised", { nodeId: current, prompt: promptSummary });
+        const interruptSeq = appendEvt("InterruptRaised", { nodeId: current, prompt: promptSummary });
+        appendCheckpoint(current, state, interruptSeq);
         return {
           status: "interrupted",
           executionId,
@@ -743,7 +803,8 @@ export async function resumePocWorkflow(options) {
       state = /** @type {Record<string, unknown>} */ (
         applyOutputWithReducers(state, output, definition.state_schema)
       );
-      appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+      const stateUpdatedSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+      appendCheckpoint(current, state, stateUpdatedSeq);
       throwIfStateInvalid(validateState, state, `State invalid after node "${current}"`);
 
       const nextOuts = outgoing.get(current) ?? [];

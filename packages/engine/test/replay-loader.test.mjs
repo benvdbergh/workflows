@@ -57,7 +57,7 @@ describe("hydrateReplayContext", () => {
     });
   });
 
-  it("hydrates from safe replay point when present", async () => {
+  it("hydrates from latest valid checkpoint boundary when present", async () => {
     const definition = JSON.parse(readFileSync(linearFixturePath, "utf8"));
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-replay-safe-point";
@@ -73,16 +73,67 @@ describe("hydrateReplayContext", () => {
     });
     assert.equal(out.status, "completed");
 
-    const seqBeforeCheckpoint = store.append(executionId, {
+    const boundarySeq = store.append(executionId, {
       kind: "event",
-      name: "ReplayCheckpointSaved",
-      payload: { executionId, replayFromSeq: 5 },
+      name: "StateUpdated",
+      payload: { executionId, nodeId: "manual", state: { ok: true } },
     });
-    assert.ok(seqBeforeCheckpoint > 0);
+    const checkpointSeq = store.append(executionId, {
+      kind: "event",
+      name: "CheckpointWritten",
+      payload: {
+        executionId,
+        policy: "after_each_node",
+        workflowVersion: "v-test",
+        definitionHash: "abc123",
+        lastAppliedEventSeq: boundarySeq,
+        nodeId: "manual",
+        stateRef: { kind: "inline_state", state: { ok: true } },
+      },
+    });
+    assert.ok(checkpointSeq > boundarySeq);
 
     const replay = hydrateReplayContext({ executionId, store, startMode: "safe_point" });
-    assert.equal(replay.startSeq, 5);
-    assert.ok(replay.rows.every((row) => row.seq >= 5));
+    assert.equal(replay.startSeq, boundarySeq + 1);
+    assert.ok(replay.rows.every((row) => row.seq >= boundarySeq + 1));
+    assert.equal(replay.checkpoint.used, true);
+    assert.equal(replay.checkpoint.policy, "after_each_node");
+    assert.equal(replay.checkpoint.lastAppliedEventSeq, boundarySeq);
+  });
+
+  it("falls back to genesis replay when latest checkpoint is invalid", async () => {
+    const definition = JSON.parse(readFileSync(linearFixturePath, "utf8"));
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-replay-invalid-checkpoint";
+
+    const out = await runLinearWorkflow({
+      definition,
+      input: { ticket_text: "checkpoint-invalid" },
+      executionId,
+      store,
+      stubActivityOutputs: {
+        enrich: { intent: "support", tags: ["z"] },
+      },
+    });
+    assert.equal(out.status, "completed");
+
+    store.append(executionId, {
+      kind: "event",
+      name: "CheckpointWritten",
+      payload: {
+        executionId,
+        policy: "after_each_node",
+        workflowVersion: "v-test",
+        definitionHash: "abc123",
+        lastAppliedEventSeq: 999999, // invalid boundary (beyond history)
+        nodeId: "manual",
+        stateRef: { kind: "inline_state", state: { ok: false } },
+      },
+    });
+
+    const replay = hydrateReplayContext({ executionId, store, startMode: "safe_point" });
+    assert.equal(replay.startSeq, 1);
+    assert.equal(replay.checkpoint.used, false);
   });
 
   it("hydrates switch/interrupt history and derives interrupted cursor", async () => {

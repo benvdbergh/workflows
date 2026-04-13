@@ -72,6 +72,14 @@ Phases: **validate** (POC schema + reject `state_schema.properties.*.reducer ===
 
 **Resume:** `resumePocWorkflow` loads history, takes the latest `StateUpdated` payload `state`, validates `resumePayload` with Ajv against the interrupt node’s `config.resume_schema` (reducer annotations stripped the same way as workflow `state_schema`), merges resume fields into state (overwrite keys), then continues from the **single** static successor of the interrupt node. Invalid resume appends `FailNode` (`reason: "resume_validation_failed"` when schema fails) and `ExecutionFailed`. If the last event is not `InterruptRaised`, resume fails with `FailNode` / `ExecutionFailed` and `reason: "resume_not_allowed"`.
 
+**Checkpoint policy (STORY-3-3):** the POC walker emits `CheckpointWritten` events at deterministic `after_each_node` boundaries:
+- after each `StateUpdated` event (normal node completion and switch completion),
+- and after `InterruptRaised` (so interrupted runs have a recovery-safe boundary).
+
+Each checkpoint payload includes `executionId`, `workflowVersion`, `definitionHash` (sha256 of canonical definition JSON), `lastAppliedEventSeq`, `nodeId`, and `stateRef` (currently `inline_state` snapshot). This links each checkpoint to a concrete history boundary (`lastAppliedEventSeq`) while keeping room for future blob indirection.
+
+**Recovery loading:** `hydrateReplayContext({ startMode: "safe_point" })` prefers the latest valid `CheckpointWritten` boundary and starts replay from `lastAppliedEventSeq + 1`. If checkpoints are absent or invalid, hydration falls back to genesis replay (`startSeq = 1`).
+
 ### Execution history (STORY-2-2)
 
 **Port:** `ExecutionHistoryStore` (documented in `src/persistence/types.mjs`) — append-only, per-`executionId` ordering.

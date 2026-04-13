@@ -256,3 +256,45 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
     assert.match(second.error ?? "", /Deterministic replay mismatch/);
   });
 });
+
+describe("runPocWorkflow (checkpoint policy)", () => {
+  it("writes after_each_node checkpoints with recovery metadata linked to history boundaries", async () => {
+    const definition = loadLighthouse();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-checkpoint-policy";
+
+    const out = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "My API returns 500" },
+      executionId,
+      store,
+      stubActivityOutputs: {
+        classify: { intent: "technical", confidence: 0.9 },
+        search_kb: { snippets: [] },
+      },
+    });
+    assert.equal(out.status, "completed");
+
+    const rows = store.listByExecution(executionId);
+    const checkpoints = rows.filter((r) => r.kind === "event" && r.name === "CheckpointWritten");
+    assert.ok(checkpoints.length > 0);
+
+    for (const checkpoint of checkpoints) {
+      assert.equal(checkpoint.payload.executionId, executionId);
+      assert.equal(checkpoint.payload.policy, "after_each_node");
+      assert.equal(typeof checkpoint.payload.workflowVersion, "string");
+      assert.equal(typeof checkpoint.payload.definitionHash, "string");
+      assert.equal(checkpoint.payload.definitionHash.length, 64);
+      assert.equal(typeof checkpoint.payload.lastAppliedEventSeq, "number");
+      assert.equal(checkpoint.payload.lastAppliedEventSeq < checkpoint.seq, true);
+      assert.equal(typeof checkpoint.payload.nodeId, "string");
+      assert.equal(checkpoint.payload.stateRef?.kind, "inline_state");
+      assert.equal(typeof checkpoint.payload.stateRef?.state, "object");
+
+      const boundary = rows.find((r) => r.seq === checkpoint.payload.lastAppliedEventSeq);
+      assert.ok(boundary);
+      assert.equal(boundary.kind, "event");
+      assert.ok(boundary.name === "StateUpdated" || boundary.name === "InterruptRaised");
+    }
+  });
+});

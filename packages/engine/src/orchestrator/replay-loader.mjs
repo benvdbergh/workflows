@@ -24,6 +24,7 @@
  * @property {Array<{ eventSeq: number; commandSeq?: number; commandName?: string }>} commandEventCorrelation
  * @property {{ nodeId?: string; status: 'running' | 'interrupted' | 'completed' | 'failed' | 'not_started' }} lastPosition
  * @property {Map<string, Record<string, unknown>>} replayResults
+ * @property {{ used: boolean; policy?: string; checkpointEventSeq?: number; lastAppliedEventSeq?: number }} checkpoint
  */
 
 /**
@@ -46,9 +47,16 @@ export function hydrateReplayContext(options) {
 
   const allRows = store.listByExecution(executionId);
   let startSeq = 1;
+  const checkpoint = { used: false };
   if (startMode === "safe_point") {
-    const checkpoint = findLatestSafeReplayPoint(allRows);
-    if (checkpoint !== undefined) startSeq = checkpoint;
+    const safePoint = findLatestSafeReplayPoint(allRows, executionId);
+    if (safePoint) {
+      startSeq = safePoint.startSeq;
+      checkpoint.used = true;
+      checkpoint.policy = safePoint.policy;
+      checkpoint.checkpointEventSeq = safePoint.checkpointEventSeq;
+      checkpoint.lastAppliedEventSeq = safePoint.lastAppliedEventSeq;
+    }
   }
 
   const rows = allRows.filter((row) => row.seq >= startSeq).sort((a, b) => a.seq - b.seq);
@@ -90,16 +98,40 @@ export function hydrateReplayContext(options) {
     commandEventCorrelation,
     lastPosition,
     replayResults,
+    checkpoint,
   };
 }
 
 /**
  * @param {HistoryRow[]} rows
- * @returns {number | undefined}
+ * @param {string} executionId
+ * @returns {{ startSeq: number; policy?: string; checkpointEventSeq?: number; lastAppliedEventSeq?: number } | undefined}
  */
-function findLatestSafeReplayPoint(rows) {
+function findLatestSafeReplayPoint(rows, executionId) {
   for (let i = rows.length - 1; i >= 0; i--) {
-    const payload = rows[i].payload;
+    const row = rows[i];
+    const payload = row.payload;
+    if (row.kind === "event" && row.name === "CheckpointWritten") {
+      const checkpointExecutionId =
+        typeof payload?.executionId === "string" ? payload.executionId : executionId;
+      const lastAppliedEventSeq = payload?.lastAppliedEventSeq;
+      if (
+        checkpointExecutionId === executionId &&
+        Number.isInteger(lastAppliedEventSeq) &&
+        lastAppliedEventSeq >= 1 &&
+        lastAppliedEventSeq < row.seq
+      ) {
+        return {
+          startSeq: lastAppliedEventSeq + 1,
+          policy: typeof payload?.policy === "string" ? payload.policy : undefined,
+          checkpointEventSeq: row.seq,
+          lastAppliedEventSeq,
+        };
+      }
+      continue;
+    }
+
+    // Backward-compatible fallback used by existing tests/fixtures.
     const candidate =
       typeof payload?.safeReplayFromSeq === "number"
         ? payload.safeReplayFromSeq
@@ -107,7 +139,7 @@ function findLatestSafeReplayPoint(rows) {
           ? payload.replayFromSeq
           : undefined;
     if (candidate !== undefined && Number.isInteger(candidate) && candidate >= 1) {
-      return candidate;
+      return { startSeq: candidate };
     }
   }
   return undefined;
@@ -150,7 +182,14 @@ function deriveLastPosition(rows) {
     }
   }
 
-  const last = rows[rows.length - 1];
+  let last;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].kind === "event" && rows[i].name !== "CheckpointWritten") {
+      last = rows[i];
+      break;
+    }
+  }
+  if (!last) return { nodeId: latestNodeId, status: "running" };
   if (last.kind === "event" && last.name === "ExecutionCompleted") {
     return { nodeId: latestNodeId, status: "completed" };
   }
