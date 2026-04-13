@@ -43,7 +43,10 @@ Reload history from SQLite, re-drive orchestration, skip completed activities pe
 
 ## User stories (links)
 
-- To be added under `docs/stories/` (replay loop, checkpoint writer, failure modes).
+- [STORY-3-1 — Replay history hydration and resume cursor derivation](../stories/Story-3-1-Replay-history-hydration-and-resume-cursor-derivation.md)
+- [STORY-3-2 — Deterministic command matching and nondeterminism failure](../stories/Story-3-2-Deterministic-command-matching-and-nondeterminism-failure.md)
+- [STORY-3-3 — Checkpoint persistence policy and recovery loading](../stories/Story-3-3-Checkpoint-persistence-policy-and-recovery-loading.md)
+- [STORY-3-4 — Crash-in-the-middle recovery and replay conformance tests](../stories/Story-3-4-Crash-in-the-middle-recovery-and-replay-conformance-tests.md)
 
 ## Acceptance criteria
 
