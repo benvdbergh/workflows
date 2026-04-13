@@ -9,16 +9,20 @@
     ".": "./src/index.mjs"
   },
   "bin": {
-    "workflows-engine": "./src/cli.mjs"
+    "workflows-engine": "./src/cli.mjs",
+    "workflows-engine-mcp": "./src/mcp-stdio-server.mjs"
   },
   "scripts": {
-    "test": "node --test test/*.mjs"
+    "test": "node --test test/*.mjs",
+    "mcp:stdio": "node ./src/mcp-stdio-server.mjs"
   },
   "engines": {
     "node": ">=22.5.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "ajv": "^8.17.1",
-    "jq-wasm": "^1.1.0-jq-1.8.1"
+    "jq-wasm": "^1.1.0-jq-1.8.1",
+    "zod": "^4.3.6"
   }
 }

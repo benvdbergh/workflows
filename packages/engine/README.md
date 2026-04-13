@@ -16,6 +16,22 @@ Or use the package bin name when linked:
 npx workflows-engine validate path/to/workflow.json
 ```
 
+## MCP stdio adapter (STORY-4-1 bootstrap)
+
+Run from repository root:
+
+```bash
+npm run mcp:stdio --workspace=@agent-workflow-protocol/engine
+```
+
+Or invoke the bin entrypoint directly:
+
+```bash
+npx workflows-engine-mcp
+```
+
+This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
+
 - **File argument:** Path to a file containing **canonical JSON** (RFC-03: normalized JSON, not YAML at runtime).
 - **Stdin:** Omit the file argument or pass `-` to read JSON from stdin.
 

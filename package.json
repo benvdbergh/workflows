@@ -9,6 +9,7 @@
   "scripts": {
     "validate-workflows": "node scripts/validate-workflows.mjs",
     "engine:validate": "node packages/engine/src/cli.mjs validate",
+    "engine:mcp:stdio": "node packages/engine/src/mcp-stdio-server.mjs",
     "test": "npm test --workspace=@agent-workflow-protocol/engine"
   },
   "engines": {
