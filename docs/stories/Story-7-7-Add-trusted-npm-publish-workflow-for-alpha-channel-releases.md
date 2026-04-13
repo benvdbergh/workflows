@@ -75,7 +75,7 @@ Supporting skills: `release-versioning`, `repo-security-compliance`.
   - `release_ref` (tag/branch/SHA),
   - `dist_tag` choice input constrained to `alpha` or `latest`.
 - Implemented workspace-targeted publish:
-  - publish command targets `@agent-workflow-protocol/engine` via npm workspace selector.
+  - publish command targets `@agent-workflow/engine` via npm workspace selector.
 - Refreshed release governance docs for prerequisites and troubleshooting:
   - updated trusted publish path, required setup, and failure triage in `docs/releases/alpha-ci-cd-packaging-governance.md`,
   - linked trusted publish workflow into `docs/releases/alpha-versioning-and-release-commit-flow.md`.

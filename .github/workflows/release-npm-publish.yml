@@ -59,9 +59,9 @@ jobs:
         run: npm ci
 
       - name: Verify package contents (workspace dry run)
-        run: npm pack --dry-run --workspace @agent-workflow-protocol/engine
+        run: npm pack --dry-run --workspace @agent-workflow/engine
 
       - name: Publish engine package with provenance
         env:
           DIST_TAG: ${{ github.event.inputs.dist_tag }}
-        run: npm publish --workspace @agent-workflow-protocol/engine --tag "$DIST_TAG" --access public --provenance
+        run: npm publish --workspace @agent-workflow/engine --tag "$DIST_TAG" --access public --provenance

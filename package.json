@@ -11,7 +11,7 @@
     "engine:validate": "node packages/engine/src/cli.mjs validate",
     "engine:mcp:stdio": "node packages/engine/src/mcp-stdio-server.mjs",
     "conformance": "node conformance/run-conformance.mjs",
-    "test": "npm test --workspace=@agent-workflow-protocol/engine"
+    "test": "npm test --workspace=@agent-workflow/engine"
   },
   "engines": {
     "node": ">=22.5.0"

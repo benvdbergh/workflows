@@ -11,7 +11,7 @@ A specification, contract, and **POC engine** repository for the **Agent Workflo
 - `schemas/workflow-definition-poc.json` — JSON Schema Draft 2020-12 entry schema; validates POC workflow documents
 - `examples/` — golden fixtures (workflow + happy-path and failure/retry trace companions) for the lighthouse demo
 - `conformance/` — conformance harness (`run-conformance.mjs`) with deterministic vector discovery under `conformance/vectors/`
-- `packages/engine/` — **`@agent-workflow-protocol/engine`**: POC validation (CLI + library), append-only command/event history (SQLite or in-memory), linear runner, and full POC walker with `switch` and `interrupt` / resume (see `packages/engine/README.md`)
+- `packages/engine/` — **`@agent-workflow/engine`** (npm org scope `@agent-workflow`): POC validation (CLI + library), append-only command/event history (SQLite or in-memory), linear runner, and full POC walker with `switch` and `interrupt` / resume (see `packages/engine/README.md`)
 - `scripts/validate-workflows.mjs` — repo-wide AJV validation used by CI and aligned with the engine’s schema options
 - `docs/epics/` and `docs/stories/` — agile work items with YAML frontmatter (managed by the `project-planning` skill)
 

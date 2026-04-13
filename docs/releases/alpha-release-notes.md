@@ -36,16 +36,18 @@ These notes are for external evaluators and early adopters validating the curren
 
 Use the published package directly from npm without cloning this repository.
 
+The package is published under the npm organization scope **`@agent-workflow`** ([npm org](https://www.npmjs.com/org/agent-workflow)), not a separate `agent-workflow-protocol` scope.
+
 ### Fast channel install (moving alpha tag)
 
 ```bash
-npx @agent-workflow-protocol/engine@alpha workflows-engine-mcp
+npx @agent-workflow/engine@alpha workflows-engine-mcp
 ```
 
 ### Reproducible install (exact pinned version)
 
 ```bash
-npx @agent-workflow-protocol/engine@0.7.0-alpha.3 workflows-engine-mcp
+npx @agent-workflow/engine@0.7.0-alpha.3 workflows-engine-mcp
 ```
 
 ### Provider-neutral MCP client configuration examples
@@ -58,7 +60,7 @@ Generic JSON-style client configuration:
     "agent-workflow-engine": {
       "command": "npx",
       "args": [
-        "@agent-workflow-protocol/engine@alpha",
+        "@agent-workflow/engine@alpha",
         "workflows-engine-mcp"
       ]
     }
@@ -74,7 +76,7 @@ Pinned, immutable client configuration:
     "agent-workflow-engine": {
       "command": "npx",
       "args": [
-        "@agent-workflow-protocol/engine@0.7.0-alpha.3",
+        "@agent-workflow/engine@0.7.0-alpha.3",
         "workflows-engine-mcp"
       ]
     }
@@ -90,15 +92,15 @@ Run this sequence for every alpha publish event.
 
 1. Package verify:
    - `npm ci`
-   - `npm pack --dry-run --workspace @agent-workflow-protocol/engine`
+   - `npm pack --dry-run --workspace @agent-workflow/engine`
 2. Publish dispatch:
    - Trigger `Release npm publish (manual)` in GitHub Actions.
    - Inputs:
      - `release_ref`: release tag, branch, or SHA.
      - `dist_tag`: `alpha` for pre-release channel (use `latest` only for promoted baseline).
 3. Post-publish smoke test:
-   - `npx @agent-workflow-protocol/engine@alpha workflows-engine-mcp --help`
-   - `npx @agent-workflow-protocol/engine@0.7.0-alpha.3 workflows-engine-mcp --help`
+   - `npx @agent-workflow/engine@alpha workflows-engine-mcp --help`
+   - `npx @agent-workflow/engine@0.7.0-alpha.3 workflows-engine-mcp --help`
 4. Announcement update:
    - Update launch templates and release notes with the published version.
    - Publish channel posts from `docs/community-launch-playbook.md`.

@@ -34,7 +34,7 @@ updated: 2026-04-13
 
 ## Description
 
-Prepare the `@agent-workflow-protocol/engine` package to be safely published and consumed directly by MCP hosts through `npx`, without requiring a prior global install.
+Prepare the `@agent-workflow/engine` package to be safely published and consumed directly by MCP hosts through `npx`, without requiring a prior global install.
 
 ## User story
 

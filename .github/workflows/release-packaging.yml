@@ -54,10 +54,10 @@ jobs:
         run: npm ci
 
       - name: Verify package contents (workspace dry run)
-        run: npm pack --dry-run --workspace @agent-workflow-protocol/engine
+        run: npm pack --dry-run --workspace @agent-workflow/engine
 
       - name: Build package tarball (workspace)
-        run: npm pack --workspace @agent-workflow-protocol/engine
+        run: npm pack --workspace @agent-workflow/engine
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4

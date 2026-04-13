@@ -1,4 +1,4 @@
-# `@agent-workflow-protocol/engine`
+# `@agent-workflow/engine`
 
 Publishable npm package: **definition-time** validation for Agent Workflow Protocol POC workflow documents, an **append-only execution history** port (SQLite or in-memory), a **linear graph runner** (STORY-2-3), and a **general POC walker** (STORY-2-5) with `switch` and `interrupt` / resume.
 
@@ -21,7 +21,7 @@ npx workflows-engine validate path/to/workflow.json
 Run from repository root:
 
 ```bash
-npm run mcp:stdio --workspace=@agent-workflow-protocol/engine
+npm run mcp:stdio --workspace=@agent-workflow/engine
 ```
 
 Or invoke the bin entrypoint directly:
@@ -34,10 +34,10 @@ No-install npm usage for MCP hosts:
 
 ```bash
 # consume the latest alpha channel publish
-npx @agent-workflow-protocol/engine@alpha workflows-engine-mcp
+npx @agent-workflow/engine@alpha workflows-engine-mcp
 
 # consume a pinned, reproducible package version
-npx @agent-workflow-protocol/engine@0.7.0-alpha.3 workflows-engine-mcp
+npx @agent-workflow/engine@0.7.0-alpha.3 workflows-engine-mcp
 ```
 
 This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
@@ -171,7 +171,7 @@ Primary key: `(execution_id, seq)`. Historical rows are not updated or deleted b
 Example:
 
 ```js
-import { validateWorkflowDefinition, SqliteExecutionHistoryStore } from "@agent-workflow-protocol/engine";
+import { validateWorkflowDefinition, SqliteExecutionHistoryStore } from "@agent-workflow/engine";
 import { readFileSync } from "node:fs";
 
 const data = JSON.parse(readFileSync("workflow.json", "utf8"));
@@ -194,7 +194,7 @@ history.close();
 ## Tests
 
 ```bash
-npm test --workspace=@agent-workflow-protocol/engine
+npm test --workspace=@agent-workflow/engine
 ```
 
 ## Packaging verification guidance
@@ -207,7 +207,7 @@ npm pack --dry-run
 
 Check that:
 
-- tarball metadata resolves to `@agent-workflow-protocol/engine` with the intended version/tag source,
+- tarball metadata resolves to `@agent-workflow/engine` with the intended version/tag source,
 - both binaries are present: `src/cli.mjs` and `src/mcp-stdio-server.mjs`,
 - runtime/library entrypoint is present: `src/index.mjs`,
 - payload is minimal (runtime `src/` plus package docs), with no test fixtures or unrelated repository files.

@@ -1,5 +1,5 @@
 /**
- * @agent-workflow-protocol/engine — POC validation and execution history port (persistence adapters).
+ * @agent-workflow/engine — POC validation and execution history port (persistence adapters).
  *
  * @typedef {import("./orchestrator/activity-executor.mjs").ActivityExecutorContext} ActivityExecutorContext
  * @typedef {import("./orchestrator/activity-executor.mjs").ActivityExecutorResult} ActivityExecutorResult
