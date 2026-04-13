@@ -1,0 +1,122 @@
+{
+  "id": "replay.mismatch.first-point.lighthouse.route",
+  "kind": "replay",
+  "definition": "examples/lighthouse-customer-routing.workflow.json",
+  "input": {
+    "ticket_text": "My API returns 500"
+  },
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "lighthouse-customer-routing",
+        "workflowVersion": "1.0.0",
+        "inputKeys": [
+          "ticket_text"
+        ]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "begin"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "begin"
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "begin",
+        "output": {}
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "begin",
+        "state": {
+          "ticket_text": "My API returns 500"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "classify"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "classify"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "classify",
+        "result": {
+          "intent": "technical",
+          "confidence": 0.9
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "classify",
+        "output": {
+          "intent": "technical",
+          "confidence": 0.9
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "classify",
+        "state": {
+          "ticket_text": "My API returns 500",
+          "intent": "technical",
+          "confidence": 0.9
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "open_ticket"
+      }
+    }
+  ],
+  "expect": {
+    "status": "failed",
+    "mismatch": {
+      "messageIncludes": "command index 5",
+      "expected": {
+        "name": "ScheduleNode",
+        "nodeId": "open_ticket"
+      },
+      "actual": {
+        "name": "ScheduleNode",
+        "nodeId": "route"
+      }
+    }
+  }
+}

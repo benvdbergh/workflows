@@ -1,7 +1,7 @@
 import { discoverVectors, runVector } from "./runner.mjs";
 
 const discovered = discoverVectors();
-const results = discovered.map(runVector);
+const results = await Promise.all(discovered.map(runVector));
 const failed = results.filter((result) => !result.passed);
 
 for (const result of results) {
@@ -31,6 +31,8 @@ const summary = {
   counts: {
     schemaPass: results.filter((result) => result.category === "schema-pass").length,
     schemaFailByDesign: results.filter((result) => result.category === "schema-fail-by-design").length,
+    replayPass: results.filter((result) => result.category === "replay-pass").length,
+    replayFailByDesign: results.filter((result) => result.category === "replay-fail-by-design").length,
     unexpected: results.filter((result) => result.category === "unexpected").length,
   },
   vectors: results,
