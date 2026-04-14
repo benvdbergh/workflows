@@ -1,0 +1,50 @@
+name: Risk or Dependency
+description: Track a roadmap risk, blocker, or external dependency.
+title: "[RISK] "
+labels:
+  - type:risk
+body:
+  - type: markdown
+    attributes:
+      value: "If this item blocks work, add native blocking/blocked-by relationships to affected issues. Project `Blocked` should mirror native relationship state."
+  - type: input
+    id: release
+    attributes:
+      label: Affected Release
+      placeholder: R2 / R3 / R4 / R5 / Future
+    validations:
+      required: true
+  - type: textarea
+    id: statement
+    attributes:
+      label: Risk/Dependency Statement
+      description: Concise description of the risk or dependency.
+    validations:
+      required: true
+  - type: dropdown
+    id: likelihood
+    attributes:
+      label: Likelihood
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Mitigation / Decision Needed
+      description: Immediate next action and owner.
+    validations:
+      required: true

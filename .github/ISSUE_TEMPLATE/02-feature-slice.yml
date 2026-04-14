@@ -1,0 +1,45 @@
+name: Feature Slice
+description: Create a roadmap feature that contributes to a release outcome.
+title: "[FEATURE] "
+labels:
+  - type:feature
+body:
+  - type: markdown
+    attributes:
+      value: "Use native Parent/Sub-issue and blocked-by relationships as source of truth. Do not track hierarchy/dependencies only in checklist text."
+  - type: input
+    id: outcome_link
+    attributes:
+      label: Outcome Link
+      description: Set parent epic via native Parent/Sub-issue relationship; use this field for context only.
+      placeholder: "Parent set via native Parent/Sub-issue (e.g., Epic #123)."
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Target Release
+      placeholder: R2 / R3 / R4 / R5 / Future
+    validations:
+      required: true
+  - type: textarea
+    id: user_value
+    attributes:
+      label: Value Hypothesis
+      description: Which user/operator problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed Slice
+      description: Thin vertical slice to ship with measurable impact.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and Risks
+      description: Include architecture runway coupling and blockers.
+    validations:
+      required: true

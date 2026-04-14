@@ -1,0 +1,38 @@
+name: Architecture Runway Enabler
+description: Track architecture enabler work required for future features.
+title: "[RUNWAY] "
+labels:
+  - type:enabler
+  - type:runway
+body:
+  - type: markdown
+    attributes:
+      value: "Record sequencing with native blocked-by/blocking relationships. Do not use issue body text as dependency source of truth."
+  - type: input
+    id: release_due
+    attributes:
+      label: Due-by Release
+      placeholder: R2 / R3 / R4 / R5
+    validations:
+      required: true
+  - type: textarea
+    id: enabler_intent
+    attributes:
+      label: Enabler Intent
+      description: What technical capability are we paving?
+    validations:
+      required: true
+  - type: textarea
+    id: impact_if_delayed
+    attributes:
+      label: Risk if Delayed
+      description: Which features or releases are impacted?
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: Tests, conformance vectors, or operational checks proving readiness.
+    validations:
+      required: true

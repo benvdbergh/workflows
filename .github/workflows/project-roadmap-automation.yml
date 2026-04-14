@@ -1,0 +1,23 @@
+name: Project Roadmap Automation
+
+on:
+  issues:
+    types: [opened, reopened, labeled]
+  pull_request:
+    types: [opened, reopened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  add-to-agent-workflows-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add roadmap issues and PRs to project
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/users/benvdbergh/projects/4
+          github-token: ${{ secrets.PROJECTV2_TOKEN }}
+          labeled: release:R2,release:R3,release:R4,release:R5,release:Future,type:epic,type:feature,type:enabler,type:runway,type:risk

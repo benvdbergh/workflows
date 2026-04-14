@@ -1,0 +1,16 @@
+# Default owners
+* @benvdbergh
+
+# Protocol and scope docs
+/docs/RFC/ @benvdbergh
+/docs/poc-scope.md @benvdbergh
+/ROADMAP.md @benvdbergh
+
+# Engine and schema
+/packages/engine/ @benvdbergh
+/schemas/ @benvdbergh
+/conformance/ @benvdbergh
+/examples/ @benvdbergh
+
+# CI/CD and release workflows
+/.github/workflows/ @benvdbergh

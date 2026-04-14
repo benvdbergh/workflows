@@ -40,3 +40,8 @@ MCP guides default to **operator setup** (published `@agent-workflow/engine` via
 - Epic tracking: [epics/](epics/)
 - Story tracking: [stories/](stories/)
 - GitHub metadata tracking checklist: [repository-metadata-checklist.md](repository-metadata-checklist.md)
+- GitHub project operating model: [releases/github-project-operating-model.md](releases/github-project-operating-model.md)
+- Workflow agent skills:
+  - [../.claude/skills/wf-plan/](../.claude/skills/wf-plan/)
+  - [../.claude/skills/wf-execute/](../.claude/skills/wf-execute/)
+  - [../.claude/skills/wf-design/](../.claude/skills/wf-design/)

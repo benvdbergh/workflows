@@ -1,0 +1,57 @@
+name: Epic
+description: Create a release or capability umbrella epic.
+title: "[EPIC] "
+labels:
+  - type:epic
+body:
+  - type: markdown
+    attributes:
+      value: "Use this form for roadmap-level epics. Link to RFC sections and `ROADMAP.md`."
+  - type: input
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What product or ecosystem outcome does this epic deliver?
+      placeholder: e.g., Deliver full core orchestration parity for R2 Beta.
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Target Release
+      description: Planned release milestone label.
+      placeholder: R2 / R3 / R4 / R5 / Future
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Major capabilities and exclusions.
+    validations:
+      required: true
+  - type: textarea
+    id: runway
+    attributes:
+      label: Architecture Runway Dependencies
+      description: Enablers that must be ready before or alongside this epic.
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: Success Metrics / Exit Criteria
+      description: How do we know this epic is complete?
+    validations:
+      required: true
+  - type: textarea
+    id: traces
+    attributes:
+      label: Traceability
+      description: Link ROADMAP section, RFC sections, and relevant docs.
+      placeholder: |
+        - ROADMAP.md#r2-beta---full-core-orchestration
+        - docs/RFC/rfc-03-workflow-definition-schema.md
+        - docs/RFC/rfc-04-execution-model.md
+    validations:
+      required: true
