@@ -1,0 +1,47 @@
+{
+  "generated": "2026-04-14T10:16:55.425453Z",
+  "totalSkills": 3,
+  "alwaysLoadedCount": 0,
+  "deferredCount": 3,
+  "skills": {
+    "wf-design": {
+      "name": "wf-design",
+      "path": "wf-design/SKILL.md",
+      "fullDescription": "Guides feature, bug, and request design from intake through readiness handoff, using current product status and project vision alignment. Use when work needs design framing, options, roadmap fit checks, or a clear handoff package before planning and execution.",
+      "triggers": [
+        "work needs design framing",
+        "options",
+        "roadmap fit checks",
+        "a clear handoff package before planning and execution"
+      ],
+      "workflows": [],
+      "tier": "deferred"
+    },
+    "wf-execute": {
+      "name": "wf-execute",
+      "path": "wf-execute/SKILL.md",
+      "fullDescription": "Orchestrates execution workflow hygiene across GitHub issues, project fields, branch and PR linkage, progress reporting, and release-close carryover for the workflows repository. Use when work starts from an issue and needs consistent status transitions, field updates, and execution reporting through closure.",
+      "triggers": [
+        "work starts from an issue and needs consistent status transitions",
+        "field updates",
+        "and execution reporting through closure"
+      ],
+      "workflows": [],
+      "tier": "deferred"
+    },
+    "wf-plan": {
+      "name": "wf-plan",
+      "path": "wf-plan/SKILL.md",
+      "fullDescription": "Orchestrates project-level planning, roadmap, and delivery-cadence workflows for the workflows repository by routing requests to the right specialist skills and enforcing commitment-vs-forecast clarity. Use when planning from vision, slicing releases, sequencing architectural runway, running roadmap/project cadence, or producing planning status reports.",
+      "triggers": [
+        "planning from vision",
+        "slicing releases",
+        "sequencing architectural runway",
+        "running roadmap/project cadence",
+        "producing planning status reports"
+      ],
+      "workflows": [],
+      "tier": "deferred"
+    }
+  }
+}
