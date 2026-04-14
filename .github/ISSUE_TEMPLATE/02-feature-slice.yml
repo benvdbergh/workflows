@@ -37,6 +37,17 @@ body:
     validations:
       required: true
   - type: textarea
+    id: spec_and_architecture
+    attributes:
+      label: Spec and Architecture Inputs
+      description: Link the relevant RFC sections, scope notes, and design/ADR docs that define this slice.
+      placeholder: |
+        RFC trace:
+        POC scope impact:
+        Design/ADR link:
+    validations:
+      required: true
+  - type: textarea
     id: dependencies
     attributes:
       label: Dependencies and Risks

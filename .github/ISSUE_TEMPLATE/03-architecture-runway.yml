@@ -23,6 +23,17 @@ body:
     validations:
       required: true
   - type: textarea
+    id: design_artifacts
+    attributes:
+      label: Required Design Artifacts
+      description: Link/update the architecture note and spec deltas needed before coding starts.
+      placeholder: |
+        Architecture note / ADR:
+        RFC sections:
+        Contract/schema/test vectors impacted:
+    validations:
+      required: true
+  - type: textarea
     id: impact_if_delayed
     attributes:
       label: Risk if Delayed

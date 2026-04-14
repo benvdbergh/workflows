@@ -14,6 +14,15 @@
 - RFC trace links:
   - 
 
+## Spec and architecture traceability
+
+- Spec artifact link (required for feature/runway PRs):
+  - 
+- Architecture decision link (ADR/design note, if applicable):
+  - 
+- [ ] Scope and constraints reviewed against `docs/poc-scope.md` and relevant `docs/RFC/*`
+- [ ] If behavior/contract changed, corresponding spec/design docs were updated first or in this PR
+
 ## Architecture runway impact
 
 - [ ] No runway impact
