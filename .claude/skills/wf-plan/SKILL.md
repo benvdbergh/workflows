@@ -5,7 +5,7 @@ description: >-
 license: MIT
 metadata:
   author: workflows
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # wf-plan
@@ -29,8 +29,11 @@ Process orchestration skill for planning and roadmapping in this repository. It 
 1. Start every planning run by clarifying objective, horizon, and decision type.
 2. Mark each planned item as `commitment`, `forecast`, or `option`.
 3. Surface architecture dependencies/runway before finalizing release commitments.
-4. Route to specialist skills instead of recreating their standards locally.
-5. End each run with a cadence-ready status view (changes, risks, next checkpoint).
+4. Verify commitment items have design evidence and ADR readiness (or explicit ADR deferral note).
+5. Anchor planning decisions against the current architecture baseline in `docs/architecture/as-is-system-overview.md`.
+6. Use `docs/architecture/as-built-views.drawio` and `docs/architecture/rfc-target-views.drawio` as canonical visual evidence for as-is vs target planning deltas.
+7. End each run with a cadence-ready status view (changes, risks, next checkpoint).
+8. Route to specialist skills instead of recreating their standards locally.
 
 ## Workflow Routing
 
@@ -51,6 +54,7 @@ Actions:
 - Ensure roadmap releases map to milestones and project fields.
 - Ensure release epics and runway items exist and are linked to the project.
 - Verify labels reflect type/release/area/confidence dimensions.
+- Validate planning artifacts are consistent with `docs/governance/spec-architecture-governance.md`.
 - Publish a short "planning baseline" update comment or issue note.
 
 ### RoadmapRebalanceInProject
@@ -61,6 +65,7 @@ Actions:
 - Update milestone/release assignment for impacted issues.
 - Update project fields (`Release`, `Horizon`, `Commitment`, `Runway`, `Area`, `Blocked`) to match the new plan.
 - Add a rationale note on the issue with risk/dependency implications.
+- If a committed item lacks design artifacts or ADR posture, downgrade to forecast/option until resolved.
 - Produce a delta report: what moved, why, and expected impact.
 
 ### PlanningCadenceReportFromProject
@@ -76,10 +81,12 @@ Actions:
 ## Standard Orchestration Loop
 
 1. **Intake**: capture vision/objective, timeframe, constraints, and stakeholders.
-2. **Classify**: select one routing workflow and identify required specialist skills.
-3. **Escalate**: invoke relevant skills (`product-roadmap`, `project-planning`, `software-architecture`, `release-versioning` when needed).
-4. **Consolidate**: unify outputs into one plan view with commitment/forecast labels and runway dependencies.
-5. **Report**: produce cadence update (what changed, confidence trend, top risks, next decisions).
+2. **Baseline check**: confirm delta against `docs/architecture/as-is-system-overview.md`, `docs/architecture/as-built-views.drawio`, `docs/architecture/rfc-target-views.drawio`, and relevant ADRs in `docs/architecture/adr/`.
+3. **Classify**: select one routing workflow and identify required specialist skills.
+4. **Escalate**: invoke relevant skills (`product-roadmap`, `project-planning`, `software-architecture`, `release-versioning` when needed).
+5. **Consolidate**: unify outputs into one plan view with commitment/forecast labels and runway dependencies.
+6. **Gate**: validate commitment items against design-first governance and ADR posture.
+7. **Report**: produce cadence update (what changed, confidence trend, top risks, next decisions).
 
 ## Escalation Contract
 

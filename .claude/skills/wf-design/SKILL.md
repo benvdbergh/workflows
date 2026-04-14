@@ -7,7 +7,7 @@ description: >-
   planning and execution.
 metadata:
   author: workflows project
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # wf-design
@@ -25,6 +25,10 @@ Process-first design router for work entering the repository.
 - Do not implement code, author final architecture artifacts, or create delivery plans directly in this skill.
 - Keep decisions traceable to repository evidence and explicit assumptions.
 - Treat `ROADMAP.md` and `docs/RFC/` as primary vision and protocol constraints.
+- Treat `docs/governance/spec-architecture-governance.md` as the mandatory design-first gate policy (Gate A/B/C).
+- Use `docs/architecture/as-is-system-overview.md` as the implementation baseline before proposing deltas.
+- Use `docs/architecture/as-built-views.drawio` (as-is) and `docs/architecture/rfc-target-views.drawio` (target) as the canonical architecture view artifacts.
+- Link relevant ADRs under `docs/architecture/adr/` and explicitly state whether a new ADR is required.
 - Escalate when confidence is low, uncertainty is structural, or formal planning/specification is required.
 
 ## Workflow Routing
@@ -39,6 +43,9 @@ Actions:
 - Gather current-state signals from:
   - `ROADMAP.md` for release intent and sequencing context.
   - `docs/RFC/` for protocol constraints and non-negotiable design boundaries.
+  - `docs/governance/spec-architecture-governance.md` for gate and traceability requirements.
+  - `docs/architecture/as-is-system-overview.md`, `docs/architecture/as-built-views.drawio`, and `docs/architecture/rfc-target-views.drawio` for architecture viewpoints and delta analysis.
+  - `docs/architecture/adr/ADR-0001-poc-foundation-decisions.md` for historical rationale.
   - Relevant docs under `docs/` for existing decisions and operational context.
 - Produce an intake snapshot with knowns, unknowns, assumptions, and evidence links.
 
@@ -144,6 +151,7 @@ Each run must hand off a structured package containing:
 - What must remain true for solution acceptance.
 - In-scope and out-of-scope boundaries.
 - Compliance constraints from roadmap/RFC context.
+- Gate mapping from `docs/governance/spec-architecture-governance.md` (A/B/C) with pass/fail notes.
 
 3. Dependency and risk notes
 - Upstream/downstream dependencies.
@@ -154,6 +162,10 @@ Each run must hand off a structured package containing:
 - Suggested target release window/horizon.
 - Confidence level: High, Medium, or Low.
 - Confidence rationale and conditions to increase confidence.
+
+5. ADR posture
+- Existing ADRs referenced and applicability summary.
+- Explicit marker: "New ADR required: yes/no" with rationale.
 
 ## Minimal Execution Checklist
 

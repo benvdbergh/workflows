@@ -6,7 +6,7 @@ description: >-
   workflows repository. Use when work starts from an issue and needs consistent
   status transitions, field updates, and execution reporting through closure.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # wf-execute
@@ -45,6 +45,14 @@ Use `references/skill-escalation.md` for escalation criteria.
 - Every execution thread starts from a tracked issue in `benvdbergh/workflows`.
 - Every PR must link the source issue with closing keywords in the PR body.
 - Branch names should include the issue id for traceability (for example: `feat/123-short-topic`).
+- Every feature/runway PR must complete the spec/architecture traceability section in `.github/pull_request_template.md`.
+
+### Build-ready preconditions (before setting in-progress)
+
+- Design evidence is present and aligned with `docs/governance/spec-architecture-governance.md` Gate B.
+- Scope trace is explicit to relevant RFC and `docs/poc-scope.md` boundaries.
+- ADR posture is explicit: link existing ADR(s) or state "ADR deferred" with rationale and follow-up owner.
+- Architecture diagram evidence is current in `docs/architecture/as-built-views.drawio`; if target alignment is discussed, also reference `docs/architecture/rfc-target-views.drawio`.
 
 ### Project field concepts
 
@@ -65,10 +73,11 @@ Status and field updates should be applied at start, during active execution, wh
 ## 1) Start Execution From Issue
 
 1. Confirm issue has clear scope and acceptance intent.
-2. Confirm project card exists in project `4`; create or link if missing.
-3. Set/update fields (`Type`, `Release`, `Horizon`, `Commitment`, `Runway`, `Area`, `Blocked`) to the current execution baseline.
-4. Move status to active execution state in the project workflow.
-5. Create branch linked to issue id and start implementation.
+2. Confirm build-ready preconditions are satisfied (design evidence, scope trace, ADR posture).
+3. Confirm project card exists in project `4`; create or link if missing.
+4. Set/update fields (`Type`, `Release`, `Horizon`, `Commitment`, `Runway`, `Area`, `Blocked`) to the current execution baseline.
+5. Move status to active execution state in the project workflow.
+6. Create branch linked to issue id and start implementation.
 
 Escalate to `project-planning` if issue scope is ambiguous, oversized, or missing dependency clarity.
 
@@ -82,9 +91,10 @@ Escalate to `project-planning` if issue scope is ambiguous, oversized, or missin
 1. Keep branch singularly mapped to the issue objective.
 2. Open PR early once implementation direction is stable.
 3. Link issue in PR body and include closing intent.
-4. Transition project status from in-progress to review when PR is ready.
-5. If review requests rework, return status to in-progress and continue updates.
-6. On merge, ensure issue closes and project item transitions to done.
+4. Complete spec/architecture traceability details in the PR template before requesting review.
+5. Transition project status from in-progress to review when PR is ready.
+6. If review requests rework, return status to in-progress and continue updates.
+7. On merge, ensure issue closes and project item transitions to done.
 
 Escalate to `repo-triage-pr-ops` when review routing, labels, ownership, or PR ops conventions are unclear.
 
