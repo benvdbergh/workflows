@@ -26,6 +26,11 @@ This index makes the documentation information architecture explicit:
 
 MCP guides default to **operator setup** (published `@agent-workflow/engine` via `npx`); use **development setup** (local `mcp-stdio-server.mjs`) only when hacking the adapter or engine.
 
+- As-is architecture baseline for design-first evolution: [architecture/as-is-system-overview.md](architecture/as-is-system-overview.md)
+- As-built architecture diagrams (current implementation viewpoints): [architecture/as-built-views.drawio](architecture/as-built-views.drawio)
+- RFC target architecture diagrams (target-state viewpoints): [architecture/rfc-target-views.drawio](architecture/rfc-target-views.drawio)
+- ADR process and index: [architecture/adr/README.md](architecture/adr/README.md)
+- ADR-0001 (POC foundation decisions and rationale): [architecture/adr/ADR-0001-poc-foundation-decisions.md](architecture/adr/ADR-0001-poc-foundation-decisions.md)
 - Guided MCP host demo: [architecture/lighthouse-mcp-host-guided-demo-walkthrough.md](architecture/lighthouse-mcp-host-guided-demo-walkthrough.md)
 - Crash/resume replay demo: [architecture/lighthouse-replay-crash-resume-demo.md](architecture/lighthouse-replay-crash-resume-demo.md)
 - MCP stdio host smoke walkthrough: [architecture/mcp-stdio-host-smoke.md](architecture/mcp-stdio-host-smoke.md)
@@ -39,6 +44,7 @@ MCP guides default to **operator setup** (published `@agent-workflow/engine` via
 
 - Epic tracking: [epics/](epics/)
 - Story tracking: [stories/](stories/)
+- Spec and architecture governance (design-first): [governance/spec-architecture-governance.md](governance/spec-architecture-governance.md)
 - GitHub metadata tracking checklist: [repository-metadata-checklist.md](repository-metadata-checklist.md)
 - GitHub project operating model: [releases/github-project-operating-model.md](releases/github-project-operating-model.md)
 - Workflow agent skills:

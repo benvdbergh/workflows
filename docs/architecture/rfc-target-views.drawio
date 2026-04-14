@@ -1,0 +1,118 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="RFC Target Workflow Engine Invocation" id="M6H0QByLYA04aoBxKbzF">
+    <mxGraphModel dx="2105" dy="1212" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" value="Client / Host Layer" vertex="1">
+          <mxGeometry height="80" width="260" x="40" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" value="Assistant Host Process&#xa;(IDE / Desktop / API Client)" vertex="1">
+          <mxGeometry height="90" width="240" x="50" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" value="Engine Adapter Layer" vertex="1">
+          <mxGeometry height="80" width="330" x="360" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" value="MCP Server Adapter&#xa;(workflow_start/status/resume)" vertex="1">
+          <mxGeometry height="90" width="145" x="452.5" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" value="REST Adapter&#xa;(OpenAPI executions API)" vertex="1">
+          <mxGeometry height="90" width="145" x="360" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;" value="Engine Core Layer" vertex="1">
+          <mxGeometry height="80" width="560" x="760" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" value="Workflow Orchestrator&#xa;(graph walk, switch eval, command/event loop)" vertex="1">
+          <mxGeometry height="90" width="220" x="910" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" value="Activity Scheduler&#xa;(dispatch non-deterministic nodes)" vertex="1">
+          <mxGeometry height="90" width="220" x="1050" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="History Store&#xa;(append-only commands/events)" vertex="1">
+          <mxGeometry height="90" width="220" x="740" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Checkpoint Store&#xa;(state snapshot + replay pointer)" vertex="1">
+          <mxGeometry height="90" width="220" x="1030" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="12" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" value="Activity Adapter Layer" vertex="1">
+          <mxGeometry height="80" width="740" x="1360" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="13" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" value="LLM Adapter Service&#xa;(provider abstraction + schema enforcement)" vertex="1">
+          <mxGeometry height="90" width="230" x="1380" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="14" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" value="MCP Tool Adapter&#xa;(tools/call client bridge)" vertex="1">
+          <mxGeometry height="90" width="230" x="1620" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="15" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" value="A2A Agent Adapter&#xa;(task submit + lifecycle mapping)" vertex="1">
+          <mxGeometry height="90" width="230" x="1860" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="16" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" value="External Services" vertex="1">
+          <mxGeometry height="80" width="740" x="1360" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="17" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="LLM Provider API" vertex="1">
+          <mxGeometry height="90" width="230" x="1380" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="18" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="MCP Tool Server(s)" vertex="1">
+          <mxGeometry height="90" width="230" x="1620" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="19" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" value="Specialist Agent Runtime&#xa;(A2A peer agent)" vertex="1">
+          <mxGeometry height="90" width="230" x="1860" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="20" edge="1" parent="1" source="3" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#6c8ebf;" target="5" value="1) Start/Status/Resume calls">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="21" edge="1" parent="1" source="5" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#82b366;" target="8" value="2) Unified internal API">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="22" edge="1" parent="1" source="6" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#82b366;dashed=1;" target="8" value="2) Unified internal API">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="23" edge="1" parent="1" source="8" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#b85450;" target="10" value="3) Append commands/events">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="24" edge="1" parent="1" source="8" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#b85450;" target="9" value="4) Dispatch activity node">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="25" edge="1" parent="1" source="9" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#9673a6;" target="13" value="5a) llm_call">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="26" edge="1" parent="1" source="9" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#9673a6;" target="14" value="5b) tool_call">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="27" edge="1" parent="1" source="9" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#9673a6;" target="15" value="5c) agent_delegate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="28" edge="1" parent="1" source="13" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#666666;" target="17" value="6a) Model inference request">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="29" edge="1" parent="1" source="14" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#666666;" target="18" value="6b) MCP tools/call">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="30" edge="1" parent="1" source="15" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#666666;" target="19" value="6c) A2A task submit + polling">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="31" edge="1" parent="1" source="13" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#9673a6;" target="8" value="7) ActivityCompleted / ActivityFailed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="32" edge="1" parent="1" source="14" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#9673a6;" target="8" value="7) ActivityCompleted / ActivityFailed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="33" edge="1" parent="1" source="15" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#9673a6;" target="8" value="7) task lifecycle mapped to events">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="34" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;" value="8) Evaluate switch (jq on state)&#xa;and schedule next node" vertex="1">
+          <mxGeometry height="60" width="300" x="750" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="35" edge="1" parent="1" source="8" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#b85450;dashed=1;" target="11" value="9) Persist checkpoint policy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="36" edge="1" parent="1" source="8" style="endArrow=block;endFill=1;html=1;rounded=0;strokeColor=#6c8ebf;" target="3" value="10) Stream status/history to host">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="37" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="Example node chain (inside orchestrator):&#xa;collect_context(tool_call) -&gt; classify_intent(llm_call) -&gt; switch -&gt;&#xa;[standard tool_call OR specialist agent_delegate] -&gt; finalize(llm_call) -&gt; end" vertex="1">
+          <mxGeometry height="100" width="970" x="360" y="500" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

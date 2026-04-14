@@ -42,12 +42,6 @@ Several sections include **Mermaid** figures (stack, architecture, replay, inter
 
 ---
 
-## Authoring and orchestration (repository)
-
-Multi-agent plans, glossary, and merge checklists for editors live under **`temp/`** (not part of the normative spec), e.g. `temp/rfc-authoring-plan.md`, `temp/handoff-glossary.md`, `temp/merge-checklist.md`.
-
----
-
 ## Quick links (all section files)
 
 - [rfc-01-abstract-motivation.md](rfc-01-abstract-motivation.md)  
