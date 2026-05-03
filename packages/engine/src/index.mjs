@@ -21,7 +21,7 @@ export {
   computeLinearNodePath,
   runLinearWorkflow,
 } from "./orchestrator/linear-runner.mjs";
-export { runPocWorkflow, resumePocWorkflow } from "./orchestrator/poc-runner.mjs";
+export { runPocWorkflow, resumePocWorkflow, submitActivityOutcome } from "./orchestrator/poc-runner.mjs";
 export { hydrateReplayContext } from "./orchestrator/replay-loader.mjs";
 export { createWorkflowApplicationPort } from "./application/workflow-application-port.mjs";
 export { createMcpWorkflowStdioServer } from "./adapters/mcp/stdio-server.mjs";

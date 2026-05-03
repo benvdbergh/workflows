@@ -31,6 +31,11 @@ github:
 # Create or update issues (planning output lands here):
 #   gh issue create --repo benvdbergh/workflows --title "..." --body-file body.md
 #   gh issue edit 123 --repo benvdbergh/workflows --body-file body.md
+#   gh issue edit N1 N2 --repo benvdbergh/workflows --milestone "R2 Beta - Full Core Orchestration"
+# Project #4 fields (Type, Release, Horizon, Commitment, Runway, Area, Blocked) require token scopes:
+#   gh auth refresh -s read:project -s project
+#   gh project item-add 4 --owner benvdbergh --url https://github.com/benvdbergh/workflows/issues/N
+#   gh project field-list 4 --owner benvdbergh   # then gh project item-edit ...
 #
 # Project (classic user project; field IDs may vary — use `gh project field-list`):
 #   gh project item-list 4 --owner benvdbergh --format json

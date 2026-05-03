@@ -12,6 +12,7 @@ describe("MCP stdio entrypoint", () => {
     const run = spawnSync(process.execPath, [scriptPath, "--help"], { encoding: "utf8" });
 
     assert.equal(run.status, 0);
+    assert.match(run.stdout, /workflow_submit_activity/i);
     assert.match(run.stdout, /workflow_start\/workflow_status\/workflow_resume/i);
     assert.equal(run.stderr, "");
   });

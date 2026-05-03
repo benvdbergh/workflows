@@ -42,6 +42,7 @@ An engine **MAY** expose an MCP server. Recommended **tools** (names illustrativ
 | `workflow_start` | Start execution from definition ref or inline document; returns `execution_id`. |
 | `workflow_status` | Return phase, current node(s), last error. |
 | `workflow_resume` | Resume from interrupt with payload. |
+| `workflow_submit_activity` | Submit activity result or failure for a pending `step` / `llm_call` / `tool_call` (host-mediated profiles; name illustrative). |
 | `workflow_cancel` | Request cooperative cancellation. |
 | `workflow_signal` | Send named signal for `wait` / extensions. |
 | `workflow_list` | List executions with filters (optional). |
@@ -60,7 +61,7 @@ Control-plane data flow (informative):
 
 ```mermaid
 flowchart LR
-  HOST["MCP host\n(assistant, IDE)"] --> T["Tools:\nstart · status · resume · cancel · signal"]
+  HOST["MCP host\n(assistant, IDE)"] --> T["Tools:\nstart · status · resume · submit activity · cancel · signal"]
   T --> ENG["Workflow engine"]
   ENG --> R["Resources:\ndefinition · history · state"]
   R --> HOST

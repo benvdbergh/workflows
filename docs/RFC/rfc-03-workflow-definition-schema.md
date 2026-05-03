@@ -125,7 +125,7 @@ Terminal node; **MAY** include `output_schema` and `output_mapping` (jq) to buil
 
 ### `step`
 
-Deterministic user code or sandboxed logic. `config` **MUST** include a **reference** to implementation (e.g. `handler: "urn:..."` or `code_ref`) — exact registry **TBD** by implementation profile. **MUST NOT** perform non-deterministic I/O unless wrapped as an activity by the engine (engine-specific).
+Deterministic user code or sandboxed logic. `config` **MUST** include a **reference** to implementation (e.g. `handler: "urn:..."` or `code_ref`) — exact registry **TBD** by implementation profile. **MUST NOT** perform non-deterministic I/O inside the node unless that work is modeled as an activity (`llm_call`, `tool_call`, or another profile-defined activity boundary). The engine **MAY** run activities in-process **OR** delegate invocation to the host per the integration profile ([Section 5](rfc-05-integration-interfaces.md)).
 
 ### `llm_call`
 

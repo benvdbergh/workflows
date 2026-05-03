@@ -69,7 +69,7 @@ The engine ships two bins: `workflows-engine` (validation CLI) and `workflows-en
 npm run engine:mcp:stdio
 ```
 
-MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`. Operator smoke runbook: `docs/architecture/mcp-stdio-host-smoke.md`.
+MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `workflow_submit_activity`. Operator smoke runbook: `docs/architecture/mcp-stdio-host-smoke.md`.
 
 ## Key architectural decisions
 
@@ -83,7 +83,7 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`. Opera
 
 **Schema sync is enforced at pack time.** `scripts/sync-engine-poc-schema.mjs` runs as `prepack` to copy the root schema into `packages/engine/schemas/`. Use `npm run check-engine-poc-schema-sync` to verify they are in sync without modifying files.
 
-**MCP adapter is layered over a stable application port.** `createWorkflowApplicationPort` is the internal boundary. The MCP stdio server (`mcp-stdio-server.mjs`) maps MCP request DTOs to that port and translates engine failures into structured tool errors with stable error codes (`VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, `ENGINE_FAILURE`, `INTERNAL_ERROR`).
+**MCP adapter is layered over a stable application port.** `createWorkflowApplicationPort` is the internal boundary. The MCP stdio server (`mcp-stdio-server.mjs`) maps MCP request DTOs to that port and translates engine failures into structured tool errors with stable error codes (`VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, activity-submit codes `ACTIVITY_SUBMIT_NOT_AWAITING`, `ACTIVITY_SUBMIT_NODE_MISMATCH`, `ACTIVITY_SUBMIT_PARALLEL_MISMATCH`, `SUBMIT_VALIDATION_ERROR`, `ENGINE_FAILURE`, `INTERNAL_ERROR`).
 
 **Release pipeline is fully manual and trusted-publish-based.** npm publish uses OIDC provenance (`--provenance`); no secrets stored in the repo. Release ops require `id-token: write` on the publish job only. See `docs/releases/alpha-ci-cd-packaging-governance.md` for the full permissions map and gate design.
 

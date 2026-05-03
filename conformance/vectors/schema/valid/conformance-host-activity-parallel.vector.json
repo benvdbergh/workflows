@@ -1,0 +1,9 @@
+{
+  "id": "schema.valid.conformance-host-activity-parallel",
+  "description": "Conformance host-activity parallel-branch fixture validates against POC schema.",
+  "kind": "schema",
+  "definition": "examples/conformance-host-activity-parallel.workflow.json",
+  "expect": {
+    "ok": true
+  }
+}

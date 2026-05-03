@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
-import { runPocWorkflow, resumePocWorkflow } from "../src/orchestrator/poc-runner.mjs";
+import { runPocWorkflow, resumePocWorkflow, submitActivityOutcome } from "../src/orchestrator/poc-runner.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -491,5 +491,175 @@ describe("runPocWorkflow (checkpoint policy)", () => {
       assert.equal(boundary.kind, "event");
       assert.ok(boundary.name === "StateUpdated" || boundary.name === "InterruptRaised");
     }
+  });
+});
+
+describe("runPocWorkflow (host-mediated activities)", () => {
+  it("yields after ActivityRequested then completes via submitActivityOutcome (linear)", async () => {
+    /** @type {object} */
+    const definition = {
+      document: {
+        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        name: "host-med-linear",
+        version: "1.0.0",
+      },
+      state_schema: {
+        type: "object",
+        properties: {
+          out: { type: "string" },
+        },
+      },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "work",
+          type: "tool_call",
+          config: { server: "demo-mcp", tool: "stub", arguments: {} },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".out" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "work" },
+        { source: "work", target: "end" },
+      ],
+    };
+    assert.equal(validateWorkflowDefinition(definition).ok, true);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-host-linear";
+    const input = {};
+
+    const first = await runPocWorkflow({
+      definition,
+      input,
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(first.status, "awaiting_activity");
+    assert.equal(first.nodeId, "work");
+    const evs = store.listByExecution(executionId).filter((r) => r.kind === "event");
+    assert.equal(evs.at(-1)?.name, "ActivityRequested");
+
+    const badNode = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "wrong_node",
+      outcome: { ok: true, result: { out: "x" } },
+    });
+    assert.equal(badNode.status, "failed");
+    assert.equal(badNode.code, "ACTIVITY_SUBMIT_NODE_MISMATCH");
+
+    const done = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "work",
+      outcome: { ok: true, result: { out: "hi" } },
+    });
+    assert.equal(done.status, "completed");
+    assert.equal(done.result, "hi");
+
+    const notAwaiting = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "work",
+      outcome: { ok: true, result: { out: "nope" } },
+    });
+    assert.equal(notAwaiting.status, "failed");
+    assert.equal(notAwaiting.code, "ACTIVITY_SUBMIT_NOT_AWAITING");
+  });
+
+  it("yields inside parallel branch with parallelSpan; submit requires matching context", async () => {
+    /** @type {object} */
+    const definition = {
+      document: {
+        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        name: "host-med-parallel",
+        version: "1.0.0",
+      },
+      state_schema: {
+        type: "object",
+        properties: {
+          y: { type: "string" },
+        },
+      },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "fork",
+          type: "parallel",
+          config: {
+            join: "all",
+            branches: [{ name: "only", entry: "a1" }],
+          },
+        },
+        {
+          id: "a1",
+          type: "tool_call",
+          config: { server: "demo-mcp", tool: "stub", arguments: {} },
+        },
+        {
+          id: "join",
+          type: "set_state",
+          config: { assignments: { y: { literal: "after_join" } } },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".y" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "fork" },
+        { source: "fork", target: "join" },
+        { source: "a1", target: "join" },
+        { source: "join", target: "end" },
+      ],
+    };
+    assert.equal(validateWorkflowDefinition(definition).ok, true);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-host-par";
+    const input = {};
+
+    const first = await runPocWorkflow({
+      definition,
+      input,
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(first.status, "awaiting_activity");
+    assert.equal(first.nodeId, "a1");
+    assert.ok(first.parallelSpan);
+    assert.equal(first.parallelSpan.parallelNodeId, "fork");
+    assert.equal(first.parallelSpan.branchName, "only");
+
+    const missingSpan = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "a1",
+      outcome: { ok: true, result: { y: "branch" } },
+    });
+    assert.equal(missingSpan.status, "failed");
+    assert.equal(missingSpan.code, "ACTIVITY_SUBMIT_PARALLEL_MISMATCH");
+
+    const done = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "a1",
+      expectedParallelSpan: first.parallelSpan,
+      outcome: { ok: true, result: { y: "branch" } },
+    });
+    assert.equal(done.status, "completed");
+    assert.equal(done.result, "after_join");
   });
 });

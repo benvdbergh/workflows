@@ -53,3 +53,4 @@ Each ADR should include:
 ## Current ADRs
 
 - `ADR-0001-poc-foundation-decisions.md`
+- `ADR-0002-host-mediated-activity-execution.md`

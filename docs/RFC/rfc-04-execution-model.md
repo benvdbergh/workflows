@@ -100,6 +100,8 @@ Events are **append-only** records. Minimum set:
 | `ExecutionCompleted` | Terminal outputs. |
 | `ExecutionFailed` | Terminal error. |
 
+**Activity invocation:** Engines **MAY** execute `ActivityRequested` work inside the runtime process **OR**, in **host-mediated** profiles, pause until an external host (for example an MCP-capable assistant) performs the tool or model call and submits success or failure on the control plane ([Section 5](rfc-05-integration-interfaces.md) §5.2). Replay **MUST** reproduce history without re-invoking hosts for already-completed activities.
+
 Events **SHOULD** carry **monotonic sequence numbers** and **causation** fields (parent command id).
 
 ## 4.6 State updates and reducers

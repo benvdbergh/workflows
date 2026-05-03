@@ -8,7 +8,7 @@ async function main() {
   if (args.has("--help") || args.has("-h")) {
     process.stdout.write(
       "Usage: node packages/engine/src/mcp-stdio-server.mjs\n" +
-        "Starts MCP stdio adapter with workflow_start/workflow_status/workflow_resume tools.\n"
+        "Starts MCP stdio adapter with workflow_start/workflow_status/workflow_resume/workflow_submit_activity tools.\n"
     );
     return;
   }

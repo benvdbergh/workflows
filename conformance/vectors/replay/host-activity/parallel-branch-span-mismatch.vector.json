@@ -1,0 +1,102 @@
+{
+  "id": "replay.host_activity.parallel.span_mismatch",
+  "description": "Submit for a parallel-branch activity without matching expectedParallelSpan is rejected.",
+  "kind": "replay",
+  "definition": "examples/conformance-host-activity-parallel.workflow.json",
+  "input": {},
+  "activityExecutionMode": "host_mediated",
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "conformance-host-par",
+        "workflowVersion": "1.0.0",
+        "inputKeys": []
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "start", "state": {} }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "fork" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "fork" }
+    },
+    {
+      "kind": "command",
+      "name": "StartParallel",
+      "payload": {
+        "nodeId": "fork",
+        "join": "all",
+        "branchNames": ["only"]
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ParallelForked",
+      "payload": {
+        "nodeId": "fork",
+        "join": "all",
+        "branchNames": ["only"]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "a1" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "a1" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": {
+        "nodeId": "a1",
+        "nodeType": "tool_call",
+        "parallelSpan": {
+          "parallelNodeId": "fork",
+          "joinTargetId": "join",
+          "branchName": "only",
+          "branchEntryNodeId": "a1"
+        }
+      }
+    }
+  ],
+  "activitySubmissions": [
+    {
+      "nodeId": "a1",
+      "outcome": { "ok": true, "result": { "y": "branch" } },
+      "expectFailure": { "code": "ACTIVITY_SUBMIT_PARALLEL_MISMATCH" }
+    }
+  ],
+  "expect": {
+    "status": "awaiting_activity",
+    "tailCommands": []
+  }
+}

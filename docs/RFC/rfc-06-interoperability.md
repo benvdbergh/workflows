@@ -25,6 +25,8 @@ Workflows **SHOULD** represent `tool_call` nodes in a way that maps 1:1 to MCP *
 - Tool name and arguments **MUST** serialize to MCP-compliant JSON.  
 - Errors **SHOULD** map MCP error codes to workflow `ActivityFailed` types for retry policy.
 
+In **host-mediated** profiles (recommended for assistant hosts), the engine emits `ActivityRequested` and the **MCP host** performs MCP **tools/call** (or the equivalent LLM or handler invocation); results return via the engine control plane (§5.2). The composition diagram above is **logical** (`tool_call` maps to MCP tools)—not a requirement that the engine process opens MCP client connections.
+
 Engines **MAY** host a **meta-MCP** that exposes workflow control tools (see §5.2) so any MCP-capable client can start and observe workflows.
 
 ## 6.2 Composing A2A and agent delegation

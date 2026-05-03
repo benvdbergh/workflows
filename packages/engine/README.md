@@ -55,7 +55,7 @@ npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp
 
 **Development setup** — point `node` at `packages/engine/src/mcp-stdio-server.mjs` inside your clone when working on the adapter or engine.
 
-This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
+This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, `workflow_resume`, and **`workflow_submit_activity`** (host-mediated activity completion; see below). The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
 
 Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
 
@@ -69,23 +69,31 @@ Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
 ### MCP tool contracts (minimum set)
 
 - `workflow_start`
-  - args: `{ execution_id?: string, definition: object, input: object }`
-  - returns: `{ execution_id, status, final_state?, result?, error?, node_id? }`
-  - notes: if `execution_id` is omitted, the engine generates a stable UUID and returns it for follow-up calls.
+  - args: `{ execution_id?: string, definition: object, input: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - returns: `{ execution_id, status, final_state?, result?, error?, node_id?, state?, parallel_span? }`
+  - notes: if `execution_id` is omitted, the engine generates a stable UUID and returns it for follow-up calls. With **`activity_execution_mode: "host_mediated"`**, the engine returns `status: "awaiting_activity"` after recording `ActivityRequested` for the next activity node; the host completes it via `workflow_submit_activity`.
 - `workflow_status`
   - args: `{ execution_id: string }`
   - returns: `{ execution_id, phase, current_node_id?, last_error? }`
-  - notes: `phase/current_node_id/last_error` are projected deterministically from persisted execution history (including resume/checkpoint-driven progress), not adapter-local mutable state.
+  - notes: `phase/current_node_id/last_error` are projected deterministically from persisted execution history (including resume/checkpoint-driven progress), not adapter-local mutable state. Phase **`awaiting_activity`** indicates the last non-checkpoint event is `ActivityRequested` (host-mediated pending).
 - `workflow_resume`
-  - args: `{ execution_id: string, definition: object, resume_payload: object }`
-  - returns: `{ execution_id, status, final_state?, result?, error?, node_id? }`
+  - args: `{ execution_id: string, definition: object, resume_payload: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - returns: `{ execution_id, status, final_state?, result?, error?, node_id?, state?, parallel_span? }`
   - notes: resume payloads are validated against the interrupt node `resume_schema`; invalid or stale resume attempts return structured tool errors.
+- `workflow_submit_activity`
+  - args: `{ execution_id: string, definition: object, input: object, node_id: string, outcome: { ok: true, result?: object } | { ok: false, error: string, code?: string }, parallel_span?: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - returns: same shape as `workflow_resume` results, plus optional `code` when `status` is `failed` from submit validation (usually surfaced as a tool error instead).
+  - notes: append activity success/failure after a host-mediated yield; **`definition` and `input` must match** the original `workflow_start` (replay). For activities under a `parallel` branch, pass **`parallel_span`** matching the `parallel_span` returned from `workflow_start` / prior submit.
 
 Structured adapter error codes:
 
 - `VALIDATION_ERROR` — MCP request payload fails contract validation.
-- `EXECUTION_NOT_FOUND` — requested execution id has no persisted history.
+- `EXECUTION_NOT_FOUND` — requested execution id has no persisted history (`workflow_status` / store lookups).
 - `INVALID_RESUME_PAYLOAD` — resume payload fails schema or resume is stale/not allowed.
+- `ACTIVITY_SUBMIT_NOT_AWAITING` — cannot submit: execution missing or last event is not `ActivityRequested`.
+- `ACTIVITY_SUBMIT_NODE_MISMATCH` — `node_id` does not match the pending activity.
+- `ACTIVITY_SUBMIT_PARALLEL_MISMATCH` — `parallel_span` missing or does not match the pending `ActivityRequested`.
+- `SUBMIT_VALIDATION_ERROR` — submit request failed definition/store validation before append.
 - `ENGINE_FAILURE` — engine reported workflow failure that is not an adapter contract issue.
 - `INTERNAL_ERROR` — unexpected adapter failure.
 
@@ -135,9 +143,9 @@ Phases: **validate** (POC schema + reject `state_schema.properties.*.reducer ===
 
 ### General POC orchestration (STORY-2-5)
 
-**API:** `runPocWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor? })` and `resumePocWorkflow({ definition, executionId, store, resumePayload, stubActivityOutputs?, activityExecutor? })`.
+**API:** `runPocWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })` and `resumePocWorkflow({ definition, executionId, store, resumePayload, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })`. **`activityExecutionMode`** defaults to `"in_process"` (run `ActivityExecutor` immediately). With **`"host_mediated"`**, the walker returns `{ status: 'awaiting_activity', nodeId, state, parallelSpan? }` after `ActivityRequested` (see ADR-0002). Continue by appending the outcome and calling `runPocWorkflow` again, or use **`submitActivityOutcome({ definition, executionId, store, input, nodeId, outcome, expectedParallelSpan?, ... })`** (also exported) which validates the pending request and re-enters the walker. Parallel branches attach **`parallelSpan`** to `ActivityRequested`; submits for those nodes must pass the same **`expectedParallelSpan`**.
 
-`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, and `interrupt`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
+`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, and R2 `parallel`, `wait`, `set_state`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
 
 **`switch` routing:** Successors come **only** from `config.cases` (first jq match wins; jq input root is the **current workflow state object**, same as STORY-2-3) and `config.default` when no case matches. If any `cases` exist and none match and `default` is omitted, the run fails with a clear error. **Static `edges` whose `source` is the switch node id are ignored for routing** (they may exist in documents; the engine does not follow them). This matches the POC recommendation in `docs/poc-scope.md` (avoid duplicate routing channels).
 

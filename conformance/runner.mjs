@@ -5,6 +5,7 @@ import { validateWorkflowDefinition } from "../packages/engine/src/validate.mjs"
 import {
   MemoryExecutionHistoryStore,
   runPocWorkflow,
+  submitActivityOutcome,
 } from "../packages/engine/src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +24,20 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *     name: string;
  *     payload?: Record<string, unknown>;
  *   }>;
+ *   activityExecutionMode?: "in_process" | "host_mediated";
+ *   activitySubmissions?: Array<{
+ *     nodeId: string;
+ *     outcome:
+ *       | { ok: true; result?: Record<string, unknown> }
+ *       | { ok: false; error: string; code?: string };
+ *     expectedParallelSpan?: {
+ *       parallelNodeId: string;
+ *       joinTargetId: string;
+ *       branchName: string;
+ *       branchEntryNodeId: string;
+ *     };
+ *     expectFailure?: { code: string };
+ *   }>;
  *   expect:
  *     | {
  *         ok: boolean;
@@ -33,7 +48,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *         }>;
  *       }
  *     | {
- *         status: "completed" | "failed" | "interrupted";
+ *         status: "completed" | "failed" | "interrupted" | "awaiting_activity";
  *         tailCommands?: Array<{
  *           name: string;
  *           nodeId?: string;
@@ -152,21 +167,52 @@ async function runReplayVector(vector) {
     .listByExecution(executionId)
     .filter((row) => row.kind === "command").length;
 
-  const run = await runPocWorkflow({
+  const activityExecutionMode = vector.activityExecutionMode ?? "in_process";
+  const activitySubmissions = Array.isArray(vector.activitySubmissions) ? vector.activitySubmissions : [];
+
+  let run = await runPocWorkflow({
     definition,
     input: vector.input ?? {},
     executionId,
     store,
+    activityExecutionMode,
   });
+
+  for (const step of activitySubmissions) {
+    const sub = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input: vector.input ?? {},
+      nodeId: step.nodeId,
+      outcome: step.outcome,
+      ...(step.expectedParallelSpan ? { expectedParallelSpan: step.expectedParallelSpan } : {}),
+      activityExecutionMode,
+    });
+    if (step.expectFailure) {
+      if (sub.status !== "failed" || sub.code !== step.expectFailure.code) {
+        return {
+          passed: false,
+          reason: `Expected activity submit failure with code "${step.expectFailure.code}" but got status "${sub.status}"${
+            sub.status === "failed" && "code" in sub && sub.code ? ` (code ${sub.code})` : ""
+          }.`,
+          context: { definition: vector.definition },
+        };
+      }
+    } else {
+      run = sub;
+    }
+  }
 
   const expect =
     vector.expect && "status" in vector.expect
-      ? /** @type {{ status: "completed" | "failed" | "interrupted"; tailCommands?: Array<{ name: string; nodeId?: string }>; mismatch?: { messageIncludes?: string; expected?: { name?: string; nodeId?: string }; actual?: { name?: string; nodeId?: string } } }} */ (vector.expect)
+      ? /** @type {{ status: "completed" | "failed" | "interrupted" | "awaiting_activity"; tailCommands?: Array<{ name: string; nodeId?: string }>; mismatch?: { messageIncludes?: string; expected?: { name?: string; nodeId?: string }; actual?: { name?: string; nodeId?: string } } }} */ (vector.expect)
       : undefined;
   if (!expect) {
     return {
       passed: false,
-      reason: 'Replay vectors require expect.status ("completed" | "failed" | "interrupted").',
+      reason:
+        'Replay vectors require expect.status ("completed" | "failed" | "interrupted" | "awaiting_activity").',
       context: { definition: vector.definition },
     };
   }

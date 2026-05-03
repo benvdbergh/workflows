@@ -11,6 +11,43 @@ import { findWorkflowRepoRoot } from "../src/validate.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** Minimal valid POC workflow: start → tool_call → end (host_mediated tests). */
+function hostMediatedLinearDefinition() {
+  return {
+    document: {
+      schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+      name: "mcp-host-med-linear",
+      version: "1.0.0",
+    },
+    state_schema: {
+      type: "object",
+      properties: {
+        out: { type: "string" },
+      },
+    },
+    nodes: [
+      { id: "start", type: "start" },
+      {
+        id: "work",
+        type: "tool_call",
+        config: { server: "demo-mcp", tool: "stub", arguments: {} },
+      },
+      { id: "end", type: "end", config: { output_mapping: ".out" } },
+    ],
+    edges: [
+      { source: "__start__", target: "start" },
+      { source: "start", target: "work" },
+      { source: "work", target: "end" },
+    ],
+  };
+}
+
+function unusedPortFn(name) {
+  return async () => {
+    throw new Error(`not used: ${name}`);
+  };
+}
+
 function loadLighthouse() {
   const root = findWorkflowRepoRoot(__dirname);
   const fixturePath = path.join(root, "examples", "lighthouse-customer-routing.workflow.json");
@@ -28,12 +65,9 @@ describe("MCP workflow adapter tool handlers", () => {
           nodeId: "human_review",
         };
       },
-      async getWorkflowStatus() {
-        throw new Error("not used");
-      },
-      async resumeWorkflow() {
-        throw new Error("not used");
-      },
+      getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
+      resumeWorkflow: unusedPortFn("resumeWorkflow"),
+      submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
     });
 
     const response = await handlers.workflow_start({
@@ -50,15 +84,10 @@ describe("MCP workflow adapter tool handlers", () => {
 
   it("workflow_start surfaces validation failures as structured adapter errors", async () => {
     const handlers = createMcpWorkflowToolHandlers({
-      async startWorkflow() {
-        throw new Error("not used");
-      },
-      async getWorkflowStatus() {
-        throw new Error("not used");
-      },
-      async resumeWorkflow() {
-        throw new Error("not used");
-      },
+      startWorkflow: unusedPortFn("startWorkflow"),
+      getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
+      resumeWorkflow: unusedPortFn("resumeWorkflow"),
+      submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
     });
 
     const response = await handlers.workflow_start({
@@ -131,12 +160,9 @@ describe("MCP workflow adapter tool handlers", () => {
 
   it("workflow_resume maps invalid resume payload engine failures to INVALID_RESUME_PAYLOAD", async () => {
     const handlers = createMcpWorkflowToolHandlers({
-      async startWorkflow() {
-        throw new Error("not used");
-      },
-      async getWorkflowStatus() {
-        throw new Error("not used");
-      },
+      startWorkflow: unusedPortFn("startWorkflow"),
+      getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
+      submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       async resumeWorkflow() {
         return {
           executionId: "exec-55",
@@ -189,12 +215,9 @@ describe("MCP workflow adapter tool handlers", () => {
       async startWorkflow() {
         throw new Error("boom");
       },
-      async getWorkflowStatus() {
-        throw new Error("not used");
-      },
-      async resumeWorkflow() {
-        throw new Error("not used");
-      },
+      getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
+      resumeWorkflow: unusedPortFn("resumeWorkflow"),
+      submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
     });
 
     const response = await handlers.workflow_start({
@@ -205,5 +228,92 @@ describe("MCP workflow adapter tool handlers", () => {
 
     assert.equal(response.isError, true);
     assert.equal(response.structuredContent.error.code, "INTERNAL_ERROR");
+  });
+
+  it("workflow_submit_activity completes host-mediated run with matching node and outcome", async () => {
+    const definition = hostMediatedLinearDefinition();
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const executionId = "exec-mcp-submit-ok";
+    const input = {};
+
+    const started = await handlers.workflow_start({
+      execution_id: executionId,
+      definition,
+      input,
+      activity_execution_mode: "host_mediated",
+    });
+    assert.equal(started.isError, undefined);
+    assert.equal(started.structuredContent.status, "awaiting_activity");
+    assert.equal(started.structuredContent.node_id, "work");
+
+    const submitted = await handlers.workflow_submit_activity({
+      execution_id: executionId,
+      definition,
+      input,
+      node_id: "work",
+      outcome: { ok: true, result: { out: "from-host" } },
+    });
+    assert.equal(submitted.isError, undefined);
+    assert.equal(submitted.structuredContent.status, "completed");
+    assert.equal(submitted.structuredContent.result, "from-host");
+  });
+
+  it("workflow_submit_activity maps stale submit to ACTIVITY_SUBMIT_NOT_AWAITING", async () => {
+    const definition = hostMediatedLinearDefinition();
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+
+    const response = await handlers.workflow_submit_activity({
+      execution_id: "no-such-exec",
+      definition,
+      input: {},
+      node_id: "work",
+      outcome: { ok: true, result: { out: "x" } },
+    });
+
+    assert.equal(response.isError, true);
+    assert.equal(response.structuredContent.error.code, "ACTIVITY_SUBMIT_NOT_AWAITING");
+  });
+
+  it("workflow_submit_activity maps wrong node id to ACTIVITY_SUBMIT_NODE_MISMATCH", async () => {
+    const definition = hostMediatedLinearDefinition();
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const executionId = "exec-mcp-submit-node";
+    const input = {};
+
+    const started = await handlers.workflow_start({
+      execution_id: executionId,
+      definition,
+      input,
+      activity_execution_mode: "host_mediated",
+    });
+    assert.equal(started.structuredContent.status, "awaiting_activity");
+
+    const response = await handlers.workflow_submit_activity({
+      execution_id: executionId,
+      definition,
+      input,
+      node_id: "wrong",
+      outcome: { ok: true, result: { out: "x" } },
+    });
+
+    assert.equal(response.isError, true);
+    assert.equal(response.structuredContent.error.code, "ACTIVITY_SUBMIT_NODE_MISMATCH");
+  });
+
+  it("workflow_submit_activity surfaces argument validation as VALIDATION_ERROR", async () => {
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store: new MemoryExecutionHistoryStore() }));
+
+    const response = await handlers.workflow_submit_activity({
+      execution_id: "e1",
+      definition: { nodes: [], edges: [] },
+      input: {},
+      node_id: "n1",
+    });
+
+    assert.equal(response.isError, true);
+    assert.equal(response.structuredContent.error.code, "VALIDATION_ERROR");
   });
 });
