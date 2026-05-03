@@ -9,6 +9,8 @@ Use this guide when `wf-plan` needs to interact with:
 
 Planning interactions are update-safe, traceable, and release-centric.
 
+There is **no** repository Actions workflow that auto-adds issues or PRs to Project #4; triage adds cards and updates fields (UI or `gh project` with the right scopes).
+
 ## Primary tools
 
 - `gh project view`, `gh project field-list`, `gh project item-list`

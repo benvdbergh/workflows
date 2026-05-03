@@ -9,6 +9,8 @@ Design interactions for:
 
 This guide focuses on issue-centric design discovery, decision logging, and handoff readiness.
 
+There is **no** repository Actions workflow that auto-adds issues or PRs to Project #4; triage adds cards and updates fields (UI or `gh project` with the right scopes).
+
 ## Primary tools
 
 - `gh issue view`, `gh issue comment`, `gh issue edit`
