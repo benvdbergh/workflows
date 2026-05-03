@@ -16,10 +16,10 @@ on:
           - latest
         default: alpha
       also_point_latest_dist_tag:
-        description: "After publish, run npm dist-tag add @agent-workflow/engine@<version> latest (set true to keep latest aligned with this release)"
+        description: "After publish, run npm dist-tag add @agent-workflow/engine@<version> latest (use for intentional latest promotions only; leave false for alpha-only drops)"
         required: false
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
@@ -66,12 +66,14 @@ jobs:
       - name: Verify package contents (workspace dry run)
         run: npm pack --dry-run --workspace @agent-workflow/engine
 
-      - name: Publish engine package with provenance (and optional latest dist-tag)
+      - name: Publish engine package with provenance
         env:
           DIST_TAG: ${{ github.event.inputs.dist_tag }}
+        run: npm publish --workspace @agent-workflow/engine --tag "$DIST_TAG" --access public --provenance
+
+      - name: Point latest dist-tag at published version
+        if: ${{ github.event.inputs.also_point_latest_dist_tag }}
         run: |
-          npm publish --workspace @agent-workflow/engine --tag "$DIST_TAG" --access public --provenance
-          if [ "${{ github.event.inputs.also_point_latest_dist_tag }}" = "true" ]; then
-            VERSION=$(jq -r .version packages/engine/package.json)
-            npm dist-tag add "@agent-workflow/engine@${VERSION}" latest
-          fi
+          VERSION=$(jq -r .version packages/engine/package.json)
+          echo "Moving npm dist-tag 'latest' to @agent-workflow/engine@${VERSION}"
+          npm dist-tag add "@agent-workflow/engine@${VERSION}" latest
