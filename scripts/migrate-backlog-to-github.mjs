@@ -471,6 +471,9 @@ async function syncIssueClosedStateFromRow(row, issueNum) {
 
 /** After markdown removal: use tmp/migration/mapping.json `status` + `issue_number` only. */
 async function cmdCloseDone() {
+  console.warn(
+    'close-done: closes every mapping item with status done/completed. Legacy markdown sometimes marked stories done prematurely — confirm mapping matches real delivery before running.',
+  )
   const mapping = JSON.parse(await fs.readFile(path.join(TMP, 'mapping.json'), 'utf8'))
   const stories = mapping.items.filter((i) => i.kind === 'story' && isDoneStatus(i.status))
   const epics = mapping.items.filter((i) => i.kind === 'epic' && isDoneStatus(i.status))
