@@ -5,6 +5,8 @@ import {
   workflowStartResultSchema,
   workflowStatusArgsSchema,
   workflowStatusResultSchema,
+  workflowSubmitActivityArgsSchema,
+  workflowSubmitActivityResultSchema,
 } from "./contracts.mjs";
 import { MCP_ADAPTER_ERROR, McpAdapterError, normalizeMcpAdapterError, toToolErrorResult } from "./errors.mjs";
 import { ZodError } from "zod";
@@ -87,7 +89,54 @@ function resumeResponseFromPort(parsed) {
 }
 
 /**
- * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function }} workflowPort
+ * @param {unknown} parsed
+ */
+function submitActivityResponseFromPort(parsed) {
+  const parallelSpan = parsed.parallelSpan;
+  const response = {
+    execution_id: parsed.executionId,
+    status: parsed.status,
+    ...(parsed.finalState !== undefined ? { final_state: parsed.finalState } : {}),
+    ...(parsed.result !== undefined ? { result: parsed.result } : {}),
+    ...(parsed.error !== undefined ? { error: parsed.error } : {}),
+    ...(parsed.nodeId !== undefined ? { node_id: parsed.nodeId } : {}),
+    ...(parsed.state !== undefined ? { state: parsed.state } : {}),
+    ...(parsed.code !== undefined ? { code: parsed.code } : {}),
+    ...(parallelSpan
+      ? {
+          parallel_span: {
+            parallel_node_id: parallelSpan.parallelNodeId,
+            join_target_id: parallelSpan.joinTargetId,
+            branch_name: parallelSpan.branchName,
+            branch_entry_node_id: parallelSpan.branchEntryNodeId,
+          },
+        }
+      : {}),
+  };
+  return workflowSubmitActivityResultSchema.parse(response);
+}
+
+const SUBMIT_ACTIVITY_ADAPTER_CODES = new Set([
+  MCP_ADAPTER_ERROR.ACTIVITY_SUBMIT_NOT_AWAITING,
+  MCP_ADAPTER_ERROR.ACTIVITY_SUBMIT_NODE_MISMATCH,
+  MCP_ADAPTER_ERROR.ACTIVITY_SUBMIT_PARALLEL_MISMATCH,
+  MCP_ADAPTER_ERROR.SUBMIT_VALIDATION_ERROR,
+]);
+
+/**
+ * @param {string | undefined} code
+ * @param {string | undefined} message
+ */
+function mcpErrorForSubmitFailure(code, message) {
+  const text = message && message.trim() !== "" ? message : "Activity submit rejected.";
+  if (code && SUBMIT_ACTIVITY_ADAPTER_CODES.has(code)) {
+    return new McpAdapterError(code, text);
+  }
+  return mapEngineFailure(new Error(text));
+}
+
+/**
+ * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function }} workflowPort
  */
 export function createMcpWorkflowToolHandlers(workflowPort) {
   return {
@@ -98,6 +147,7 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
           executionId: parsed.execution_id,
           definition: parsed.definition,
           input: parsed.input,
+          ...(parsed.activity_execution_mode ? { activityExecutionMode: parsed.activity_execution_mode } : {}),
         });
 
         if (response.status === "failed" && response.error) {
@@ -148,6 +198,7 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
           executionId: parsed.execution_id,
           definition: parsed.definition,
           resumePayload: parsed.resume_payload,
+          ...(parsed.activity_execution_mode ? { activityExecutionMode: parsed.activity_execution_mode } : {}),
         });
 
         if (response.status === "failed" && response.error) {
@@ -165,6 +216,47 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
         const adapted =
           error instanceof ZodError
             ? new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, "Invalid workflow_resume arguments.", {
+                issues: error.issues,
+              })
+            : normalizeMcpAdapterError(error);
+        return toToolErrorResult(adapted);
+      }
+    },
+
+    async workflow_submit_activity(args) {
+      try {
+        const parsed = workflowSubmitActivityArgsSchema.parse(args);
+        const expectedParallelSpan = parsed.parallel_span
+          ? {
+              parallelNodeId: parsed.parallel_span.parallel_node_id,
+              joinTargetId: parsed.parallel_span.join_target_id,
+              branchName: parsed.parallel_span.branch_name,
+              branchEntryNodeId: parsed.parallel_span.branch_entry_node_id,
+            }
+          : undefined;
+
+        const response = await workflowPort.submitWorkflowActivity({
+          executionId: parsed.execution_id,
+          definition: parsed.definition,
+          input: parsed.input,
+          nodeId: parsed.node_id,
+          outcome: parsed.outcome,
+          ...(expectedParallelSpan ? { expectedParallelSpan } : {}),
+          ...(parsed.activity_execution_mode ? { activityExecutionMode: parsed.activity_execution_mode } : {}),
+        });
+
+        if (response.status === "failed") {
+          throw mcpErrorForSubmitFailure(response.code, response.error);
+        }
+
+        return {
+          content: [{ type: "text", text: `Execution ${response.executionId} ${response.status} after activity submit.` }],
+          structuredContent: submitActivityResponseFromPort(response),
+        };
+      } catch (error) {
+        const adapted =
+          error instanceof ZodError
+            ? new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, "Invalid workflow_submit_activity arguments.", {
                 issues: error.issues,
               })
             : normalizeMcpAdapterError(error);

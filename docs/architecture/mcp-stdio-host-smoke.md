@@ -4,8 +4,8 @@ This runbook verifies the EPIC-4 MCP stdio adapter from an MCP-capable host usin
 
 ## Scope and non-goals
 
-- Scope: local POC smoke validation of `workflow_start`, `workflow_status`, and `workflow_resume`.
-- Note: activity nodes (`step` / `llm_call` / `tool_call`) still use the in-process stub in this adapter; **host-mediated** execution is the target posture ([ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md)) and is out of scope for this smoke runbook until implemented.
+- Scope: local POC smoke validation of `workflow_start`, `workflow_status`, and `workflow_resume`, plus an **optional** `workflow_submit_activity` path when using `activity_execution_mode: "host_mediated"` ([ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md)).
+- Default `workflow_start` behavior remains **in-process** activity stubs unless the host sets `activity_execution_mode` to `host_mediated`.
 - Non-goals: production auth, multi-tenant isolation, secret management hardening, remote exposure.
 
 ## Prerequisites
@@ -70,6 +70,7 @@ After connect, discover tools and confirm the host exposes:
 - `workflow_start`
 - `workflow_status`
 - `workflow_resume`
+- `workflow_submit_activity`
 
 ## Canonical workflow definition
 
@@ -149,6 +150,63 @@ Expected structured result shape:
 ```
 
 With the default POC stub, `confidence` is deterministic for this fixture (see `packages/engine/test/poc-runner.test.mjs`). Assert `status` and `intent` first; treat numeric fields as stub-specific unless a real activity adapter is configured.
+
+### 3.4 Optional — `workflow_submit_activity` (host-mediated)
+
+Use a **minimal** workflow (single `tool_call` then `end`) so the run pauses after one activity. Pass the **same** parsed `definition` and `input` on submit as on start (the engine replays history using them).
+
+**3.4a `workflow_start`** — add host-mediated mode:
+
+```json
+{
+  "execution_id": "story-4-3-host-med-1",
+  "definition": {
+    "document": {
+      "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+      "name": "smoke-host-med",
+      "version": "1.0.0"
+    },
+    "state_schema": {
+      "type": "object",
+      "properties": { "out": { "type": "string" } }
+    },
+    "nodes": [
+      { "id": "start", "type": "start" },
+      {
+        "id": "work",
+        "type": "tool_call",
+        "config": { "server": "demo-mcp", "tool": "stub", "arguments": {} }
+      },
+      { "id": "end", "type": "end", "config": { "output_mapping": ".out" } }
+    ],
+    "edges": [
+      { "source": "__start__", "target": "start" },
+      { "source": "start", "target": "work" },
+      { "source": "work", "target": "end" }
+    ]
+  },
+  "input": {},
+  "activity_execution_mode": "host_mediated"
+}
+```
+
+Expected structured result includes `status: "awaiting_activity"` and `node_id: "work"`.
+
+**3.4b `workflow_submit_activity`** — complete the pending activity:
+
+```json
+{
+  "execution_id": "story-4-3-host-med-1",
+  "definition": "<same object as 3.4a>",
+  "input": {},
+  "node_id": "work",
+  "outcome": { "ok": true, "result": { "out": "smoke-ok" } }
+}
+```
+
+Expected: `status: "completed"` and `result` equal to `"smoke-ok"` (string from `output_mapping` on `.out`).
+
+Wrong-phase or wrong-node submits should return structured tool errors with codes such as `ACTIVITY_SUBMIT_NOT_AWAITING` or `ACTIVITY_SUBMIT_NODE_MISMATCH` (see `packages/engine/README.md`).
 
 ## 4) Structured error assertion (required)
 

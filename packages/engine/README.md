@@ -55,7 +55,7 @@ npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp
 
 **Development setup** — point `node` at `packages/engine/src/mcp-stdio-server.mjs` inside your clone when working on the adapter or engine.
 
-This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
+This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, `workflow_resume`, and **`workflow_submit_activity`** (host-mediated activity completion; see below). The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
 
 Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
 
@@ -69,23 +69,31 @@ Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
 ### MCP tool contracts (minimum set)
 
 - `workflow_start`
-  - args: `{ execution_id?: string, definition: object, input: object }`
-  - returns: `{ execution_id, status, final_state?, result?, error?, node_id? }`
-  - notes: if `execution_id` is omitted, the engine generates a stable UUID and returns it for follow-up calls.
+  - args: `{ execution_id?: string, definition: object, input: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - returns: `{ execution_id, status, final_state?, result?, error?, node_id?, state?, parallel_span? }`
+  - notes: if `execution_id` is omitted, the engine generates a stable UUID and returns it for follow-up calls. With **`activity_execution_mode: "host_mediated"`**, the engine returns `status: "awaiting_activity"` after recording `ActivityRequested` for the next activity node; the host completes it via `workflow_submit_activity`.
 - `workflow_status`
   - args: `{ execution_id: string }`
   - returns: `{ execution_id, phase, current_node_id?, last_error? }`
-  - notes: `phase/current_node_id/last_error` are projected deterministically from persisted execution history (including resume/checkpoint-driven progress), not adapter-local mutable state.
+  - notes: `phase/current_node_id/last_error` are projected deterministically from persisted execution history (including resume/checkpoint-driven progress), not adapter-local mutable state. Phase **`awaiting_activity`** indicates the last non-checkpoint event is `ActivityRequested` (host-mediated pending).
 - `workflow_resume`
-  - args: `{ execution_id: string, definition: object, resume_payload: object }`
-  - returns: `{ execution_id, status, final_state?, result?, error?, node_id? }`
+  - args: `{ execution_id: string, definition: object, resume_payload: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - returns: `{ execution_id, status, final_state?, result?, error?, node_id?, state?, parallel_span? }`
   - notes: resume payloads are validated against the interrupt node `resume_schema`; invalid or stale resume attempts return structured tool errors.
+- `workflow_submit_activity`
+  - args: `{ execution_id: string, definition: object, input: object, node_id: string, outcome: { ok: true, result?: object } | { ok: false, error: string, code?: string }, parallel_span?: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - returns: same shape as `workflow_resume` results, plus optional `code` when `status` is `failed` from submit validation (usually surfaced as a tool error instead).
+  - notes: append activity success/failure after a host-mediated yield; **`definition` and `input` must match** the original `workflow_start` (replay). For activities under a `parallel` branch, pass **`parallel_span`** matching the `parallel_span` returned from `workflow_start` / prior submit.
 
 Structured adapter error codes:
 
 - `VALIDATION_ERROR` — MCP request payload fails contract validation.
-- `EXECUTION_NOT_FOUND` — requested execution id has no persisted history.
+- `EXECUTION_NOT_FOUND` — requested execution id has no persisted history (`workflow_status` / store lookups).
 - `INVALID_RESUME_PAYLOAD` — resume payload fails schema or resume is stale/not allowed.
+- `ACTIVITY_SUBMIT_NOT_AWAITING` — cannot submit: execution missing or last event is not `ActivityRequested`.
+- `ACTIVITY_SUBMIT_NODE_MISMATCH` — `node_id` does not match the pending activity.
+- `ACTIVITY_SUBMIT_PARALLEL_MISMATCH` — `parallel_span` missing or does not match the pending `ActivityRequested`.
+- `SUBMIT_VALIDATION_ERROR` — submit request failed definition/store validation before append.
 - `ENGINE_FAILURE` — engine reported workflow failure that is not an adapter contract issue.
 - `INTERNAL_ERROR` — unexpected adapter failure.
 
