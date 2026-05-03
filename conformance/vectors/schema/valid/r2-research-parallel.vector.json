@@ -1,0 +1,9 @@
+{
+  "id": "schema.valid.r2-research-parallel",
+  "description": "R2 profile: parallel + set_state + wait validate against extended POC schema.",
+  "kind": "schema",
+  "definition": "examples/r2-research-parallel.workflow.json",
+  "expect": {
+    "ok": true
+  }
+}

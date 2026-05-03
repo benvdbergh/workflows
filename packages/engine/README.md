@@ -1,6 +1,6 @@
 # `@agent-workflow/engine`
 
-Publishable npm package: **definition-time** validation for Agent Workflow Protocol POC workflow documents, an **append-only execution history** port (SQLite or in-memory), a **linear graph runner** (STORY-2-3), and a **general POC walker** (STORY-2-5) with `switch` and `interrupt` / resume.
+Publishable npm package: **definition-time** validation for Agent Workflow Protocol workflow documents (POC profile + **R2** `parallel`, `wait`, `set_state`), an **append-only execution history** port (SQLite or in-memory), a **linear graph runner** (STORY-2-3), and a **general graph walker** with `switch`, `interrupt` / resume, **parallel** join policies (`all` / `any` / `n_of_m`), **wait** (`duration` / `until`; `signal` needs a host), and **set_state**.
 
 ## Entrypoint (CLI)
 

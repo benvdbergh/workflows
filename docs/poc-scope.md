@@ -1,6 +1,6 @@
-# POC scope — first engine milestone
+# POC scope — engine profile (POC + R2 core orchestration)
 
-This note is the **authoritative subset** of the Agent Workflow Protocol RFCs that the POC execution contract (schema bundle, fixtures, first engine milestone) **MUST** support. It does **not** replace the RFCs; where this document is silent, do **not** assume full RFC behavior.
+This note is the **authoritative subset** of the Agent Workflow Protocol RFCs that the reference engine schema bundle and `@agent-workflow/engine` **MUST** support. It extends the original POC milestone with **R2** node types (`parallel`, `wait`, `set_state`) and related commands/events. It does **not** replace the RFCs; where this document is silent, do **not** assume full RFC behavior.
 
 **Normative sources (read in full for semantics):**
 
@@ -43,20 +43,20 @@ These discriminators **MUST** be supported by the POC schema bundle and honored 
 | `tool_call` | External tool; **SHOULD** be MCP-shaped (`server`, `tool`, `arguments`) for portable POC fixtures. |
 | `switch` | Conditional routing via `config.cases` (`when` jq expression, `target` node id) and optional `config.default`. |
 | `interrupt` | Human-in-the-loop; `config` **MUST** include `resume_schema` and **MUST** include `prompt` or a resolvable reference per RFC; optional `timeout`. |
+| `parallel` | Fork/join per RFC-03: `config.join` is `all` \| `any` \| `n_of_m` (with `n`), `config.branches` is `{ name, entry }[]` where `entry` is the first node id of a branch. Exactly **one** static edge leaves the parallel node to the **join target**; each branch must reach that target via its own linear chain (see golden `examples/r2-research-parallel.workflow.json`). |
+| `wait` | `config.kind`: `duration` (requires `duration_ms` or parseable `duration` string), `until` (ISO-8601 `until` timestamp), or `signal` (**requires host**; unsupported in bare engine — fails at runtime). |
+| `set_state` | `config.assignments`: map of state keys to `{ "jq": "<expr>" }` or `{ "literal": <value> }`; merged with `state_schema` reducers. |
 
 Common node fields [RFC-03 §3.5](rfc-03-workflow-definition-schema.md#35-node-object-common-fields): `id`, `type`, optional `config`, `retry`, `timeout`, `metadata` — all **in scope** where applicable.
 
-### 2.1 Node `type` values (explicitly out of scope for POC)
+### 2.1 Node `type` values (explicitly out of scope for this profile)
 
 Implementers **MUST NOT** infer support from the full RFC for:
 
-- `parallel`
 - `agent_delegate`
 - `subworkflow`
-- `wait`
-- `set_state`
 
-POC validators **MUST** reject unknown `type` values (including the above until promoted into a future scope revision).
+Validators **MUST** reject unknown `type` values (including the above until promoted).
 
 ### 2.2 Delegation profile boundary (north star vs POC bridge)
 
@@ -75,9 +75,7 @@ Per [RFC-03 §3.6](rfc-03-workflow-definition-schema.md#36-edges):
 - Synthetic source `__start__` **MAY** be used for the unique entry edge to the `start` node’s successor (or as specified in golden fixtures).
 - For `switch`, outgoing routing **MAY** be expressed only via `config.cases` / `default`; static `edges` from the `switch` node **MAY** coexist only if the engine documents precedence. **POC recommendation:** prefer `cases` + `default` for switch successors; avoid duplicate routing channels until conformance tests lock precedence.
 
-**Out of scope:**
-
-- Graph patterns that require `parallel` join semantics or nested subgraph wiring per `parallel` (deferred with the `parallel` type).
+**Parallel (R2):** The parallel node lists branch **entry** node ids; each branch follows static edges until it reaches the parallel node’s unique **join target** (the sole edge leaving the parallel node). Nested `parallel` and `switch` inside branches are allowed; **interrupt inside a parallel branch** is not resume-safe in this profile — avoid until correlation is modeled.
 
 ---
 
@@ -114,17 +112,17 @@ After reducer application, engines **SHOULD** validate state against `state_sche
 
 ## 6. Execution model subset (commands and events)
 
-The full taxonomies are [RFC-04 §4.4](rfc-04-execution-model.md#44-command-taxonomy-normative) and [§4.5](rfc-04-execution-model.md#45-event-taxonomy-normative). For the **POC graph subset** (no `parallel`, `subworkflow`, `wait`):
+The full taxonomies are [RFC-04 §4.4](rfc-04-execution-model.md#44-command-taxonomy-normative) and [§4.5](rfc-04-execution-model.md#45-event-taxonomy-normative).
 
 **Commands — in scope**
 
 - `ScheduleNode`, `CompleteNode`, `FailNode`
 - `RaiseInterrupt`, `ResumeInterrupt`
+- **R2:** `StartParallel`, `JoinParallel`, `CancelParallelBranch`, `StartTimer`
 
-**Commands — out of scope (deferred with node types above)**
+**Commands — out of scope**
 
-- `StartParallel`, `JoinParallel`
-- `StartTimer`, `CancelTimer`
+- `CancelTimer` (reserved; not emitted by current reference `wait` paths)
 - `StartSubworkflow`, `CompleteSubworkflow`
 - `EmitSignal`
 
@@ -136,6 +134,7 @@ The full taxonomies are [RFC-04 §4.4](rfc-04-execution-model.md#44-command-taxo
 - `StateUpdated` (or equivalent embedding per engine profile, per [RFC-04 §4.6](rfc-04-execution-model.md#46-state-updates-and-reducers))
 - `InterruptRaised`, `InterruptResumed`
 - `ExecutionCompleted`, `ExecutionFailed`
+- **R2:** `ParallelForked`, `ParallelJoined`, `ParallelBranchCancelled`, `TimerStarted`, `TimerFired`
 
 **Events — optional / phased**
 
