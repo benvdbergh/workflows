@@ -1,0 +1,9 @@
+{
+  "id": "schema.valid.conformance-host-activity-linear",
+  "description": "Conformance host-activity linear fixture validates against POC schema.",
+  "kind": "schema",
+  "definition": "examples/conformance-host-activity-linear.workflow.json",
+  "expect": {
+    "ok": true
+  }
+}

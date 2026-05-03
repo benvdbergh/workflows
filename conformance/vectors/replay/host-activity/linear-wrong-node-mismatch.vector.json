@@ -1,0 +1,65 @@
+{
+  "id": "replay.host_activity.linear.wrong_node_mismatch",
+  "description": "Submit with a stale node id is rejected; execution stays awaiting_activity.",
+  "kind": "replay",
+  "definition": "examples/conformance-host-activity-linear.workflow.json",
+  "input": {},
+  "activityExecutionMode": "host_mediated",
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "conformance-host-linear",
+        "workflowVersion": "1.0.0",
+        "inputKeys": []
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "start", "state": {} }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "work" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "work" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": { "nodeId": "work", "nodeType": "tool_call" }
+    }
+  ],
+  "activitySubmissions": [
+    {
+      "nodeId": "not_work",
+      "outcome": { "ok": true, "result": { "out": "nope" } },
+      "expectFailure": { "code": "ACTIVITY_SUBMIT_NODE_MISMATCH" }
+    }
+  ],
+  "expect": {
+    "status": "awaiting_activity",
+    "tailCommands": []
+  }
+}
