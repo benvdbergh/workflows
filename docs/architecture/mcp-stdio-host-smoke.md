@@ -5,6 +5,7 @@ This runbook verifies the EPIC-4 MCP stdio adapter from an MCP-capable host usin
 ## Scope and non-goals
 
 - Scope: local POC smoke validation of `workflow_start`, `workflow_status`, and `workflow_resume`.
+- Note: activity nodes (`step` / `llm_call` / `tool_call`) still use the in-process stub in this adapter; **host-mediated** execution is the target posture ([ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md)) and is out of scope for this smoke runbook until implemented.
 - Non-goals: production auth, multi-tenant isolation, secret management hardening, remote exposure.
 
 ## Prerequisites

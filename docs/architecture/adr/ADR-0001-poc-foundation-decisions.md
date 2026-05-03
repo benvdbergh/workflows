@@ -96,13 +96,14 @@ At that point, design-first governance and structured ADR sequencing become the 
 
 ## Follow-up ADR candidates
 
-- ADR for expansion strategy of deferred node types (`parallel`, `wait`, `set_state`).
+- ADR for native `agent_delegate` / `subworkflow` when promoted beyond the current engine profile.
 - ADR for replay/checkpoint guarantees and performance boundaries.
 - ADR for adapter parity strategy (MCP, REST, SDK evolution).
 - ADR for compatibility and versioning policy toward GA stabilization.
 
 ## References
 
+- [ADR-0002: Host-mediated activity execution](ADR-0002-host-mediated-activity-execution.md)
 - `docs/poc-scope.md`
 - `docs/RFC/rfc-00-overview.md`
 - `docs/RFC/rfc-04-execution-model.md`

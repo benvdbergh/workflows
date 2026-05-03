@@ -1,7 +1,7 @@
 # As-Is System Overview (POC Alpha Baseline)
 
-Last updated: 2026-04-14
-Status: Current implementation baseline (not a target architecture)
+Last updated: 2026-05-03
+Status: Current implementation baseline (not a target architecture). **Target integration posture** for assistant-class hosts is documented in [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md) (host-mediated activities; graph-driven orchestration).
 
 ## Purpose
 
@@ -52,14 +52,14 @@ Supported node types in active engine path:
 - `tool_call`
 - `switch`
 - `interrupt`
-
-Deferred in current POC runtime profile:
-
 - `parallel`
-- `agent_delegate`
-- `subworkflow`
 - `wait`
 - `set_state`
+
+Explicitly **out of scope** for the current engine profile (see `docs/poc-scope.md` §2.1):
+
+- `agent_delegate`
+- `subworkflow`
 
 Source of truth for this boundary: `docs/poc-scope.md`.
 
@@ -72,6 +72,12 @@ Source of truth for this boundary: `docs/poc-scope.md`.
 - Orchestration follows deterministic replay-oriented command/event progression.
 - Checkpoint events are emitted in the POC walker at deterministic boundaries.
 
+### Activity execution boundary (as-implemented vs target)
+
+- **As-implemented (reference package):** `step`, `llm_call`, and `tool_call` are driven through an injectable **`ActivityExecutor`** port. The shipped MCP stdio binary uses a **stub** executor (deterministic empty or canned outputs) and does not perform real MCP or LLM I/O.
+- **Target (assistant-aligned):** **Host-mediated execution** per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md): the engine records `ActivityRequested` and yields; the **MCP host** runs tools or model calls, then submits results on a control-plane callback (see `docs/RFC/rfc-05-integration-interfaces.md` §5.2). **Hybrid** in-process executors remain valid for tests or embedded profiles, not the default for IDE/assistant hosts.
+- **Positioning:** Same separation as Cursor-class clients (host owns tools and credentials); **difference** is **deterministic** next-step selection from the graph and state, not an autonomous agent loop.
+
 ### Interfaces and surfaces
 
 - CLI validation entrypoint (`workflows-engine`).
@@ -79,6 +85,7 @@ Source of truth for this boundary: `docs/poc-scope.md`.
   - `workflow_start`
   - `workflow_status`
   - `workflow_resume`
+  - *(Planned, for host-mediated activities: control-plane tool(s) to submit activity outcomes—see RFC-05 §5.2 and ADR-0002.)*
 
 The MCP adapter maps tool DTOs to the internal application port and returns structured tool errors with stable codes.
 
@@ -175,6 +182,14 @@ Physical/runtime perspectives shown:
 3. Host polls `workflow_status`.
 4. Host uses `workflow_resume` for interrupt continuation.
 
+### Flow D: Host-mediated activity (target; ADR-0002)
+
+1. Engine reaches an activity node and appends `ActivityRequested` (and may enter a status phase such as awaiting activity—exact names TBD at implementation).
+2. Engine **returns or idles** without performing MCP/LLM I/O; host reads descriptor and history as needed.
+3. Host invokes the relevant MCP tool or LLM (or executes a `step` handler), using workflow `config` and current state per profile.
+4. Host calls the **activity completion** control-plane operation; engine appends `ActivityCompleted` or `ActivityFailed`, merges state, and continues the graph deterministically.
+5. On **replay**, completed activities **MUST** be satisfied from persisted history, not re-run on the host.
+
 ## Architecture strengths in current state
 
 - Clear protocol-to-POC boundary through `docs/poc-scope.md`.
@@ -186,7 +201,8 @@ Physical/runtime perspectives shown:
 
 ## Known gaps and intentional limitations
 
-- Active runtime implements R2 core nodes (`parallel`, `wait`, `set_state`) in the reference engine; `agent_delegate` and `subworkflow` remain deferred (R3+).
+- `agent_delegate` and `subworkflow` remain deferred for this profile (R3+).
+- Host-mediated activity completion is **specified and architecturally accepted** (ADR-0002, RFC updates) but **not yet implemented** on the reference MCP adapter; activity nodes still use the in-process stub unless a custom `ActivityExecutor` is injected in library use.
 - Conformance coverage is not yet full RFC-08 breadth.
 - Security hardening posture is intentionally POC-level for local stdio scenarios.
 - Multi-surface parity (REST/SDK breadth) is roadmap scope, not as-is baseline.
@@ -204,6 +220,7 @@ Use this as-is baseline to derive versioned viewpoints:
 
 Start ADRs from real tension points observed in this baseline:
 
+- Host-mediated vs in-process activity execution (see [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md)).
 - Node coverage expansion strategy (R3 delegation/subworkflow, richer join/timer matrices) without replay regressions.
 - Checkpointing and replay guarantees versus performance/cost.
 - Adapter surface parity strategy (MCP first, REST/SDK sequencing).
@@ -217,6 +234,7 @@ Each ADR should link:
 
 ## Evidence references
 
+- `docs/architecture/adr/ADR-0002-host-mediated-activity-execution.md`
 - `packages/engine/README.md`
 - `conformance/README.md`
 - `docs/poc-scope.md`
