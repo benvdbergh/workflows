@@ -71,11 +71,15 @@ GitHub does not currently expose full project-view management in `gh`, so create
 
 Use native GitHub issue relationships as the canonical structure.
 
+### Planning narrative (issue bodies)
+
+- **Canonical epic/story content** (description, acceptance criteria, technical notes, links to `docs/RFC/`, `docs/poc-scope.md`, ADRs) lives in the **issue body** (and issue thread as needed). This replaces former per-epic and per-story markdown under `docs` for new work.
+- Keep hierarchy **metadata** in GitHub relationships, not only in prose: parent/child links are authoritative for structure.
+
 ### Hierarchy
 
 - Use **Parent/Sub-issue** relationships for epic-to-child decomposition.
-- Keep issue body hierarchy notes as short human-readable summaries only.
-- Do not treat markdown checklists as authoritative hierarchy state.
+- Do not treat markdown checklists in the body as authoritative hierarchy state when they conflict with parent/child metadata.
 
 ### Dependencies
 

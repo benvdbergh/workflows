@@ -32,9 +32,9 @@ Primary constraints and anchors:
    - `docs/poc-scope.md`
    - `ROADMAP.md`
 2. **Release and planning intent (delivery anchor):**
-   - `docs/epics/`
-   - `docs/stories/`
+   - GitHub issues and [Project #4](https://github.com/users/benvdbergh/projects/4) in `benvdbergh/workflows` (canonical epic/story and acceptance content)
    - `docs/releases/github-project-operating-model.md`
+   - Historical epic/story markdown under `docs` (removed; not authoritative)
 3. **Feature-level design decisions (execution anchor):**
    - Issue template fields + PR template traceability section.
    - ADR/design notes (location can evolve; links must be present in issue/PR).

@@ -5,12 +5,16 @@ description: >-
 license: MIT
 metadata:
   author: workflows
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # wf-plan
 
 Process orchestration skill for planning and roadmapping in this repository. It coordinates specialized skills and keeps planning outputs consistent with repo cadence and release intent.
+
+## Project override — GitHub canonical backlog
+
+For **`benvdbergh/workflows`**, epics/stories, acceptance criteria, and planning narrative live in **GitHub issues** and **Project #4**, not in local planning markdown under `docs`. The global `project-planning` skill’s **file-based defaults do not apply**; its **decomposition and readiness practices** still apply when creating or editing issues. Authoritative policy: `references/workflows-github-backlog-override.md`. Example `gh` commands: root `.project-planning.yaml`.
 
 ## Scope and Positioning
 
@@ -20,7 +24,7 @@ Process orchestration skill for planning and roadmapping in this repository. It 
   - Planning synchronization across roadmap horizon, architecture runway, and execution cadence.
 - **Does not own**
   - Product roadmap frameworks and prioritization methods (escalate to `product-roadmap`).
-  - Epic/story decomposition and traceability mechanics (escalate to `project-planning`).
+  - Epic/story decomposition and traceability mechanics (escalate to `project-planning`; **emit artifacts as GitHub issues** per `references/workflows-github-backlog-override.md`).
   - Deep technical architecture decisions and topology validation (escalate to `software-architecture`).
   - SemVer and release/version policy definition (escalate to `release-versioning`).
 
@@ -42,7 +46,7 @@ Process orchestration skill for planning and roadmapping in this repository. It 
 | **RoadmapFromVision** | roadmap from vision, outcome roadmap, what should we build over horizons | Escalate to `product-roadmap` to produce outcome-oriented roadmap shape and sequencing |
 | **ReleaseSliceAndConfidence** | slice release, what is committed vs forecast, release cut discussion | Use `product-roadmap` for slice options; escalate to `release-versioning` when version/release policy or bump semantics are required |
 | **ArchitecturalRunwayPlan** | runway planning, enabler sequencing, technical prerequisite planning | Escalate to `software-architecture` for runway constraints and architecture trade-offs; feed results back into roadmap/release plan |
-| **CadenceAndReporting** | roadmap cadence, planning review, monthly/quarterly plan status | Escalate to `project-planning` for execution-level decomposition and dependency tracking; publish concise plan status with confidence and risk |
+| **CadenceAndReporting** | roadmap cadence, planning review, monthly/quarterly plan status | Escalate to `project-planning` for execution-level decomposition and dependency tracking (backlog = GitHub per override doc); publish concise plan status with confidence and risk |
 
 ## GitHub Interaction Workflows
 
@@ -83,7 +87,7 @@ Actions:
 1. **Intake**: capture vision/objective, timeframe, constraints, and stakeholders.
 2. **Baseline check**: confirm delta against `docs/architecture/as-is-system-overview.md`, `docs/architecture/as-built-views.drawio`, `docs/architecture/rfc-target-views.drawio`, and relevant ADRs in `docs/architecture/adr/`.
 3. **Classify**: select one routing workflow and identify required specialist skills.
-4. **Escalate**: invoke relevant skills (`product-roadmap`, `project-planning`, `software-architecture`, `release-versioning` when needed).
+4. **Escalate**: invoke relevant skills (`product-roadmap`, `project-planning`, `software-architecture`, `release-versioning` when needed). When `project-planning` is used, planning outputs target **GitHub issues**, not markdown under `docs` (see override doc).
 5. **Consolidate**: unify outputs into one plan view with commitment/forecast labels and runway dependencies.
 6. **Gate**: validate commitment items against design-first governance and ADR posture.
 7. **Report**: produce cadence update (what changed, confidence trend, top risks, next decisions).
@@ -110,5 +114,5 @@ User: "What can we confidently commit to in the next release?"
 **Example 3: Cadence report**
 User: "Prepare this month's roadmap and project status."
 → Run **CadenceAndReporting**
-→ Escalate to `project-planning` for execution status and dependencies
+→ Escalate to `project-planning` for execution status and dependencies (read/update GitHub backlog per override doc)
 → Include runway blockers from `software-architecture` if present.

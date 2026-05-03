@@ -185,4 +185,4 @@ Current posture for this smoke path:
 Deferred hardening tracks to RFC-07:
 
 - `docs/RFC/rfc-07-security-model.md` for identity, policy enforcement, and secret handling expectations.
-- EPIC-level note in `docs/epics/Epic-4-MCP-stdio-integration-surface.md` keeps auth hardening explicitly out of POC scope.
+- EPIC-level note on GitHub ([#21 — MCP stdio integration surface](https://github.com/benvdbergh/workflows/issues/21)) keeps auth hardening explicitly out of POC scope.

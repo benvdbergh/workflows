@@ -29,12 +29,16 @@ Planning interactions are update-safe, traceable, and release-centric.
 | Add planning artifacts | `gh issue create` | Use labels for type/release/area/confidence. |
 | Publish cadence update | `gh issue comment` | Include changes, risks, and next checkpoint. |
 
+## Canonical backlog (issues)
+
+- Epic/story **narrative, acceptance criteria, and doc trace links** live in **issue bodies** (see `workflows-github-backlog-override.md`). Use `gh issue view` / `gh issue edit` / JSON export for planning reads and updates.
+- Example command patterns: repository root `.project-planning.yaml`.
+
 ## Relationship policy in planning
 
 - Use native **Parent/Sub-issue** to represent epic hierarchy.
 - Use native **blocked by / blocking** for sequencing across releases.
-- Keep body dependency notes as concise summaries only.
-- Treat native relationships as source of truth when conflicts occur.
+- Treat native relationships as source of truth when they conflict with prose in the body.
 - During roadmap rebalance, update both relationships and project `Blocked` state.
 
 ## Safe operating rules
@@ -43,7 +47,7 @@ Planning interactions are update-safe, traceable, and release-centric.
 2. Keep issue milestone and project `Release` field aligned.
 3. Include a short rationale note whenever commitment or release changes.
 4. Prefer additive updates; do not delete planning history.
-5. If uncertain about policy, escalate to `product-roadmap` or `project-planning`.
+5. If uncertain about policy, escalate to `product-roadmap` or `project-planning` (planning outputs = GitHub issues for this repo).
 
 ## Minimum GitHub update contract
 

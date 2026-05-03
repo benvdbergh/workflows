@@ -31,8 +31,10 @@ This guide focuses on issue-centric design discovery, decision logging, and hand
 
 - Design decomposition should be reflected as native **Parent/Sub-issue** links.
 - Proposed design blockers must be added as native `blocked by` relationships when accepted.
-- Issue body design notes summarize rationale; relationships encode structure and dependency truth.
+- Issue body holds design + planning narrative (and links to RFC/`poc-scope`/ADRs); relationships encode structure and dependency truth when the two differ.
 - After dependency updates, ensure project `Blocked` state is aligned.
+
+Canonical backlog policy: `../wf-plan/references/workflows-github-backlog-override.md`.
 
 ## Safe operating rules
 

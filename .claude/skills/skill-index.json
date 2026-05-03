@@ -1,8 +1,10 @@
 {
-  "generated": "2026-04-14T10:16:55.425453Z",
+  "generated": "2026-05-03T00:00:00Z",
   "totalSkills": 3,
   "alwaysLoadedCount": 0,
   "deferredCount": 3,
+  "planning_backlog": "github",
+  "planning_override_doc": "wf-plan/references/workflows-github-backlog-override.md",
   "skills": {
     "wf-design": {
       "name": "wf-design",
