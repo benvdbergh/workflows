@@ -20,6 +20,7 @@
     "migrate-backlog:apply": "node scripts/migrate-backlog-to-github.mjs apply",
     "migrate-backlog:wire": "node scripts/migrate-backlog-to-github.mjs wire",
     "migrate-backlog:close-done": "node scripts/migrate-backlog-to-github.mjs close-done",
+    "github:set-issue-types": "node scripts/set-github-issue-types.mjs",
     "migrate-backlog:all": "node scripts/migrate-backlog-to-github.mjs all"
   },
   "engines": {
