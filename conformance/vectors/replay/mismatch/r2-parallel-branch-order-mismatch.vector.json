@@ -1,0 +1,114 @@
+{
+  "id": "replay.mismatch.r2.parallel.branch_order",
+  "description": "Adversarial prefix schedules the second parallel branch first; deterministic replay expects the first branch per branch array order.",
+  "kind": "replay",
+  "definition": "examples/r2-research-parallel.workflow.json",
+  "input": { "topic": "t" },
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "r2-research-parallel-demo",
+        "workflowVersion": "1.0.0",
+        "inputKeys": ["topic"]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "start", "state": { "topic": "t" } }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "plan" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "plan" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": { "nodeId": "plan", "nodeType": "llm_call" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": { "nodeId": "plan", "result": {} }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "plan", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "plan", "state": { "topic": "t" } }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "research" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "research" }
+    },
+    {
+      "kind": "command",
+      "name": "StartParallel",
+      "payload": {
+        "nodeId": "research",
+        "join": "all",
+        "branchNames": ["web", "internal"]
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ParallelForked",
+      "payload": {
+        "nodeId": "research",
+        "join": "all",
+        "branchNames": ["web", "internal"]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "internal_collect" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "internal_collect" }
+    }
+  ],
+  "expect": {
+    "status": "failed",
+    "mismatch": {
+      "messageIncludes": "command index 7",
+      "expected": { "name": "ScheduleNode", "nodeId": "internal_collect" },
+      "actual": { "name": "ScheduleNode", "nodeId": "web_collect" }
+    }
+  }
+}

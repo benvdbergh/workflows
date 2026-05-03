@@ -15,7 +15,7 @@ import { applyOutputWithReducers } from "./linear-runner.mjs";
  * @property {(s: Record<string, unknown>) => void} setState
  * @property {(name: string, payload: Record<string, unknown>) => { replayed: boolean }} appendCmd
  * @property {(name: string, payload: Record<string, unknown>) => number} appendEvt
- * @property {(nodeId: string, stateSnapshot: Record<string, unknown>, lastAppliedEventSeq: number) => void} appendCheckpoint
+ * @property {(nodeId: string, stateSnapshot: Record<string, unknown>, lastAppliedEventSeq: number, parallelSpan?: Record<string, unknown>) => void} appendCheckpoint
  * @property {(node: { id: string; type: string; config?: object }, state: Record<string, unknown>, jq: { json: (data: unknown, query: string) => Promise<unknown> }) => Promise<string>} resolveSwitchTarget
  * @property {(node: { id: string; type: string; config?: object }, state: Record<string, unknown>, jq: { json: (data: unknown, query: string) => Promise<unknown> }) => Promise<Record<string, unknown>>} buildSetStateOutput
  * @property {(node: { id: string; type: string; config?: object }, scheduled: { replayed: boolean }, state: Record<string, unknown>) => Promise<{ ok: true; output: Record<string, unknown> } | { ok: false; error: string; code?: string }>} runPlaceholderActivity
@@ -38,9 +38,16 @@ export function createR2ParallelRuntime(params) {
   /**
    * @param {string} nodeId
    * @param {string} joinTargetId
+   * @param {{ parallelNodeId: string; joinTargetId: string; branchName: string; branchEntryNodeId: string }} branchCtx
    * @returns {Promise<{ kind: 'ok' } | { kind: 'failed'; error: string } | { kind: 'interrupt'; nodeId: string; state: Record<string, unknown> }>}
    */
-  async function runBranchToJoin(nodeId, joinTargetId) {
+  async function runBranchToJoin(nodeId, joinTargetId, branchCtx) {
+    const parallelSpan = {
+      parallelNodeId: branchCtx.parallelNodeId,
+      joinTargetId: branchCtx.joinTargetId,
+      branchName: branchCtx.branchName,
+      branchEntryNodeId: branchCtx.branchEntryNodeId,
+    };
     let cur = nodeId;
     while (cur !== joinTargetId) {
       const node = byId.get(cur);
@@ -76,7 +83,7 @@ export function createR2ParallelRuntime(params) {
           nodeId: cur,
           state: JSON.parse(JSON.stringify(hooks.getState())),
         });
-        hooks.appendCheckpoint(cur, hooks.getState(), stateUpdatedSeq);
+        hooks.appendCheckpoint(cur, hooks.getState(), stateUpdatedSeq, parallelSpan);
         try {
           hooks.throwIfStateInvalid(hooks.getState(), `State invalid after switch "${cur}"`);
         } catch (e) {
@@ -93,7 +100,7 @@ export function createR2ParallelRuntime(params) {
           typeof cfg.prompt === "string" ? (cfg.prompt.length > 200 ? `${cfg.prompt.slice(0, 200)}…` : cfg.prompt) : "";
         hooks.appendCmd("RaiseInterrupt", { nodeId: cur, prompt: promptSummary });
         const interruptSeq = hooks.appendEvt("InterruptRaised", { nodeId: cur, prompt: promptSummary });
-        hooks.appendCheckpoint(cur, hooks.getState(), interruptSeq);
+        hooks.appendCheckpoint(cur, hooks.getState(), interruptSeq, parallelSpan);
         return {
           kind: "interrupt",
           nodeId: cur,
@@ -136,7 +143,7 @@ export function createR2ParallelRuntime(params) {
           nodeId: cur,
           state: JSON.parse(JSON.stringify(hooks.getState())),
         });
-        hooks.appendCheckpoint(cur, hooks.getState(), stateUpdatedSeq);
+        hooks.appendCheckpoint(cur, hooks.getState(), stateUpdatedSeq, parallelSpan);
         try {
           hooks.throwIfStateInvalid(hooks.getState(), `State invalid after wait "${cur}"`);
         } catch (e) {
@@ -176,7 +183,7 @@ export function createR2ParallelRuntime(params) {
           nodeId: cur,
           state: JSON.parse(JSON.stringify(hooks.getState())),
         });
-        hooks.appendCheckpoint(cur, hooks.getState(), stateUpdatedSeq);
+        hooks.appendCheckpoint(cur, hooks.getState(), stateUpdatedSeq, parallelSpan);
         try {
           hooks.throwIfStateInvalid(hooks.getState(), `State invalid after set_state "${cur}"`);
         } catch (e) {
@@ -239,7 +246,7 @@ export function createR2ParallelRuntime(params) {
           nodeId: cur,
           state: JSON.parse(JSON.stringify(hooks.getState())),
         });
-        hooks.appendCheckpoint(cur, hooks.getState(), stateUpdatedSeq);
+        hooks.appendCheckpoint(cur, hooks.getState(), stateUpdatedSeq, parallelSpan);
         try {
           hooks.throwIfStateInvalid(hooks.getState(), `State invalid after node "${cur}"`);
         } catch (e) {
@@ -316,13 +323,24 @@ export function createR2ParallelRuntime(params) {
 
     if (join === "all") {
       for (const b of branches) {
-        const r = await runBranchToJoin(b.entry, joinTargetId);
+        const r = await runBranchToJoin(b.entry, joinTargetId, {
+          parallelNodeId: parallelNode.id,
+          joinTargetId,
+          branchName: b.name,
+          branchEntryNodeId: b.entry,
+        });
         if (r.kind !== "ok") return r;
       }
     } else if (join === "any") {
       let successIndex = -1;
       for (let i = 0; i < branches.length; i++) {
-        const r = await runBranchToJoin(branches[i].entry, joinTargetId);
+        const b = branches[i];
+        const r = await runBranchToJoin(b.entry, joinTargetId, {
+          parallelNodeId: parallelNode.id,
+          joinTargetId,
+          branchName: b.name,
+          branchEntryNodeId: b.entry,
+        });
         if (r.kind === "interrupt") return r;
         if (r.kind === "ok") {
           successIndex = i;
@@ -344,7 +362,12 @@ export function createR2ParallelRuntime(params) {
           cancelRemaining(i);
           break;
         }
-        const r = await runBranchToJoin(b.entry, joinTargetId);
+        const r = await runBranchToJoin(b.entry, joinTargetId, {
+          parallelNodeId: parallelNode.id,
+          joinTargetId,
+          branchName: b.name,
+          branchEntryNodeId: b.entry,
+        });
         if (r.kind === "interrupt") return r;
         if (r.kind === "ok") {
           successes += 1;

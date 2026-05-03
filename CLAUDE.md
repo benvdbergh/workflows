@@ -73,7 +73,7 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`. Opera
 
 ## Key architectural decisions
 
-**POC scope is intentionally narrow.** `docs/poc-scope.md` freezes the surface the first engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`. Explicitly out of scope: `parallel`, `agent_delegate`, `subworkflow`, `wait`, `set_state`. The schema enforces this via a `oneOf` discriminated union that rejects unknown `type` values.
+**Engine profile (POC + R2).** `docs/poc-scope.md` freezes the surface the reference engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, plus R2 `parallel`, `wait`, and `set_state`. Explicitly out of scope for this profile: `agent_delegate`, `subworkflow`. The schema enforces allowed `type` values via a `oneOf` discriminated union that rejects unknown `type` values.
 
 **JSON Schema `additionalProperties: false`** on the workflow root means adding top-level fields (e.g. `extensions`) will fail validation by design.
 

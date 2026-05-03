@@ -44,5 +44,18 @@ describe("runPocWorkflow (R2 parallel, wait, set_state)", () => {
     assert.ok(rows.some((r) => r.kind === "command" && r.name === "JoinParallel"));
     assert.ok(rows.some((r) => r.kind === "event" && r.name === "TimerFired"));
     assert.ok(rows.some((r) => r.kind === "event" && r.name === "ParallelJoined"));
+
+    const branchCp = rows.find(
+      (r) =>
+        r.kind === "event" &&
+        r.name === "CheckpointWritten" &&
+        r.payload?.nodeId === "web_collect" &&
+        r.payload?.parallelSpan
+    );
+    assert.ok(branchCp);
+    assert.equal(branchCp.payload.parallelSpan.parallelNodeId, "research");
+    assert.equal(branchCp.payload.parallelSpan.joinTargetId, "tag");
+    assert.equal(branchCp.payload.parallelSpan.branchName, "web");
+    assert.equal(branchCp.payload.parallelSpan.branchEntryNodeId, "web_collect");
   });
 });

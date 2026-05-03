@@ -1,0 +1,120 @@
+{
+  "id": "replay.prefix.tail.r2.research.after_plan",
+  "description": "R2 parallel fixture: replay prefix through plan completion, then fork/join, set_state, wait, and end.",
+  "kind": "replay",
+  "definition": "examples/r2-research-parallel.workflow.json",
+  "input": {
+    "topic": "t"
+  },
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "r2-research-parallel-demo",
+        "workflowVersion": "1.0.0",
+        "inputKeys": ["topic"]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "start"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "start"
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "start",
+        "output": {}
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "start",
+        "state": {
+          "topic": "t"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": {
+        "nodeId": "plan"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": {
+        "nodeId": "plan"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": {
+        "nodeId": "plan",
+        "nodeType": "llm_call"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "plan",
+        "result": {}
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "plan",
+        "output": {}
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "plan",
+        "state": {
+          "topic": "t"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "ScheduleNode", "nodeId": "research" },
+      { "name": "StartParallel", "nodeId": "research" },
+      { "name": "ScheduleNode", "nodeId": "web_collect" },
+      { "name": "CompleteNode", "nodeId": "web_collect" },
+      { "name": "ScheduleNode", "nodeId": "internal_collect" },
+      { "name": "CompleteNode", "nodeId": "internal_collect" },
+      { "name": "JoinParallel", "nodeId": "research" },
+      { "name": "CompleteNode", "nodeId": "research" },
+      { "name": "ScheduleNode", "nodeId": "tag" },
+      { "name": "CompleteNode", "nodeId": "tag" },
+      { "name": "ScheduleNode", "nodeId": "rest" },
+      { "name": "StartTimer", "nodeId": "rest" },
+      { "name": "CompleteNode", "nodeId": "rest" },
+      { "name": "ScheduleNode", "nodeId": "end" },
+      { "name": "CompleteNode", "nodeId": "end" }
+    ]
+  }
+}

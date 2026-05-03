@@ -126,9 +126,9 @@ The matrix below maps RFC-08 section `8.2 Conformance tests` areas to the curren
 | RFC-08 conformance area | Status | Evidence |
 |---|---|---|
 | Schema validation (valid/invalid fixtures) | Implemented | `conformance/vectors/schema/valid/*.vector.json`, `conformance/vectors/schema/invalid/*.vector.json` |
-| Replay (inject history, deterministic tail stream) | Implemented | `conformance/vectors/replay/prefix-tail/*.vector.json`, including lighthouse happy path `conformance/vectors/replay/prefix-tail/lighthouse-prefix-tail-technical.vector.json`; mismatch diagnostics in `conformance/vectors/replay/mismatch/*.vector.json` |
-| Reducers (append/merge/overwrite matrices) | Deferred | Out of active POC execution scope; no reducer matrix vectors yet |
-| Parallel joins (`all`, `any`, `n_of_m`) | Deferred | `parallel` execution is out of active POC scope |
+| Replay (inject history, deterministic tail stream) | Implemented | Prefix/tail vectors under `conformance/vectors/replay/prefix-tail/` (lighthouse, R2 `join all` / `any` / `n_of_m`); mismatch diagnostics in `conformance/vectors/replay/mismatch/` (lighthouse route + R2 parallel branch order) |
+| Reducers (append/merge/overwrite matrices) | Deferred | No dedicated reducer matrix vectors yet (behavior covered indirectly by fixtures) |
+| Parallel joins (`all`, `any`, `n_of_m`) | Partial | R2 reference engine implements join policies; harness covers deterministic replay through a parallel fork/join tail (`r2-research-prefix-after-plan`); dedicated join-policy matrix vectors still deferred |
 | Interrupt resume (validation failure vs success) | Partial | Replay vectors exercise resume cursor behavior; lighthouse happy-path coverage is active, while dedicated interrupt resume conformance vectors are still deferred |
 | MCP tool mapping roundtrip (mock server) | Deferred | MCP adapter conformance vectors not yet implemented in harness |
 
@@ -137,7 +137,7 @@ The matrix below maps RFC-08 section `8.2 Conformance tests` areas to the curren
 | Area | Current decision | Rationale | Re-entry trigger |
 |---|---|---|---|
 | Reducer conformance matrix | Deferred | Active POC profile prioritizes schema + replay coverage and does not include reducer behavior conformance vectors yet | EPIC/story that introduces reducer semantics into active execution profile (`append`, `merge`, `overwrite`) |
-| Parallel join conformance | Deferred | `parallel` node execution is explicitly outside active POC scope | Scope update that enables `parallel` in `docs/poc-scope.md` plus engine support |
+| Parallel join conformance (full matrix) | Deferred | Join policies are implemented in-engine; harness lacks explicit `all` / `any` / `n_of_m` matrix vectors | Story adds replay/schema vectors per join policy and failure modes |
 | Interrupt resume conformance (dedicated vectors) | Deferred (currently partial) | Existing replay vectors validate deterministic continuation mechanics and protect lighthouse happy path, but not explicit interrupt-resume success/failure matrix cases | Story adds interrupt pause/resume fixture set with both schema-valid and schema-invalid resume payload cases |
 | MCP tool mapping roundtrip conformance | Deferred | Harness currently runs in-process vectors and does not yet include MCP mock-server roundtrip assertions | EPIC-4 MCP stdio integration reaches testable parity and adds stable mock-server test harness |
 

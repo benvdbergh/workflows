@@ -1,0 +1,66 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "name": "r2-parallel-join-any",
+    "version": "1.0.0"
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "topic": { "type": "string" },
+      "findings": {
+        "type": "array",
+        "items": { "type": "string" },
+        "reducer": "append"
+      }
+    }
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "plan",
+      "type": "llm_call",
+      "config": { "model": "stub", "prompt": "Plan" }
+    },
+    {
+      "id": "research",
+      "type": "parallel",
+      "config": {
+        "join": "any",
+        "branches": [
+          { "name": "web", "entry": "web_collect" },
+          { "name": "internal", "entry": "internal_collect" }
+        ]
+      }
+    },
+    {
+      "id": "web_collect",
+      "type": "tool_call",
+      "config": { "server": "demo-mcp", "tool": "web.search", "arguments": {} }
+    },
+    {
+      "id": "internal_collect",
+      "type": "tool_call",
+      "config": { "server": "demo-mcp", "tool": "kb.search", "arguments": {} }
+    },
+    {
+      "id": "rest",
+      "type": "wait",
+      "config": { "kind": "duration", "duration_ms": 0 }
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "config": { "output_mapping": ".findings" }
+    }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "start" },
+    { "source": "start", "target": "plan" },
+    { "source": "plan", "target": "research" },
+    { "source": "research", "target": "rest" },
+    { "source": "web_collect", "target": "rest" },
+    { "source": "internal_collect", "target": "rest" },
+    { "source": "rest", "target": "end" }
+  ]
+}
