@@ -19,6 +19,7 @@
     "migrate-backlog:render": "node scripts/migrate-backlog-to-github.mjs render",
     "migrate-backlog:apply": "node scripts/migrate-backlog-to-github.mjs apply",
     "migrate-backlog:wire": "node scripts/migrate-backlog-to-github.mjs wire",
+    "migrate-backlog:close-done": "node scripts/migrate-backlog-to-github.mjs close-done",
     "migrate-backlog:all": "node scripts/migrate-backlog-to-github.mjs all"
   },
   "engines": {

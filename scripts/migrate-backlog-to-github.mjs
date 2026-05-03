@@ -9,7 +9,9 @@
  *   node scripts/migrate-backlog-to-github.mjs render   # write tmp/migration/bodies/<id>.md (needs mapping.json)
  *   node scripts/migrate-backlog-to-github.mjs apply    # snapshot, edit/create, sub-issues, deps, project fields, comment
  *   node scripts/migrate-backlog-to-github.mjs all      # map -> render -> apply
- *   node scripts/migrate-backlog-to-github.mjs local-map # mapping.json with to_create only (no gh; then render)
+ *   node scripts/migrate-backlog-to-github.mjs local-map   # mapping.json with to_create only (no gh; then render)
+ *   node scripts/migrate-backlog-to-github.mjs wire         # sub-issues + blocked-by only
+ *   node scripts/migrate-backlog-to-github.mjs close-done  # close issues where mapping status is done (mapping.json)
  *
  * Env:
  *   GH_BIN          path to gh executable (default: gh on PATH, or Windows Program Files path)
@@ -450,6 +452,40 @@ async function postMigrationComment(num) {
   await gh(['issue', 'comment', String(num), '--repo', REPO, '--body', line])
 }
 
+function isDoneStatus(s) {
+  return String(s ?? '')
+    .toLowerCase()
+    .replace(/_/g, '-')
+    .match(/^(done|complete|completed|closed|shipped)$/)
+}
+
+async function syncIssueClosedStateFromRow(row, issueNum) {
+  if (!issueNum || !isDoneStatus(row.data.status)) return
+  try {
+    await gh(['issue', 'close', String(issueNum), '--repo', REPO, '--reason', 'completed'])
+    console.log(`closed #${issueNum} (source status: ${row.data.status})`)
+  } catch (e) {
+    console.warn(`close #${issueNum}: ${e.message}`)
+  }
+}
+
+/** After markdown removal: use tmp/migration/mapping.json `status` + `issue_number` only. */
+async function cmdCloseDone() {
+  const mapping = JSON.parse(await fs.readFile(path.join(TMP, 'mapping.json'), 'utf8'))
+  const stories = mapping.items.filter((i) => i.kind === 'story' && isDoneStatus(i.status))
+  const epics = mapping.items.filter((i) => i.kind === 'epic' && isDoneStatus(i.status))
+  for (const it of [...stories, ...epics]) {
+    if (!it.issue_number) continue
+    try {
+      await gh(['issue', 'close', String(it.issue_number), '--repo', REPO, '--reason', 'completed'])
+      console.log(`closed #${it.issue_number} ${it.id}`)
+    } catch (e) {
+      console.warn(`#${it.issue_number} ${it.id}: ${e.message}`)
+    }
+  }
+  console.log('close-done: finished')
+}
+
 async function cmdApply() {
   const mapPath = path.join(TMP, 'mapping.json')
   const mapping = JSON.parse(await fs.readFile(mapPath, 'utf8'))
@@ -560,6 +596,12 @@ async function cmdApply() {
     }
   }
 
+  /** Match legacy frontmatter `status: done` to GitHub closed state (new issues default to open). */
+  for (const row of [...stories, ...epics]) {
+    const num = byId[row.data.id].issue_number
+    await syncIssueClosedStateFromRow(row, num)
+  }
+
   await fs.writeFile(mapPath, JSON.stringify(mapping, null, 2), 'utf8')
   await fs.writeFile(logPath, log, 'utf8')
   console.log(
@@ -610,13 +652,14 @@ try {
   else if (cmd === 'render') await cmdRender()
   else if (cmd === 'apply') await cmdApply()
   else if (cmd === 'wire') await cmdWire()
+  else if (cmd === 'close-done') await cmdCloseDone()
   else if (cmd === 'all') {
     await cmdMap()
     if (process.exitCode) process.exit(process.exitCode)
     await cmdRender()
     await cmdApply()
   } else {
-    console.log(`Commands: local-map | map | render | apply | wire | all`)
+    console.log(`Commands: local-map | map | render | apply | wire | close-done | all`)
   }
 } catch (e) {
   console.error(e)
