@@ -10,7 +10,7 @@
 ## Does Not Own
 
 - Product strategy frameworks, prioritization formulas, and roadmap design mechanics.
-- Detailed epic/story/task decomposition and planning file lifecycle operations.
+- Detailed epic/story/task decomposition expressed as **GitHub issue** lifecycle (this repo); not maintenance of parallel planning markdown under `docs`.
 - Deep architecture design, trade-off analysis, and technical topology selection.
 - SemVer policy, changelog rules, version bump governance, and release automation policy.
 
@@ -22,7 +22,7 @@
 | Release content must be sliced and confidence-ranked | `product-roadmap` | Committed vs forecast slices with rationale |
 | Release/version policy, bump semantics, or governance is needed | `release-versioning` | Version/release policy decision and release governance artifacts |
 | Architecture enablers or runway constraints affect plan timing | `software-architecture` | Runway dependencies, risks, and architecture constraints |
-| Roadmap items must map into executable epics/stories/dependencies | `project-planning` | Decomposed work items with traceability and dependency ordering |
+| Roadmap items must map into executable epics/stories/dependencies | `project-planning` | Decomposed work as **GitHub issues** (bodies + relationships) with traceability and dependency ordering; see `workflows-github-backlog-override.md` |
 
 ## Routing Rules
 

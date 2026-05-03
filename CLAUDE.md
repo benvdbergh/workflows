@@ -14,7 +14,7 @@ A specification, contract, and **POC engine** repository for the **Agent Workflo
 - `packages/engine/` — **`@agent-workflow/engine`** (npm org scope `@agent-workflow`): POC validation (CLI + library), append-only command/event history (SQLite or in-memory), linear runner, full POC walker with `switch` and `interrupt` / resume, and MCP stdio adapter (see `packages/engine/README.md`)
 - `scripts/validate-workflows.mjs` — repo-wide AJV validation used by CI and aligned with the engine's schema options
 - `scripts/sync-engine-poc-schema.mjs` — syncs the root `schemas/workflow-definition-poc.json` into `packages/engine/schemas/` (run automatically on `prepack`)
-- `docs/epics/` and `docs/stories/` — agile work items with YAML frontmatter (managed by the `project-planning` skill)
+- **GitHub issues** in `benvdbergh/workflows` (+ [Project #4](https://github.com/users/benvdbergh/projects/4)) — canonical epics/stories, acceptance criteria, and planning narrative (see `.project-planning.yaml` and `.claude/skills/wf-plan/references/workflows-github-backlog-override.md`)
 - `docs/releases/` — release notes and versioning/CI governance docs for the alpha
 - `docs/architecture/` — operator runbooks and architecture diagrams (MCP stdio smoke runbook, demo walkthroughs)
 - `ROADMAP.md` — post-alpha release plan (R2 Beta through GA and beyond)
@@ -89,7 +89,9 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`. Opera
 
 ## Work item conventions
 
-Epic and story files carry YAML frontmatter with `kind`, `id`, `status`, `depends_on`, `traces_to`, and `acceptance_criteria`. The `.project-planning.yaml` manifest at the repo root configures the planning skill (epics in `docs/epics/`, stories in `docs/stories/`).
+**Canonical backlog:** GitHub issues (and parent/sub-issue relationships) hold epic/story intent, acceptance criteria, status, and links to RFC/`docs/poc-scope.md`/ADRs. Use the `wf-plan`, `wf-design`, and `wf-execute` skills and `.project-planning.yaml` for `gh`/Project conventions. The global `project-planning` skill still applies to **process** (decomposition, dependencies, readiness); this repository **overrides the artifact location** to GitHub per `workflows-github-backlog-override.md`.
+
+**Legacy:** Historical per-epic and per-story markdown under `docs` was removed after GitHub became the planning store; do not recreate it.
 
 When changing the POC contract (scope note, schema, or fixtures), update all three together and bump `document.schema` in workflow instances.
 

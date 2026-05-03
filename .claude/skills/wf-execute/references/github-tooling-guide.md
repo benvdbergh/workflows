@@ -9,6 +9,8 @@ Execution interactions for:
 
 This guide covers the issue -> branch -> PR -> project status lifecycle.
 
+Story/epic **acceptance criteria and scope** are authoritative on the **GitHub issue** (see `../wf-plan/references/workflows-github-backlog-override.md`). Do not treat removed per-story markdown as live requirements.
+
 ## Primary tools
 
 - `gh issue view`, `gh issue edit`, `gh issue comment`

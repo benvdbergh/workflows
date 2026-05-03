@@ -6,10 +6,14 @@ description: >-
   workflows repository. Use when work starts from an issue and needs consistent
   status transitions, field updates, and execution reporting through closure.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # wf-execute
+
+## Project override — GitHub canonical backlog
+
+Execution threads are **GitHub issues** that carry story/epic narrative, acceptance criteria, and links to `docs/` contracts. Removed historical epic/story markdown is not authoritative. See `../wf-plan/references/workflows-github-backlog-override.md` and root `.project-planning.yaml` for `gh` patterns.
 
 ## Purpose
 
@@ -79,7 +83,7 @@ Status and field updates should be applied at start, during active execution, wh
 5. Move status to active execution state in the project workflow.
 6. Create branch linked to issue id and start implementation.
 
-Escalate to `project-planning` if issue scope is ambiguous, oversized, or missing dependency clarity.
+Escalate to `project-planning` if issue scope is ambiguous, oversized, or missing dependency clarity; refine the **GitHub issue** (body, sub-issues, blockers)—do not add parallel planning markdown under `docs`.
 
 ### Triggered interaction
 - "start work on issue #"
@@ -137,7 +141,7 @@ Escalate to `release-versioning` for release policy, SemVer decisions, and chang
 
 Always escalate by intent:
 
-- `project-planning`: decomposition, sequencing, dependency mapping, acceptance shaping.
+- `project-planning`: decomposition, sequencing, dependency mapping, acceptance shaping (artifacts = GitHub issues per `../wf-plan/references/workflows-github-backlog-override.md`).
 - `minimalist-coding`: implementation quality, clean layering, YAGNI, maintainable change design.
 - `release-versioning`: release semantics, version bump rationale, release notes/changelog policy.
 - `repo-triage-pr-ops`: issue/PR ops model, routing, labels, board triage conventions.

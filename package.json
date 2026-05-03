@@ -13,12 +13,19 @@
     "engine:validate": "node packages/engine/src/cli.mjs validate",
     "engine:mcp:stdio": "node packages/engine/src/mcp-stdio-server.mjs",
     "conformance": "node conformance/run-conformance.mjs",
-    "test": "npm test --workspace=@agent-workflow/engine"
+    "test": "npm test --workspace=@agent-workflow/engine",
+    "migrate-backlog:local-map": "node scripts/migrate-backlog-to-github.mjs local-map",
+    "migrate-backlog:map": "node scripts/migrate-backlog-to-github.mjs map",
+    "migrate-backlog:render": "node scripts/migrate-backlog-to-github.mjs render",
+    "migrate-backlog:apply": "node scripts/migrate-backlog-to-github.mjs apply",
+    "migrate-backlog:wire": "node scripts/migrate-backlog-to-github.mjs wire",
+    "migrate-backlog:all": "node scripts/migrate-backlog-to-github.mjs all"
   },
   "engines": {
     "node": ">=22.5.0"
   },
   "devDependencies": {
-    "ajv": "^8.17.1"
+    "ajv": "^8.17.1",
+    "yaml": "^2.8.4"
   }
 }

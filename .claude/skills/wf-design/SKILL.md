@@ -7,12 +7,16 @@ description: >-
   planning and execution.
 metadata:
   author: workflows project
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # wf-design
 
 Process-first design router for work entering the repository.
+
+## Project override — GitHub canonical backlog
+
+For **`benvdbergh/workflows`**, executable planning artifacts are **GitHub issues** (not local epic/story markdown under `docs`). After design handoff, decomposition and acceptance criteria land in issue bodies and relationships. See `../wf-plan/references/workflows-github-backlog-override.md` and root `.project-planning.yaml`.
 
 ## Scope
 
@@ -91,7 +95,7 @@ Trigger phrases: "ready for stories", "handoff for implementation", "plan this w
 
 Actions:
 - Produce a complete design output contract (defined below).
-- Route to `project-planning` for decomposition into epics/stories, dependency ordering, and readiness checks.
+- Route to `project-planning` for decomposition into epics/stories, dependency ordering, and readiness checks—**realized as GitHub issues** per `../wf-plan/references/workflows-github-backlog-override.md`.
 - Escalate to `specification` when a formal spec/PRD/technical plan is required for governance, cross-team alignment, or execution safety.
 
 ### Triggered interaction
@@ -126,7 +130,7 @@ Trigger phrases: "handoff design to planning", "convert design to executable pla
 Actions:
 - Confirm design output contract completeness.
 - Update issue status/labels for planning readiness.
-- Hand off to `project-planning` with explicit decomposition request.
+- Hand off to `project-planning` with explicit decomposition request (backlog = GitHub issues, not markdown epics/stories).
 
 ## Escalation Rules
 
