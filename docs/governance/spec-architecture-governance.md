@@ -54,6 +54,8 @@ Primary constraints and anchors:
   - Doc updates exist in same PR when behavior or contract changed.
   - Validation checks pass (`validate-workflows`, `conformance`, tests).
 
+**Engine-direct profile (R2 reference engine):** Issues that add or materially change **engine-direct** MCP execution (engine-owned MCP clients, manifest-aligned operator config, or bounded local handlers) **SHOULD** link [RFC-06 §6.1](../RFC/rfc-06-interoperability.md#61-composing-mcp) and [ADR-0003](../architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md) at Gate B, and cite concrete conformance or replay evidence at Gate C when behavior affects history or resumption. Gate mapping table: see ADR-0003 “Governance alignment.”
+
 ### Architecture view artifacts governance
 
 Canonical diagram artifacts:

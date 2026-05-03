@@ -34,13 +34,13 @@ Activity nodes (`step`, `llm_call`, `tool_call`) require non-deterministic I/O (
 
 For **operator and automation** scenarios, the repository **target** includes an **engine-direct** activity path: the reference engine **invokes** MCP servers (stdio or other supported transports) and **MAY** invoke bounded local commands where the deployment profile allows, without a conversational MCP host mediating every `tool_call`. **Configuration** for MCP servers **SHOULD** be reusable or translatable from **host manifest** shapes (for example Cursor-style `mcp.json` or equivalent desktop MCP config) so credentials and server lists are not maintained twice when both an IDE host and an engine worker need the same tools—subject to explicit policy when secrets must remain host-only.
 
-That posture extends **Option C (hybrid)** and optional **Option A**-style surfaces; it does **not** revise the **default assistant-class decision** above. When engine-direct execution becomes a supported reference profile, a **follow-on ADR** should record normative security, isolation, and provenance expectations.
+That posture extends **Option C (hybrid)** and optional **Option A**-style surfaces; it does **not** revise the **default assistant-class decision** above. Normative security, isolation, configuration, and audit expectations for engine-direct execution are recorded in **[ADR-0003](ADR-0003-engine-direct-mcp-activity-execution.md)**.
 
 ## Follow-up (implementation and validation)
 
 - Reference MCP stdio exposes `workflow_submit_activity` and status projection for `awaiting_activity`; extend conformance and governance naming as needed.
 - Conformance vectors for pause, submit result, replay idempotency.
-- Engine-direct MCP/cmd execution and manifest-aligned operator configuration (see Evolution).
+- Engine-direct MCP/cmd execution and manifest-aligned operator configuration (see [ADR-0003](ADR-0003-engine-direct-mcp-activity-execution.md)).
 - Update `docs/architecture/as-is-system-overview.md` and as-built diagrams as profiles mature.
 
 ## References
@@ -48,5 +48,6 @@ That posture extends **Option C (hybrid)** and optional **Option A**-style surfa
 - `docs/architecture/as-is-system-overview.md`
 - `docs/poc-scope.md`
 - `docs/RFC/rfc-04-execution-model.md`, `docs/RFC/rfc-05-integration-interfaces.md`, `docs/RFC/rfc-06-interoperability.md`
+- `docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md`
 - `ROADMAP.md`
 - `docs/governance/spec-architecture-governance.md`
