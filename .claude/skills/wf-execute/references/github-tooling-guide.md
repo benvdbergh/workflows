@@ -7,7 +7,11 @@ Execution interactions for:
 - Project: `https://github.com/users/benvdbergh/projects/4`
 - Repo: `https://github.com/benvdbergh/workflows`
 
-This guide covers the issue -> branch -> PR -> project status lifecycle.
+This guide covers the issue → branch → PR → project status lifecycle.
+
+## Canonical mechanics (do not duplicate)
+
+**Auth preflight**, **ordered tooling ladder** (`gh` → REST `gh api` → GraphQL), **stdin / here-doc issue bodies** (no `--body-file` scratch under the repo root), **`gh project field-list` before `item-edit`**, and **Appendix A/B** (sub-issues, `blocked_by`): use **`../wf-plan/references/github-tooling-guide.md`** as the single source of truth. Follow that document first; then apply the execution sequence below.
 
 There is **no** repository Actions workflow that auto-adds issues or PRs to Project #4; triage adds cards and updates fields (UI or `gh project` with the right scopes).
 
@@ -25,6 +29,8 @@ Story/epic **acceptance criteria and scope** are authoritative on the **GitHub i
   - Bulk updates or field operations not covered by shorthand commands.
 
 ## Standard execution sequence
+
+0. **Preflight** — Per wf-plan guide: `gh auth status`; before `gh project …`, `gh auth refresh -s read:project -s project`; resolve project field IDs with `gh project field-list 4 --owner benvdbergh` before `item-edit`.
 
 1. **Start**
    - Verify issue scope and acceptance intent.
@@ -65,6 +71,8 @@ Story/epic **acceptance criteria and scope** are authoritative on the **GitHub i
 5. Escalate to specialist skills when outside ownership boundaries.
 
 ## Minimum GitHub update contract
+
+Use **`Execution update`** on issues or PRs during implementation. Planners use **`Planning update`** (see wf-plan `github-tooling-guide.md`); do not conflate the two—execution threads need evidence and next actions, not release slicing debates.
 
 Use this comment structure for execution updates on issues or PRs:
 

@@ -2,6 +2,8 @@
 
 This file is the **repository-specific override** for the global `project-planning` skill and related planning habits. It does not replace INVEST-style decomposition, dependency thinking, or readiness checks from `project-planning`; it **redefines where those artifacts live**.
 
+Scratch text and **issue bodies** must not rely on **repo-root temp files** (for example `--body-file body.md` in the clone root): that creates untracked noise and accidental-commit risk. Pipe body text via **stdin** or a **here-doc / here-string**, point `--body-file` at a path **outside the repository**, or copy from **wf-plan** tracked templates (placeholders only) after filling content off-root. See `references/github-tooling-guide.md` for bash and PowerShell patterns.
+
 ## Canonical store
 
 | Artifact | Canonical location | Notes |

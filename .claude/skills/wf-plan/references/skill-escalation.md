@@ -6,11 +6,14 @@
 - Routing intake to the correct specialist planning/architecture/versioning skills.
 - Commitment-vs-forecast labeling and consolidation across roadmap/release/cadence views.
 - Cadence-ready reporting format (status, risk, confidence trend, next decisions).
+- **GitHub planning hygiene** for this repo: issue titles/labels/milestones, Project #4 planning fields, parent/sub-issue and blocked-by relationships when creating or updating backlog items (see `github-tooling-guide.md`).
 
 ## Does Not Own
 
 - Product strategy frameworks, prioritization formulas, and roadmap design mechanics.
-- Detailed epic/story/task decomposition expressed as **GitHub issue** lifecycle (this repo); not maintenance of parallel planning markdown under `docs`.
+- INVEST-style decomposition mechanics and readiness **process** (escalate to **`project-planning`**); `wf-plan` adds **where** artifacts go in GitHub and **how** to touch the API safely.
+- Branch/PR linkage, execution status, merge hygiene, and release-close carryover (escalate to **`wf-execute`**).
+- Parallel planning markdown trees under `docs` (canonical narrative is GitHub issues per override).
 - Deep architecture design, trade-off analysis, and technical topology selection.
 - SemVer policy, changelog rules, version bump governance, and release automation policy.
 

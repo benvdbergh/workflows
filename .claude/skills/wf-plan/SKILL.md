@@ -1,20 +1,20 @@
 ---
 name: wf-plan
 description: >-
-  Orchestrates project-level planning, roadmap, and delivery-cadence workflows for the workflows repository by routing requests to the right specialist skills and enforcing commitment-vs-forecast clarity. Use when planning from vision, slicing releases, sequencing architectural runway, running roadmap/project cadence, or producing planning status reports.
+  Orchestrates project-level planning, roadmap, and delivery-cadence workflows for the workflows repository by routing requests to the right specialist skills and enforcing commitment-vs-forecast clarity. Covers GitHub issue and Project #4 hygiene when creating or updating benvdbergh/workflows backlog items. Use when planning from vision, slicing releases, sequencing architectural runway, running roadmap/project cadence, or producing planning status reports.
 license: MIT
 metadata:
   author: workflows
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # wf-plan
 
-Process orchestration skill for planning and roadmapping in this repository. It coordinates specialized skills and keeps planning outputs consistent with repo cadence and release intent.
+**Workflows-specific planning layer** for this repository: it coordinates specialist skills, keeps commitment vs forecast explicit, and adds **GitHub + Project #4** guardrails (titles, labels, milestones, relationships, project fields). It does **not** replace the global **`project-planning`** process (decomposition, INVEST, readiness)—load that for how to think; use **`wf-plan`** for where artifacts go and how to touch GitHub here. For branch/PR/execution hygiene after planning hands off, defer to **`wf-execute`**.
 
 ## Project override — GitHub canonical backlog
 
-For **`benvdbergh/workflows`**, epics/stories, acceptance criteria, and planning narrative live in **GitHub issues** and **Project #4**, not in local planning markdown under `docs`. The global `project-planning` skill’s **file-based defaults do not apply**; its **decomposition and readiness practices** still apply when creating or editing issues. Authoritative policy: `references/workflows-github-backlog-override.md`. Example `gh` commands: root `.project-planning.yaml`.
+For **`benvdbergh/workflows`**, epics/stories, acceptance criteria, and planning narrative live in **GitHub issues** and **Project #4**, not in local planning markdown under `docs`. The global `project-planning` skill’s **file-based defaults do not apply**; its **decomposition and readiness practices** still apply when creating or editing issues. Authoritative policy: `references/workflows-github-backlog-override.md`. Example `gh` commands: root `.project-planning.yaml`. Expanded command patterns: `references/github-tooling-guide.md`.
 
 ## Scope and Positioning
 
@@ -25,6 +25,7 @@ For **`benvdbergh/workflows`**, epics/stories, acceptance criteria, and planning
 - **Does not own**
   - Product roadmap frameworks and prioritization methods (escalate to `product-roadmap`).
   - Epic/story decomposition and traceability mechanics (escalate to `project-planning`; **emit artifacts as GitHub issues** per `references/workflows-github-backlog-override.md`).
+  - Branch/PR linkage, CI gates, and execution-close hygiene (defer to `wf-execute`).
   - Deep technical architecture decisions and topology validation (escalate to `software-architecture`).
   - SemVer and release/version policy definition (escalate to `release-versioning`).
 
@@ -38,6 +39,38 @@ For **`benvdbergh/workflows`**, epics/stories, acceptance criteria, and planning
 6. Use `docs/architecture/as-built-views.drawio` and `docs/architecture/rfc-target-views.drawio` as canonical visual evidence for as-is vs target planning deltas.
 7. End each run with a cadence-ready status view (changes, risks, next checkpoint).
 8. Route to specialist skills instead of recreating their standards locally.
+
+## GitHub guardrails (benvdbergh/workflows)
+
+### Skill layering
+
+- **`project-planning`** (user/global): decomposition, INVEST-style shaping, dependency and readiness **process**—apply it; for this repo, **emit** to GitHub issues/relationships, not to new planning trees under `docs`.
+- **`wf-plan`** (this skill): **GitHub + Project #4** governance for `benvdbergh/workflows`—auth/tooling order, title taxonomy, milestone vs project `Release` alignment, relationship hygiene, degraded mode when the board is unreachable.
+- **`wf-execute`**: branch naming, PR linkage, progress reporting, and release-close execution—**defer** there instead of duplicating execution rules.
+
+### Preflight
+
+- Run **`gh auth status`** before scripted or multi-step GitHub work.
+- Before **any** `gh project …` command, run **`gh auth refresh -s read:project -s project`** so project reads/writes do not fail mid-session.
+
+### Title and release taxonomy
+
+Align issue **titles** with `.github/ISSUE_TEMPLATE` prefixes. Do **not** use a bare **`[R2]`** (or similar) as the **title type**; express target **release** with **milestone**, label **`release:R*`** (e.g. `release:R2`), and the Project **Release** field.
+
+| Title prefix | Template / role | Typical type labels |
+|--------------|-----------------|---------------------|
+| `[EPIC]` | Epic | `type:epic` |
+| `[FEATURE]` | Feature slice | `type:feature` |
+| `[RUNWAY]` | Architecture runway enabler | `type:enabler`, `type:runway` |
+| `[RISK]` | Risk or dependency | `type:risk` |
+
+### Degraded mode (Project #4 or scopes unavailable)
+
+Still **complete** the issue track: body, labels, **milestone**, parent/sub-issue and **blocked-by** relationships, and a short rationale **comment**. **Defer** Project board field updates with an **explicit** user follow-up (which fields to set on Project #4 and why). Never silently skip milestone/relationship alignment when rebasing release intent.
+
+### Expanded patterns
+
+Command ladder, stdin/here-string issue bodies (no repo-root scratch files), **`gh project field-list` before `item-edit`**, and REST/GraphQL notes for dependencies and sub-issues: **`references/github-tooling-guide.md`**.
 
 ## Workflow Routing
 

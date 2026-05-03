@@ -3,10 +3,12 @@ name: wf-execute
 description: >-
   Orchestrates execution workflow hygiene across GitHub issues, project fields,
   branch and PR linkage, progress reporting, and release-close carryover for the
-  workflows repository. Use when work starts from an issue and needs consistent
-  status transitions, field updates, and execution reporting through closure.
+  workflows repository. Reuses wf-plan GitHub mechanics (auth preflight, project
+  field IDs, no repo-root scratch bodies) and execution-specific status comments.
+  Use when work starts from an issue and needs consistent status transitions,
+  field updates, acceptance-criteria traceability, and execution reporting through closure.
 metadata:
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # wf-execute
@@ -14,6 +16,8 @@ metadata:
 ## Project override — GitHub canonical backlog
 
 Execution threads are **GitHub issues** that carry story/epic narrative, acceptance criteria, and links to `docs/` contracts. Removed historical epic/story markdown is not authoritative. See `../wf-plan/references/workflows-github-backlog-override.md` and root `.project-planning.yaml` for `gh` patterns.
+
+**Planning vs execution:** **`wf-plan`** owns title taxonomy, planning labels/milestones, and Project #4 setup for backlog items. **`wf-execute`** continues those conventions during implementation (do not strip `[FEATURE]` / `[RUNWAY]` / `[EPIC]` prefixes; keep milestone, `release:R*`, and Project **Release** aligned when execution changes release intent). Shared **GitHub mechanics** (auth preflight, `gh project field-list` before `item-edit`, stdin issue bodies—no repo-root scratch files, GraphQL/REST patterns): **`../wf-plan/references/github-tooling-guide.md`** (canonical). This skill’s `references/github-tooling-guide.md` adds **execution-only** sequence and comment templates.
 
 ## Purpose
 
@@ -71,6 +75,16 @@ Use and maintain these field concepts consistently on project `4`:
 - `Blocked`
 
 Status and field updates should be applied at start, during active execution, when blocked/unblocked, and at close.
+
+Before any `gh project …` mutation: **`gh auth status`**, then **`gh auth refresh -s read:project -s project`** (same preflight as `wf-plan`). Run **`gh project field-list 4 --owner benvdbergh`** before scripted **`item-edit`** so field IDs stay correct.
+
+**Degraded mode:** If project scopes are unavailable, still post **Execution update** comments on the issue (and PR), keep **`Blocked`** narrative and native **blocked-by** relationships accurate, and leave an explicit follow-up to set Project #4 fields when auth allows—do not skip traceability.
+
+### Acceptance criteria during execution
+
+- Treat **acceptance criteria in the issue body** as the completion contract; link PR evidence (paths, commands, conformance output) in comments or brief body edits.
+- When scope changes, update the issue body **or** record the change in an **Execution update** comment and align **labels / milestone / Project fields** with `wf-plan` release intent.
+- Before requesting final review or merge, confirm each AC line is satisfied or explicitly waived with rationale on the issue thread.
 
 ## Workflow Routing
 
@@ -147,7 +161,8 @@ Always escalate by intent:
 - `repo-triage-pr-ops`: issue/PR ops model, routing, labels, board triage conventions.
 
 See `references/skill-escalation.md` for ownership boundaries and handoff triggers.
-Use `references/github-tooling-guide.md` for repository and project interaction commands and update sequence.
+
+Use **`../wf-plan/references/github-tooling-guide.md`** for repository/project **command order**, auth, stdin bodies, and sub-issue / `blocked_by` patterns. Use **`references/github-tooling-guide.md`** for the **execution** sequence and **Execution update** comment contract.
 
 ## Examples
 
