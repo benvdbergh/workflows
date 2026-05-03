@@ -1,6 +1,6 @@
 {
   "name": "@agent-workflow/engine",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Agent Workflow Protocol — POC engine (definition validation entrypoint)",
   "license": "Apache-2.0",
   "repository": {
