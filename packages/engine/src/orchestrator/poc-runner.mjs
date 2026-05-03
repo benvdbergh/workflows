@@ -26,7 +26,43 @@ function loadJq() {
 
 const PLACEHOLDER_TYPES = new Set(["step", "llm_call", "tool_call"]);
 const NONDETERMINISM_ERROR_CODE = "NONDETERMINISM_DETECTED";
-const CHECKPOINT_POLICY = "after_each_node";
+
+/**
+ * @param {object} definition
+ * @returns {{ enabled: boolean; mode: "each" | "interval"; intervalN?: number }}
+ */
+function resolveCheckpointConfig(definition) {
+  const cp = definition?.checkpointing;
+  if (!cp || typeof cp !== "object") {
+    return { enabled: true, mode: "each" };
+  }
+  const raw =
+    typeof cp.strategy === "string"
+      ? cp.strategy
+      : typeof cp.policy === "string"
+        ? cp.policy
+        : "after_each_node";
+  const strategy = raw.trim();
+  if (strategy === "disabled" || strategy === "off" || strategy === "none") {
+    return { enabled: false, mode: "each" };
+  }
+  if (strategy === "every_n_nodes" || strategy === "interval") {
+    const n =
+      typeof cp.n === "number" && Number.isInteger(cp.n) && cp.n >= 1
+        ? cp.n
+        : typeof cp.interval === "number" && Number.isInteger(cp.interval) && cp.interval >= 1
+          ? cp.interval
+          : null;
+    if (n == null) {
+      throw new Error('checkpointing: strategy "every_n_nodes" requires integer n ≥ 1');
+    }
+    return { enabled: true, mode: "interval", intervalN: n };
+  }
+  if (strategy === "after_each_node" || strategy === "") {
+    return { enabled: true, mode: "each" };
+  }
+  throw new Error(`checkpointing: unknown strategy "${strategy}"`);
+}
 
 class NondeterminismError extends Error {
   /**
@@ -368,6 +404,16 @@ export async function runPocWorkflow(options) {
     return { status: "failed", error: msg };
   }
 
+  /** @type {{ enabled: boolean; mode: "each" | "interval"; intervalN?: number }} */
+  let checkpointConfig;
+  try {
+    checkpointConfig = resolveCheckpointConfig(definition);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: "failed", error: msg };
+  }
+  let checkpointIntervalCounter = 0;
+
   const nodes = /** @type {{ nodes: Array<{ id: string; type: string; config?: object }>; edges: Array<{ source: string; target: string }>; state_schema: object; document: { name?: string; version?: string } }} */ (
     definition
   ).nodes;
@@ -421,9 +467,25 @@ export async function runPocWorkflow(options) {
   function appendEvt(name, payload) {
     return store.append(executionId, { kind: "event", name, payload: { executionId, ...payload } });
   }
-  function appendCheckpoint(nodeId, stateSnapshot, lastAppliedEventSeq) {
-    appendEvt("CheckpointWritten", {
-      policy: CHECKPOINT_POLICY,
+  /**
+   * @param {string} nodeId
+   * @param {Record<string, unknown>} stateSnapshot
+   * @param {number} lastAppliedEventSeq
+   * @param {{ parallelNodeId: string; joinTargetId: string; branchName: string; branchEntryNodeId: string }} [parallelSpan]
+   */
+  function appendCheckpoint(nodeId, stateSnapshot, lastAppliedEventSeq, parallelSpan) {
+    if (!checkpointConfig.enabled) return;
+    if (checkpointConfig.mode === "interval") {
+      checkpointIntervalCounter += 1;
+      if (checkpointIntervalCounter % /** @type {number} */ (checkpointConfig.intervalN) !== 0) return;
+    }
+    const policyPayload =
+      checkpointConfig.mode === "interval"
+        ? { policy: "every_n_nodes", intervalNodes: checkpointConfig.intervalN }
+        : { policy: "after_each_node" };
+    /** @type {Record<string, unknown>} */
+    const cpPayload = {
+      ...policyPayload,
       workflowVersion: definitionMeta.workflowVersion,
       definitionHash: definitionMeta.definitionHash,
       lastAppliedEventSeq,
@@ -432,7 +494,22 @@ export async function runPocWorkflow(options) {
         kind: "inline_state",
         state: JSON.parse(JSON.stringify(stateSnapshot)),
       },
-    });
+    };
+    if (
+      parallelSpan &&
+      typeof parallelSpan.parallelNodeId === "string" &&
+      typeof parallelSpan.joinTargetId === "string" &&
+      typeof parallelSpan.branchName === "string" &&
+      typeof parallelSpan.branchEntryNodeId === "string"
+    ) {
+      cpPayload.parallelSpan = {
+        parallelNodeId: parallelSpan.parallelNodeId,
+        joinTargetId: parallelSpan.joinTargetId,
+        branchName: parallelSpan.branchName,
+        branchEntryNodeId: parallelSpan.branchEntryNodeId,
+      };
+    }
+    appendEvt("CheckpointWritten", cpPayload);
   }
 
   const { executeParallelBlock } = createR2ParallelRuntime({
@@ -785,6 +862,16 @@ export async function resumePocWorkflow(options) {
     return { status: "failed", error: msg };
   }
 
+  /** @type {{ enabled: boolean; mode: "each" | "interval"; intervalN?: number }} */
+  let resumeCheckpointConfig;
+  try {
+    resumeCheckpointConfig = resolveCheckpointConfig(definition);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: "failed", error: msg };
+  }
+  let resumeCheckpointIntervalCounter = 0;
+
   const rows = store.listByExecution(executionId);
   assertHistoryReadableByEngine(rows);
   const lastRow = latestPrimaryEvent(rows);
@@ -903,9 +990,25 @@ export async function resumePocWorkflow(options) {
   function appendEvt(name, payload) {
     return store.append(executionId, { kind: "event", name, payload: { executionId, ...payload } });
   }
-  function appendCheckpoint(nodeId, stateSnapshot, lastAppliedEventSeq) {
-    appendEvt("CheckpointWritten", {
-      policy: CHECKPOINT_POLICY,
+  /**
+   * @param {string} nodeId
+   * @param {Record<string, unknown>} stateSnapshot
+   * @param {number} lastAppliedEventSeq
+   * @param {{ parallelNodeId: string; joinTargetId: string; branchName: string; branchEntryNodeId: string }} [parallelSpan]
+   */
+  function appendCheckpoint(nodeId, stateSnapshot, lastAppliedEventSeq, parallelSpan) {
+    if (!resumeCheckpointConfig.enabled) return;
+    if (resumeCheckpointConfig.mode === "interval") {
+      resumeCheckpointIntervalCounter += 1;
+      if (resumeCheckpointIntervalCounter % /** @type {number} */ (resumeCheckpointConfig.intervalN) !== 0) return;
+    }
+    const policyPayload =
+      resumeCheckpointConfig.mode === "interval"
+        ? { policy: "every_n_nodes", intervalNodes: resumeCheckpointConfig.intervalN }
+        : { policy: "after_each_node" };
+    /** @type {Record<string, unknown>} */
+    const cpPayload = {
+      ...policyPayload,
       workflowVersion: definitionMeta.workflowVersion,
       definitionHash: definitionMeta.definitionHash,
       lastAppliedEventSeq,
@@ -914,7 +1017,22 @@ export async function resumePocWorkflow(options) {
         kind: "inline_state",
         state: JSON.parse(JSON.stringify(stateSnapshot)),
       },
-    });
+    };
+    if (
+      parallelSpan &&
+      typeof parallelSpan.parallelNodeId === "string" &&
+      typeof parallelSpan.joinTargetId === "string" &&
+      typeof parallelSpan.branchName === "string" &&
+      typeof parallelSpan.branchEntryNodeId === "string"
+    ) {
+      cpPayload.parallelSpan = {
+        parallelNodeId: parallelSpan.parallelNodeId,
+        joinTargetId: parallelSpan.joinTargetId,
+        branchName: parallelSpan.branchName,
+        branchEntryNodeId: parallelSpan.branchEntryNodeId,
+      };
+    }
+    appendEvt("CheckpointWritten", cpPayload);
   }
 
   function resumeAppendCmd(name, payload) {

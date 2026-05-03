@@ -20,8 +20,28 @@
     },
     "checkpointing": {
       "type": "object",
-      "description": "Optional checkpoint policy per RFC-03 §3.9; engines may implement later.",
-      "additionalProperties": true
+      "description": "Optional checkpoint policy per RFC-03 §3.9; reference engine honors strategy/n (see docs/poc-scope.md §5).",
+      "additionalProperties": true,
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "description": "after_each_node (default), every_n_nodes, or disabled."
+        },
+        "policy": {
+          "type": "string",
+          "description": "Alias of strategy for document authors."
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Required when strategy/policy is every_n_nodes."
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Alias of n for every_n_nodes."
+        }
+      }
     }
   },
   "$defs": {

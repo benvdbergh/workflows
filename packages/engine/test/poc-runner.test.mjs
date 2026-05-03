@@ -368,6 +368,91 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
 });
 
 describe("runPocWorkflow (checkpoint policy)", () => {
+  it("omits CheckpointWritten when checkpointing.strategy is disabled", async () => {
+    const definition = structuredClone(loadLighthouse());
+    definition.checkpointing = { strategy: "disabled" };
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-checkpoint-disabled";
+
+    const out = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "My API returns 500" },
+      executionId,
+      store,
+      stubActivityOutputs: {
+        classify: { intent: "technical", confidence: 0.9 },
+        search_kb: { snippets: [] },
+      },
+    });
+    assert.equal(out.status, "completed");
+    const checkpoints = store.listByExecution(executionId).filter((r) => r.name === "CheckpointWritten");
+    assert.equal(checkpoints.length, 0);
+  });
+
+  it("every_n_nodes emits fewer checkpoints than after_each_node on the R2 parallel fixture", async () => {
+    const root = findWorkflowRepoRoot(__dirname);
+    const base = JSON.parse(
+      readFileSync(path.join(root, "examples", "r2-research-parallel.workflow.json"), "utf8")
+    );
+    const intervalDef = structuredClone(base);
+    intervalDef.checkpointing = { strategy: "every_n_nodes", n: 2 };
+
+    async function countCheckpoints(def) {
+      const store = new MemoryExecutionHistoryStore();
+      const id = `exec-r2-cp-${def.checkpointing ? "i" : "d"}`;
+      const r = await runPocWorkflow({
+        definition: def,
+        input: { topic: "t" },
+        executionId: id,
+        store,
+        stubActivityOutputs: {
+          plan: {},
+          web_collect: { findings: ["a"] },
+          internal_collect: { findings: ["b"] },
+        },
+      });
+      assert.equal(r.status, "completed");
+      return store.listByExecution(id).filter((row) => row.name === "CheckpointWritten").length;
+    }
+
+    const eachCount = await countCheckpoints(base);
+    const intervalCount = await countCheckpoints(intervalDef);
+    assert.ok(eachCount >= 4);
+    assert.ok(intervalCount > 0);
+    assert.ok(intervalCount < eachCount);
+
+    const policyStore = new MemoryExecutionHistoryStore();
+    await runPocWorkflow({
+      definition: intervalDef,
+      input: { topic: "t" },
+      executionId: "exec-r2-cp-interval-policy",
+      store: policyStore,
+      stubActivityOutputs: {
+        plan: {},
+        web_collect: { findings: ["a"] },
+        internal_collect: { findings: ["b"] },
+      },
+    });
+    assert.ok(
+      policyStore.listByExecution("exec-r2-cp-interval-policy").some((r) => r.payload?.policy === "every_n_nodes")
+    );
+  });
+
+  it("returns failed when every_n_nodes is missing n", async () => {
+    const definition = structuredClone(loadLighthouse());
+    definition.checkpointing = { strategy: "every_n_nodes" };
+    const store = new MemoryExecutionHistoryStore();
+    const out = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "x" },
+      executionId: "exec-bad-cp",
+      store,
+      stubActivityOutputs: { classify: { intent: "technical", confidence: 0.9 }, search_kb: { snippets: [] } },
+    });
+    assert.equal(out.status, "failed");
+    assert.match(out.error ?? "", /checkpointing/);
+  });
+
   it("writes after_each_node checkpoints with recovery metadata linked to history boundaries", async () => {
     const definition = loadLighthouse();
     const store = new MemoryExecutionHistoryStore();

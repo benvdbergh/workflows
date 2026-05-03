@@ -182,10 +182,11 @@ Physical/runtime perspectives shown:
 - Stable adapter boundary (`createWorkflowApplicationPort`) reducing coupling.
 - Explicit conformance harness as part of the delivery contract.
 - Practical local/operator split for MCP deployment model.
+- Checkpoints after R2 parallel branch steps carry a **`parallelSpan`** correlation object (parallel node id, join target, branch name, branch entry) alongside inline state snapshots.
 
 ## Known gaps and intentional limitations
 
-- Active runtime does not yet implement deferred node families (`parallel`, `wait`, `set_state`, delegation/subworkflow).
+- Active runtime implements R2 core nodes (`parallel`, `wait`, `set_state`) in the reference engine; `agent_delegate` and `subworkflow` remain deferred (R3+).
 - Conformance coverage is not yet full RFC-08 breadth.
 - Security hardening posture is intentionally POC-level for local stdio scenarios.
 - Multi-surface parity (REST/SDK breadth) is roadmap scope, not as-is baseline.
@@ -203,7 +204,7 @@ Use this as-is baseline to derive versioned viewpoints:
 
 Start ADRs from real tension points observed in this baseline:
 
-- Node coverage expansion strategy (`parallel`/`wait`/`set_state`) without replay regressions.
+- Node coverage expansion strategy (R3 delegation/subworkflow, richer join/timer matrices) without replay regressions.
 - Checkpointing and replay guarantees versus performance/cost.
 - Adapter surface parity strategy (MCP first, REST/SDK sequencing).
 - Contract versioning and compatibility gates for GA stabilization.

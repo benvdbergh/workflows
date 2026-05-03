@@ -1,0 +1,7 @@
+{
+  "id": "schema.valid.r2-parallel-join-n2-of-3",
+  "description": "R2 profile: parallel n_of_m validates.",
+  "kind": "schema",
+  "definition": "examples/r2-parallel-join-n2-of-3.workflow.json",
+  "expect": { "ok": true }
+}

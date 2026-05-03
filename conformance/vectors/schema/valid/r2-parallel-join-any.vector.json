@@ -1,0 +1,7 @@
+{
+  "id": "schema.valid.r2-parallel-join-any",
+  "description": "R2 profile: parallel join any validates.",
+  "kind": "schema",
+  "definition": "examples/r2-parallel-join-any.workflow.json",
+  "expect": { "ok": true }
+}

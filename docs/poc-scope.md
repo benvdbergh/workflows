@@ -106,7 +106,9 @@ After reducer application, engines **SHOULD** validate state against `state_sche
 ## 5. Retry, timeout, checkpointing
 
 - **Retry and timeout** on nodes follow [RFC-03 §3.8](rfc-03-workflow-definition-schema.md#38-retry-and-timeout); POC **MUST** accept at least `retry.max_attempts` (≥ 1) and common duration forms the engine documents.
-- **Checkpointing** ([RFC-03 §3.9](rfc-03-workflow-definition-schema.md#39-checkpointing-block), [RFC-04 §4.10](rfc-04-execution-model.md#410-checkpointing)) — optional for the earliest runnable milestone; when not implemented, engines **MUST** document that limitation while still accepting definitions that include `checkpointing` if listed as allowed above.
+- **Checkpointing** ([RFC-03 §3.9](rfc-03-workflow-definition-schema.md#39-checkpointing-block), [RFC-04 §4.10](rfc-04-execution-model.md#410-checkpointing)) — the reference engine emits `CheckpointWritten` after selected node boundaries (switch completion, interrupt raised, parallel join, wait, `set_state`, and post-resume steps). The optional top-level `checkpointing` object **MAY** set execution policy:
+  - `strategy` (or alias `policy`): `after_each_node` (default when omitted or when `checkpointing` is absent), `every_n_nodes` (requires integer `n` ≥ 1), or `disabled` (no checkpoints).
+  - For `every_n_nodes`, checkpoint emission uses the same boundary points as `after_each_node`, but only every *n*th opportunity (deterministic ordering of boundaries as implemented by the engine).
 
 ---
 
@@ -138,7 +140,7 @@ The full taxonomies are [RFC-04 §4.4](rfc-04-execution-model.md#44-command-taxo
 
 **Events — optional / phased**
 
-- `CheckpointWritten` — required once checkpointing is claimed as supported ([RFC-04 §4.10](rfc-04-execution-model.md#410-checkpointing)).
+- `CheckpointWritten` — emitted when checkpointing is not `disabled`; payload `policy` is `after_each_node` or `every_n_nodes` (with `intervalNodes` when interval policy is used). Checkpoints taken **inside a parallel branch** (per-branch walk before the join target) include **`parallelSpan`**: `{ parallelNodeId, joinTargetId, branchName, branchEntryNodeId }` so readers can correlate inline `stateRef` with fork/join context ([RFC-04 §4.10](rfc-04-execution-model.md#410-checkpointing)).
 
 **Out of scope (deferred)**
 
