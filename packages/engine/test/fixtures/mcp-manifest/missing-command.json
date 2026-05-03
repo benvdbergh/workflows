@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "broken": {
+      "args": ["-e", "0"]
+    }
+  }
+}

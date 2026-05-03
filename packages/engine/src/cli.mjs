@@ -1,18 +1,24 @@
 #!/usr/bin/env node
 /**
- * CLI entrypoint: validate canonical JSON workflow documents against the POC schema.
- * Usage: node packages/engine/src/cli.mjs validate [<file>|-]
- * Omit file or use `-` to read JSON from stdin.
+ * CLI entrypoint: validate workflow JSON and operator MCP manifests.
+ * Usage:
+ *   workflows-engine validate [<file>|-]
+ *   workflows-engine mcp-manifest validate <file>
  */
 import { readFile } from "node:fs/promises";
+import { readAndValidateMcpOperatorManifestFile } from "./config/mcp-operator-manifest.mjs";
 import { validateWorkflowDefinition } from "./validate.mjs";
 
 function usage() {
   process.stderr.write(
-    "Usage: workflows-engine validate [<file>]\n" +
-      "  Validates a workflow JSON document against schemas/workflow-definition-poc.json.\n" +
-      "  If <file> is omitted or `-`, reads JSON from stdin.\n" +
-      "  Exit: 0 valid, 1 validation failed, 2 usage / I/O / JSON parse error.\n"
+    "Usage:\n" +
+      "  workflows-engine validate [<file>]\n" +
+      "    Validates a workflow JSON document against schemas/workflow-definition-poc.json.\n" +
+      "    If <file> is omitted or `-`, reads JSON from stdin.\n" +
+      "  workflows-engine mcp-manifest validate <file>\n" +
+      "    Validates an operator MCP manifest (Cursor-style mcpServers subset).\n" +
+      "    See docs/architecture/mcp-operator-manifest.md.\n" +
+      "Exit: 0 valid, 1 validation failed, 2 usage / I/O / JSON parse error.\n"
   );
 }
 
@@ -52,13 +58,7 @@ function printValidationErrors(errors) {
   }
 }
 
-async function main() {
-  const [, , cmd, ...rest] = process.argv;
-  if (cmd !== "validate") {
-    usage();
-    process.exitCode = 2;
-    return;
-  }
+async function cmdValidateWorkflow(rest) {
   const fileArg = rest[0];
   let data;
   try {
@@ -76,6 +76,37 @@ async function main() {
   process.stderr.write("Validation failed:\n");
   printValidationErrors(result.errors ?? []);
   process.exitCode = 1;
+}
+
+async function cmdValidateMcpManifest(rest) {
+  const fileArg = rest[0];
+  if (!fileArg || fileArg === "-") {
+    process.stderr.write("engine mcp-manifest validate: requires a manifest file path.\n");
+    process.exitCode = 2;
+    return;
+  }
+  const result = await readAndValidateMcpOperatorManifestFile(fileArg);
+  if (result.ok) {
+    process.stdout.write("OK: manifest matches MCP operator manifest schema.\n");
+    return;
+  }
+  process.stderr.write("Validation failed:\n");
+  printValidationErrors(result.errors ?? []);
+  process.exitCode = 1;
+}
+
+async function main() {
+  const [, , cmd, ...rest] = process.argv;
+  if (cmd === "validate") {
+    await cmdValidateWorkflow(rest);
+    return;
+  }
+  if (cmd === "mcp-manifest" && rest[0] === "validate") {
+    await cmdValidateMcpManifest(rest.slice(1));
+    return;
+  }
+  usage();
+  process.exitCode = 2;
 }
 
 main();

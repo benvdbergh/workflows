@@ -27,3 +27,9 @@ export { createWorkflowApplicationPort } from "./application/workflow-applicatio
 export { createMcpWorkflowStdioServer } from "./adapters/mcp/stdio-server.mjs";
 export { createMcpWorkflowToolHandlers } from "./adapters/mcp/workflow-tools.mjs";
 export { MCP_ADAPTER_ERROR, McpAdapterError } from "./adapters/mcp/errors.mjs";
+export {
+  normalizeMcpOperatorManifest,
+  readAndValidateMcpOperatorManifestFile,
+  resolveMcpOperatorManifestPath,
+  validateMcpOperatorManifest,
+} from "./config/mcp-operator-manifest.mjs";

@@ -16,6 +16,14 @@ Or use the package bin name when linked:
 npx workflows-engine validate path/to/workflow.json
 ```
 
+Validate an operator MCP manifest (Cursor-style `mcpServers` subset for stdio servers):
+
+```bash
+node packages/engine/src/cli.mjs mcp-manifest validate path/to/mcp.json
+```
+
+See `docs/architecture/mcp-operator-manifest.md` and exports `validateMcpOperatorManifest`, `readAndValidateMcpOperatorManifestFile`, `resolveMcpOperatorManifestPath` from the package entrypoint.
+
 ## MCP stdio adapter (STORY-4-1 bootstrap)
 
 Run from repository root:

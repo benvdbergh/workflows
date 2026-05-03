@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "remote": {
+      "url": "https://example.invalid/mcp",
+      "command": "node"
+    }
+  }
+}
