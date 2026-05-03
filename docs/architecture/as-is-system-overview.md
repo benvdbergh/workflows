@@ -1,7 +1,7 @@
 # As-Is System Overview (POC Alpha Baseline)
 
 Last updated: 2026-05-03
-Status: Current implementation baseline (not a target architecture). **Target integration posture** for assistant-class hosts is documented in [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md) (host-mediated activities; graph-driven orchestration).
+Status: Current implementation baseline (not a target architecture). **Assistant-class target posture** (host-mediated activities; graph-driven orchestration) is documented in [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md). **Reference-engine target** for automation and unattended runs additionally includes **engine-direct** activity execution (MCP transports and bounded local commands) with operator configuration that can **reuse or translate** common MCP host manifest shapes; see the evolution note in ADR-0002 and R2 architectural runway in `ROADMAP.md`.
 
 ## Purpose
 
@@ -75,8 +75,9 @@ Source of truth for this boundary: `docs/poc-scope.md`.
 ### Activity execution boundary (as-implemented vs target)
 
 - **As-implemented (reference package):** `step`, `llm_call`, and `tool_call` are driven through an injectable **`ActivityExecutor`** port. Default **`activityExecutionMode: "in_process"`** runs the executor immediately after `ActivityRequested`. With **`activityExecutionMode: "host_mediated"`**, the POC walker **returns** after persisting `ActivityRequested` (`status: "awaiting_activity"`); the host calls **`submitActivityOutcome`** (application port **`submitWorkflowActivity`**) to append `ActivityCompleted` / `ActivityFailed` and continue via the same deterministic replay path used for crash recovery. Parallel branches include **`parallelSpan`** on the request and yield payload for correlation. The shipped MCP stdio binary still defaults to in-process stub execution; a control-plane submit tool is tracked separately (see RFC-05 / ADR-0002 follow-ups).
-- **Target (assistant-aligned):** **Host-mediated execution** per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md): the engine records `ActivityRequested` and yields; the **MCP host** runs tools or model calls, then submits results on a control-plane callback (see `docs/RFC/rfc-05-integration-interfaces.md`, section 5.2). **Hybrid** in-process executors remain valid for tests or embedded profiles, not the default for IDE/assistant hosts.
-- **Positioning:** Same separation as Cursor-class clients (host owns tools and credentials); **difference** is **deterministic** next-step selection from the graph and state, not an autonomous agent loop.
+- **Target (assistant-class):** **Host-mediated execution** per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md): the engine records `ActivityRequested` and yields; the **MCP host** runs tools or model calls, then submits results on a control-plane callback (see `docs/RFC/rfc-05-integration-interfaces.md`, section 5.2). **Hybrid** in-process executors remain valid for tests or embedded profiles, not the default assumption for IDE/assistant hosts.
+- **Target (reference engine — automation):** The engine **invokes** configured MCP **tools/call** (and **MAY** invoke bounded local command handlers where the deployment profile allows) inside the runtime during `in_process` activity execution, without requiring the conversational host to submit each outcome. Credential and server definitions **SHOULD** be alignable with host-side manifest formats (for example IDE `mcp.json`-style descriptors) so operators can avoid parallel, unrelated secret graphs where policy permits.
+- **Positioning:** Host-mediated paths mirror Cursor-class clients (host owns tools and credentials for that profile). Engine-direct paths target unattended and automation scenarios while preserving **deterministic** next-step selection from the graph and state, not a free-form agent loop inside the engine.
 
 ### Interfaces and surfaces
 
@@ -85,7 +86,7 @@ Source of truth for this boundary: `docs/poc-scope.md`.
   - `workflow_start`
   - `workflow_status`
   - `workflow_resume`
-  - *(Planned: MCP tool mapping for `submitWorkflowActivity` / activity outcome submit—engine support is via the application port today; see RFC-05 section 5.2 and ADR-0002.)*
+  - `workflow_submit_activity` (host-mediated continuation; see RFC-05 section 5.2 and ADR-0002)
 
 The MCP adapter maps tool DTOs to the internal application port and returns structured tool errors with stable codes.
 
@@ -202,7 +203,7 @@ Physical/runtime perspectives shown:
 ## Known gaps and intentional limitations
 
 - `agent_delegate` and `subworkflow` remain deferred for this profile (R3+).
-- Host-mediated activity completion is **specified and architecturally accepted** (ADR-0002, RFC updates) but **not yet implemented** on the reference MCP adapter; activity nodes still use the in-process stub unless a custom `ActivityExecutor` is injected in library use.
+- Host-mediated **submit** is exposed on the reference MCP stdio adapter (`workflow_submit_activity`). **Engine-direct** MCP or command execution with manifest-aligned configuration in that adapter remains **roadmap** work; activity nodes still use the in-process stub unless a custom `ActivityExecutor` is injected at the application port.
 - Conformance coverage is not yet full RFC-08 breadth.
 - Security hardening posture is intentionally POC-level for local stdio scenarios.
 - Multi-surface parity (REST/SDK breadth) is roadmap scope, not as-is baseline.

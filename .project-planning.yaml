@@ -18,6 +18,10 @@ github:
 # Example GitHub CLI usage (from repo root; requires `gh auth login`).
 # Adjust flags to match your labels and milestones.
 #
+# Avoid scratch/issue bodies as --body-file under the repo root (untracked junk / commit risk).
+# Prefer stdin (gh … --body-file -), bash/PowerShell here-doc or here-string, or a temp path
+# outside the clone. See .claude/skills/wf-plan/references/github-tooling-guide.md.
+#
 # Open issues:
 #   gh issue list --repo benvdbergh/workflows --state open
 #
@@ -28,12 +32,13 @@ github:
 # Search by label (examples — use repo’s actual label names):
 #   gh issue list --repo benvdbergh/workflows --label "type:epic"
 #
-# Create or update issues (planning output lands here):
-#   gh issue create --repo benvdbergh/workflows --title "..." --body-file body.md
-#   gh issue edit 123 --repo benvdbergh/workflows --body-file body.md
+# Create or update issues (planning output lands here; use stdin or body-file outside repo):
+#   gh issue create --repo benvdbergh/workflows --title "..." --body-file -
+#   gh issue edit 123 --repo benvdbergh/workflows --body-file -
 #   gh issue edit N1 N2 --repo benvdbergh/workflows --milestone "R2 Beta - Full Core Orchestration"
-# Project #4 fields (Type, Release, Horizon, Commitment, Runway, Area, Blocked) require token scopes:
+# Before any gh project … examples, refresh project token scopes (read + write project items):
 #   gh auth refresh -s read:project -s project
+# Project #4 fields (Type, Release, Horizon, Commitment, Runway, Area, Blocked) need those scopes:
 #   gh project item-add 4 --owner benvdbergh --url https://github.com/benvdbergh/workflows/issues/N
 #   gh project field-list 4 --owner benvdbergh   # then gh project item-edit ...
 #
@@ -41,7 +46,7 @@ github:
 #   gh project item-list 4 --owner benvdbergh --format json
 #   gh project view 4 --owner benvdbergh
 #
-# Parent/child (sub-issue) links: use GitHub UI or REST Sub-issues API; see `gh help` for current `gh issue` subcommands.
+# Parent/child (sub-issue) links: GitHub UI, or GraphQL addSubIssue / REST patterns in .claude/skills/wf-plan/references/github-tooling-guide.md (Appendix A).
 #
 # Historical per-epic/per-story markdown under docs/ was removed after GitHub backlog migration.
 legacy_markdown_mirror:

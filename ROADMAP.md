@@ -1,6 +1,6 @@
 # Agent Workflow Protocol Roadmap
 
-Last updated: 2026-04-14
+Last updated: 2026-05-03
 
 This roadmap translates the full RFC scope (`docs/RFC/`) into sequenced, workable releases after the delivered POC alpha scope (7 epics, summarized in `docs/releases/alpha-release-notes.md`).
 
@@ -46,6 +46,7 @@ Deliver the full single-runtime orchestration surface from RFC-03 and RFC-04 bef
 - Deterministic orchestration contract tests in CI (history-prefix replay invariants).
 - Durable storage abstraction boundary (SQLite default + pluggable interface, even if single backend initially).
 - Event schema versioning strategy for forward-compatible history readers.
+- Reference engine path for **engine-direct** activity execution (MCP client integration and bounded local command adapters) with operator configuration that can **align with or translate** common MCP host manifest formats, complementing host-mediated assistant integration ([ADR-0002](docs/architecture/adr/ADR-0002-host-mediated-activity-execution.md) evolution note).
 
 ### Exit criteria
 
