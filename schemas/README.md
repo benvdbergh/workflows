@@ -2,7 +2,7 @@
 
 Machine-readable contract for the **POC workflow definition** subset. Human-readable scope and semantics:
 
-- [docs/poc-scope.md](../docs/poc-scope.md) — what is in/out of scope for the first engine milestone
+- [docs/poc-scope.md](../docs/poc-scope.md) — engine profile (POC + R2: `parallel`, `wait`, `set_state`)
 - [docs/RFC/rfc-03-workflow-definition-schema.md](../docs/RFC/rfc-03-workflow-definition-schema.md) — normative protocol text
 
 ## Entry schema
@@ -17,7 +17,7 @@ Machine-readable contract for the **POC workflow definition** subset. Human-read
 
 - Stable **`$id`** on the entry schema for tooling, documentation links, and future registry publication.
 - **`additionalProperties: false`** on the workflow root rejects top-level fields not in the POC surface (including **`extensions`**, which is out of scope per [docs/poc-scope.md](../docs/poc-scope.md)).
-- **`oneOf` node discriminated union** rejects unknown `type` values (e.g. `parallel`, `wait`) until the scope note is expanded.
+- **`oneOf` node discriminated union** rejects unknown `type` values (e.g. `subworkflow`, `agent_delegate` until promoted).
 
 **Limits:** `state_schema` is validated as a non-empty object only; nested `reducer: custom` is called out in the schema description as needing extra checks if you require it. Unique `nodes[].id` values are not expressible in JSON Schema alone—enforce in the engine or a small custom lint.
 

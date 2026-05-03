@@ -1,5 +1,6 @@
 /**
- * General POC graph walker: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`.
+ * POC graph walker: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`,
+ * plus R2 `parallel`, `wait`, and `set_state`.
  * Switch routing uses only `config.cases` / `config.default` (static edges from the switch id are ignored).
  */
 import Ajv2020 from "ajv/dist/2020.js";
@@ -14,6 +15,7 @@ import {
 } from "./linear-runner.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 import { hydrateReplayContext } from "./replay-loader.mjs";
+import { createR2ParallelRuntime } from "./poc-runner-r2-parallel.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -69,6 +71,108 @@ function expectedCommandIdentity(name, payload) {
  */
 function jqTruthy(jqResult) {
   return jqResult !== false && jqResult !== null;
+}
+
+/**
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * @param {object} cfg wait node config
+ * @returns {number}
+ */
+function parseWaitDurationMs(cfg) {
+  if (typeof cfg.duration_ms === "number" && cfg.duration_ms >= 0) return cfg.duration_ms;
+  const s = typeof cfg.duration === "string" ? cfg.duration.trim() : "";
+  if (!s) {
+    throw new Error('wait (kind "duration"): expected duration_ms (number) or duration (string)');
+  }
+  const m = /^(\d+)\s*(ms|s|m|h)?$/i.exec(s);
+  if (!m) {
+    throw new Error(`wait (kind "duration"): cannot parse duration string "${s}"`);
+  }
+  const n = Number(m[1]);
+  const u = (m[2] || "ms").toLowerCase();
+  const mult = u === "h" ? 3_600_000 : u === "m" ? 60_000 : u === "s" ? 1000 : 1;
+  return n * mult;
+}
+
+/**
+ * @param {{ config?: object }} node
+ * @param {Record<string, unknown>} state
+ * @param {{ json: (data: unknown, query: string) => Promise<unknown> }} jq
+ * @returns {Promise<Record<string, unknown>>}
+ */
+async function buildSetStateOutput(node, state, jq) {
+  const cfg = node.config && typeof node.config === "object" ? /** @type {{ assignments?: unknown }} */ (node.config) : {};
+  const assignments =
+    cfg.assignments && typeof cfg.assignments === "object" && !Array.isArray(cfg.assignments)
+      ? /** @type {Record<string, unknown>} */ (cfg.assignments)
+      : {};
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  for (const [key, specRaw] of Object.entries(assignments)) {
+    if (!specRaw || typeof specRaw !== "object" || Array.isArray(specRaw)) {
+      throw new Error(`set_state "${node.id}": assignment "${key}" must be an object with "jq" or "literal".`);
+    }
+    const spec = /** @type {Record<string, unknown>} */ (specRaw);
+    if ("jq" in spec) {
+      const q = typeof spec.jq === "string" ? spec.jq : "";
+      if (!q.trim()) throw new Error(`set_state "${node.id}": empty jq for "${key}"`);
+      try {
+        out[key] = await jq.json(state, q);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new Error(`set_state "${node.id}" key "${key}" (jq): ${msg}`);
+      }
+    } else if ("literal" in spec) {
+      out[key] = JSON.parse(JSON.stringify(spec.literal));
+    } else {
+      throw new Error(`set_state "${node.id}": assignment "${key}" must use "jq" or "literal".`);
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {string} nodeId
+ * @param {{ replayed: boolean }} scheduled
+ * @param {(name: string, payload: Record<string, unknown>) => { replayed: boolean }} appendCmd
+ * @param {(name: string, payload: Record<string, unknown>) => number} appendEvt
+ * @param {object | undefined} config
+ */
+async function runWaitNodeExecution(nodeId, scheduled, appendCmd, appendEvt, config) {
+  const wcfg = config && typeof config === "object" ? config : {};
+  const kind = /** @type {{ kind?: string }} */ (wcfg).kind;
+  if (kind === "signal") {
+    throw new Error(
+      'wait kind "signal" requires a host to deliver workflow_signal (not implemented in this engine profile)'
+    );
+  }
+  let waitMs = 0;
+  let untilIso;
+  if (kind === "duration") {
+    waitMs = parseWaitDurationMs(wcfg);
+  } else if (kind === "until") {
+    untilIso = typeof wcfg.until === "string" ? wcfg.until : "";
+    const t = Date.parse(untilIso);
+    if (Number.isNaN(t)) throw new Error('wait kind "until": invalid ISO-8601 timestamp');
+    waitMs = Math.max(0, t - Date.now());
+  } else {
+    throw new Error(`wait: unsupported or missing kind "${kind ?? ""}"`);
+  }
+  appendCmd("StartTimer", {
+    nodeId,
+    kind,
+    ...(untilIso ? { until: untilIso } : { wait_ms: waitMs }),
+  });
+  appendEvt("TimerStarted", { nodeId, kind });
+  if (!scheduled.replayed && waitMs > 0) await delay(waitMs);
+  appendEvt("TimerFired", { nodeId, kind });
 }
 
 /**
@@ -158,6 +262,14 @@ function assertPocGraphEdges(nodes, outgoing) {
       if (outs.length !== 1) {
         throw new Error(
           `Node "${n.id}" (interrupt) must have exactly one outgoing edge; found ${outs.length}.`
+        );
+      }
+      continue;
+    }
+    if (n.type === "parallel" || n.type === "wait" || n.type === "set_state") {
+      if (outs.length !== 1) {
+        throw new Error(
+          `Node "${n.id}" (type "${n.type}") must have exactly one outgoing edge (successor / join target); found ${outs.length}.`
         );
       }
       continue;
@@ -323,6 +435,50 @@ export async function runPocWorkflow(options) {
     });
   }
 
+  const { executeParallelBlock } = createR2ParallelRuntime({
+    byId,
+    outgoing,
+    hooks: {
+      getState: () => state,
+      setState: (s) => {
+        state = s;
+      },
+      appendCmd,
+      appendEvt,
+      appendCheckpoint,
+      throwIfStateInvalid: (st, ctx) => throwIfStateInvalid(validateState, st, ctx),
+      stateSchema: definition.state_schema,
+      jq,
+      resolveSwitchTarget,
+      buildSetStateOutput,
+      runWaitNode: (node, scheduled) =>
+        runWaitNodeExecution(node.id, scheduled, appendCmd, appendEvt, node.config),
+      runPlaceholderActivity: async (node, scheduled, st) => {
+        const replayedOutput = scheduled.replayed ? replay.replayResults.get(node.id) : undefined;
+        if (replayedOutput) {
+          const output = JSON.parse(JSON.stringify(replayedOutput));
+          appendEvt("ActivityCompleted", { nodeId: node.id, result: output, replayed: true });
+          return { ok: /** @type {true} */ (true), output };
+        }
+        appendEvt("ActivityRequested", { nodeId: node.id, nodeType: node.type });
+        const activityResult = await executor.executeActivity({
+          executionId,
+          node: /** @type {{ id: string; type: string; config?: object }} */ (node),
+          state: st,
+        });
+        if (!activityResult.ok) {
+          return {
+            ok: /** @type {false} */ (false),
+            error: activityResult.error,
+            ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+          };
+        }
+        appendEvt("ActivityCompleted", { nodeId: node.id, result: activityResult.output });
+        return { ok: /** @type {true} */ (true), output: activityResult.output };
+      },
+    },
+  });
+
   try {
     appendEvt("ExecutionStarted", {
       workflowName: definition.document?.name,
@@ -381,6 +537,83 @@ export async function runPocWorkflow(options) {
           nodeId: current,
           state: JSON.parse(JSON.stringify(state)),
         };
+      }
+
+      if (node.type === "parallel") {
+        const pOuts = outgoing.get(current) ?? [];
+        if (pOuts.length !== 1) {
+          throw new Error(
+            `parallel "${current}" must have exactly one outgoing edge (join target); found ${pOuts.length}.`
+          );
+        }
+        const joinTarget = pOuts[0];
+        const pr = await executeParallelBlock(
+          /** @type {{ id: string; type: string; config?: object }} */ (node),
+          joinTarget
+        );
+        if (pr.kind === "interrupt") {
+          return {
+            status: "interrupted",
+            executionId,
+            nodeId: pr.nodeId,
+            state: pr.state,
+          };
+        }
+        if (pr.kind === "failed") {
+          return { status: "failed", error: pr.error, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: {} });
+        const pStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        appendCheckpoint(current, state, pStateSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after parallel "${current}"`);
+        current = joinTarget;
+        continue;
+      }
+
+      if (node.type === "wait") {
+        try {
+          await runWaitNodeExecution(current, scheduled, appendCmd, appendEvt, node.config);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          appendCmd("FailNode", { nodeId: current, reason: "wait_failed", message: msg });
+          appendEvt("ExecutionFailed", { error: msg });
+          return { status: "failed", error: msg, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: {} });
+        const wStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        appendCheckpoint(current, state, wStateSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after wait "${current}"`);
+        const wNext = outgoing.get(current) ?? [];
+        if (wNext.length !== 1) {
+          throw new Error(`Node "${current}" (wait) must have exactly one outgoing edge; found ${wNext.length}.`);
+        }
+        current = wNext[0];
+        continue;
+      }
+
+      if (node.type === "set_state") {
+        let stOutput;
+        try {
+          stOutput = await buildSetStateOutput(node, state, jq);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          appendCmd("FailNode", { nodeId: current, reason: "set_state_failed", message: msg });
+          appendEvt("ExecutionFailed", { error: msg });
+          return { status: "failed", error: msg, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: stOutput });
+        state = /** @type {Record<string, unknown>} */ (
+          applyOutputWithReducers(state, stOutput, definition.state_schema)
+        );
+        const ssSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        appendCheckpoint(current, state, ssSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after set_state "${current}"`);
+        const ssNext = outgoing.get(current) ?? [];
+        if (ssNext.length !== 1) {
+          throw new Error(`Node "${current}" (set_state) must have exactly one outgoing edge; found ${ssNext.length}.`);
+        }
+        current = ssNext[0];
+        continue;
       }
 
       /** @type {Record<string, unknown>} */
@@ -684,6 +917,49 @@ export async function resumePocWorkflow(options) {
     });
   }
 
+  function resumeAppendCmd(name, payload) {
+    appendCmd(name, payload);
+    return { replayed: false };
+  }
+
+  const { executeParallelBlock: resumeExecuteParallel } = createR2ParallelRuntime({
+    byId,
+    outgoing,
+    hooks: {
+      getState: () => state,
+      setState: (s) => {
+        state = s;
+      },
+      appendCmd: resumeAppendCmd,
+      appendEvt,
+      appendCheckpoint,
+      throwIfStateInvalid: (st, ctx) => throwIfStateInvalid(validateState, st, ctx),
+      stateSchema: definition.state_schema,
+      jq,
+      resolveSwitchTarget,
+      buildSetStateOutput,
+      runWaitNode: (node, scheduled) =>
+        runWaitNodeExecution(node.id, scheduled, resumeAppendCmd, appendEvt, node.config),
+      runPlaceholderActivity: async (node, _scheduled, st) => {
+        appendEvt("ActivityRequested", { nodeId: node.id, nodeType: node.type });
+        const activityResult = await executor.executeActivity({
+          executionId,
+          node: /** @type {{ id: string; type: string; config?: object }} */ (node),
+          state: st,
+        });
+        if (!activityResult.ok) {
+          return {
+            ok: /** @type {false} */ (false),
+            error: activityResult.error,
+            ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+          };
+        }
+        appendEvt("ActivityCompleted", { nodeId: node.id, result: activityResult.output });
+        return { ok: /** @type {true} */ (true), output: activityResult.output };
+      },
+    },
+  });
+
   try {
     throwIfStateInvalid(validateState, state, "State invalid after merging resume payload");
 
@@ -747,6 +1023,83 @@ export async function resumePocWorkflow(options) {
           nodeId: current,
           state: JSON.parse(JSON.stringify(state)),
         };
+      }
+
+      if (node.type === "parallel") {
+        const pOuts = outgoing.get(current) ?? [];
+        if (pOuts.length !== 1) {
+          throw new Error(
+            `parallel "${current}" must have exactly one outgoing edge (join target); found ${pOuts.length}.`
+          );
+        }
+        const joinTarget = pOuts[0];
+        const pr = await resumeExecuteParallel(
+          /** @type {{ id: string; type: string; config?: object }} */ (node),
+          joinTarget
+        );
+        if (pr.kind === "interrupt") {
+          return {
+            status: "interrupted",
+            executionId,
+            nodeId: pr.nodeId,
+            state: pr.state,
+          };
+        }
+        if (pr.kind === "failed") {
+          return { status: "failed", error: pr.error, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: {} });
+        const pStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        appendCheckpoint(current, state, pStateSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after parallel "${current}"`);
+        current = joinTarget;
+        continue;
+      }
+
+      if (node.type === "wait") {
+        try {
+          await runWaitNodeExecution(current, { replayed: false }, resumeAppendCmd, appendEvt, node.config);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          appendCmd("FailNode", { nodeId: current, reason: "wait_failed", message: msg });
+          appendEvt("ExecutionFailed", { error: msg });
+          return { status: "failed", error: msg, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: {} });
+        const wStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        appendCheckpoint(current, state, wStateSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after wait "${current}"`);
+        const wNext = outgoing.get(current) ?? [];
+        if (wNext.length !== 1) {
+          throw new Error(`Node "${current}" (wait) must have exactly one outgoing edge; found ${wNext.length}.`);
+        }
+        current = wNext[0];
+        continue;
+      }
+
+      if (node.type === "set_state") {
+        let stOutput;
+        try {
+          stOutput = await buildSetStateOutput(node, state, jq);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          appendCmd("FailNode", { nodeId: current, reason: "set_state_failed", message: msg });
+          appendEvt("ExecutionFailed", { error: msg });
+          return { status: "failed", error: msg, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: stOutput });
+        state = /** @type {Record<string, unknown>} */ (
+          applyOutputWithReducers(state, stOutput, definition.state_schema)
+        );
+        const ssSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
+        appendCheckpoint(current, state, ssSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after set_state "${current}"`);
+        const ssNext = outgoing.get(current) ?? [];
+        if (ssNext.length !== 1) {
+          throw new Error(`Node "${current}" (set_state) must have exactly one outgoing edge; found ${ssNext.length}.`);
+        }
+        current = ssNext[0];
+        continue;
       }
 
       /** @type {Record<string, unknown>} */

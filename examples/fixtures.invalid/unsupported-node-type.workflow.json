@@ -13,10 +13,11 @@
       "type": "start"
     },
     {
-      "id": "fanout",
-      "type": "parallel",
+      "id": "nested",
+      "type": "subworkflow",
       "config": {
-        "branches": []
+        "workflow_ref": "urn:example:wf:child",
+        "input_mapping": {}
       }
     }
   ],
@@ -27,7 +28,7 @@
     },
     {
       "source": "start",
-      "target": "fanout"
+      "target": "nested"
     }
   ]
 }

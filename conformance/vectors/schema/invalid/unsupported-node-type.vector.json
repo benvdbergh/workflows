@@ -7,8 +7,8 @@
     "ok": false,
     "diagnostics": [
       {
-        "instancePath": "/nodes/1/type",
-        "keyword": "const"
+        "instancePath": "/nodes/1",
+        "keyword": "oneOf"
       }
     ]
   }
