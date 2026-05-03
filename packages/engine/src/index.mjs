@@ -7,6 +7,13 @@
  */
 export * from "./validate.mjs";
 export { StubActivityExecutor } from "./orchestrator/activity-executor.mjs";
+export {
+  callMcpToolStdio,
+  DEFAULT_MCP_ACTIVITY_TOOL_TIMEOUT_MS,
+  mapMcpCallToolResultToActivityResult,
+  mapMcpClientThrownError,
+  McpManifestActivityExecutor,
+} from "./orchestrator/mcp-stdio-activity-executor.mjs";
 export { MemoryExecutionHistoryStore } from "./persistence/memory-history-store.mjs";
 export { SqliteExecutionHistoryStore } from "./persistence/sqlite-history-store.mjs";
 export {
