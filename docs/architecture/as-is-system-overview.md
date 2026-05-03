@@ -74,8 +74,8 @@ Source of truth for this boundary: `docs/poc-scope.md`.
 
 ### Activity execution boundary (as-implemented vs target)
 
-- **As-implemented (reference package):** `step`, `llm_call`, and `tool_call` are driven through an injectable **`ActivityExecutor`** port. The shipped MCP stdio binary uses a **stub** executor (deterministic empty or canned outputs) and does not perform real MCP or LLM I/O.
-- **Target (assistant-aligned):** **Host-mediated execution** per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md): the engine records `ActivityRequested` and yields; the **MCP host** runs tools or model calls, then submits results on a control-plane callback (see `docs/RFC/rfc-05-integration-interfaces.md` §5.2). **Hybrid** in-process executors remain valid for tests or embedded profiles, not the default for IDE/assistant hosts.
+- **As-implemented (reference package):** `step`, `llm_call`, and `tool_call` are driven through an injectable **`ActivityExecutor`** port. Default **`activityExecutionMode: "in_process"`** runs the executor immediately after `ActivityRequested`. With **`activityExecutionMode: "host_mediated"`**, the POC walker **returns** after persisting `ActivityRequested` (`status: "awaiting_activity"`); the host calls **`submitActivityOutcome`** (application port **`submitWorkflowActivity`**) to append `ActivityCompleted` / `ActivityFailed` and continue via the same deterministic replay path used for crash recovery. Parallel branches include **`parallelSpan`** on the request and yield payload for correlation. The shipped MCP stdio binary still defaults to in-process stub execution; a control-plane submit tool is tracked separately (see RFC-05 / ADR-0002 follow-ups).
+- **Target (assistant-aligned):** **Host-mediated execution** per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md): the engine records `ActivityRequested` and yields; the **MCP host** runs tools or model calls, then submits results on a control-plane callback (see `docs/RFC/rfc-05-integration-interfaces.md`, section 5.2). **Hybrid** in-process executors remain valid for tests or embedded profiles, not the default for IDE/assistant hosts.
 - **Positioning:** Same separation as Cursor-class clients (host owns tools and credentials); **difference** is **deterministic** next-step selection from the graph and state, not an autonomous agent loop.
 
 ### Interfaces and surfaces
@@ -85,7 +85,7 @@ Source of truth for this boundary: `docs/poc-scope.md`.
   - `workflow_start`
   - `workflow_status`
   - `workflow_resume`
-  - *(Planned, for host-mediated activities: control-plane tool(s) to submit activity outcomes—see RFC-05 §5.2 and ADR-0002.)*
+  - *(Planned: MCP tool mapping for `submitWorkflowActivity` / activity outcome submit—engine support is via the application port today; see RFC-05 section 5.2 and ADR-0002.)*
 
 The MCP adapter maps tool DTOs to the internal application port and returns structured tool errors with stable codes.
 
@@ -182,13 +182,13 @@ Physical/runtime perspectives shown:
 3. Host polls `workflow_status`.
 4. Host uses `workflow_resume` for interrupt continuation.
 
-### Flow D: Host-mediated activity (target; ADR-0002)
+### Flow D: Host-mediated activity (ADR-0002; engine path implemented)
 
-1. Engine reaches an activity node and appends `ActivityRequested` (and may enter a status phase such as awaiting activity—exact names TBD at implementation).
-2. Engine **returns or idles** without performing MCP/LLM I/O; host reads descriptor and history as needed.
-3. Host invokes the relevant MCP tool or LLM (or executes a `step` handler), using workflow `config` and current state per profile.
-4. Host calls the **activity completion** control-plane operation; engine appends `ActivityCompleted` or `ActivityFailed`, merges state, and continues the graph deterministically.
-5. On **replay**, completed activities **MUST** be satisfied from persisted history, not re-run on the host.
+1. Engine reaches an activity node with `activityExecutionMode: "host_mediated"`, appends `ActivityRequested` (including optional **`parallelSpan`** inside a `parallel` branch), and returns **`awaiting_activity`** with `nodeId`, workflow **`state`**, and matching **`parallelSpan`** when applicable.
+2. Engine does **not** call `ActivityExecutor` for that node until history already contains a completion (replay) or the host has submitted an outcome.
+3. Host performs MCP/LLM/`step` work out of band, then calls **`submitActivityOutcome`** / **`submitWorkflowActivity`** with the same **`input`** as the original start (for replay reconstruction), **`nodeId`**, optional **`expectedParallelSpan`**, and success or failure payload.
+4. Engine appends **`ActivityCompleted`** or **`ActivityFailed`**; on success it continues the graph via **`runPocWorkflow`** replay (same mechanism as mid-run recovery). **`workflow_status`** reports phase **`awaiting_activity`** when the latest non-checkpoint event is **`ActivityRequested`**.
+5. On **replay**, completed activities are satisfied from persisted history (no second host round-trip for the same node).
 
 ## Architecture strengths in current state
 

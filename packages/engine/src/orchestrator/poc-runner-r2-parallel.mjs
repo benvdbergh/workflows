@@ -18,7 +18,11 @@ import { applyOutputWithReducers } from "./linear-runner.mjs";
  * @property {(nodeId: string, stateSnapshot: Record<string, unknown>, lastAppliedEventSeq: number, parallelSpan?: Record<string, unknown>) => void} appendCheckpoint
  * @property {(node: { id: string; type: string; config?: object }, state: Record<string, unknown>, jq: { json: (data: unknown, query: string) => Promise<unknown> }) => Promise<string>} resolveSwitchTarget
  * @property {(node: { id: string; type: string; config?: object }, state: Record<string, unknown>, jq: { json: (data: unknown, query: string) => Promise<unknown> }) => Promise<Record<string, unknown>>} buildSetStateOutput
- * @property {(node: { id: string; type: string; config?: object }, scheduled: { replayed: boolean }, state: Record<string, unknown>) => Promise<{ ok: true; output: Record<string, unknown> } | { ok: false; error: string; code?: string }>} runPlaceholderActivity
+ * @property {(node: { id: string; type: string; config?: object }, scheduled: { replayed: boolean }, state: Record<string, unknown>, parallelSpan?: Record<string, unknown>) => Promise<
+ *   | { ok: true; output: Record<string, unknown> }
+ *   | { ok: false; error: string; code?: string }
+ *   | { kind: 'awaiting_activity'; nodeId: string; parallelSpan?: Record<string, unknown> }
+ * >} runPlaceholderActivity
  * @property {(node: { id: string; type: string; config?: object }, scheduled: { replayed: boolean }) => Promise<void>} runWaitNode
  * @property {(state: Record<string, unknown>, context: string) => void} throwIfStateInvalid
  * @property {object} stateSchema
@@ -39,7 +43,12 @@ export function createR2ParallelRuntime(params) {
    * @param {string} nodeId
    * @param {string} joinTargetId
    * @param {{ parallelNodeId: string; joinTargetId: string; branchName: string; branchEntryNodeId: string }} branchCtx
-   * @returns {Promise<{ kind: 'ok' } | { kind: 'failed'; error: string } | { kind: 'interrupt'; nodeId: string; state: Record<string, unknown> }>}
+   * @returns {Promise<
+   *   | { kind: 'ok' }
+   *   | { kind: 'failed'; error: string }
+   *   | { kind: 'interrupt'; nodeId: string; state: Record<string, unknown> }
+   *   | { kind: 'awaiting_activity'; nodeId: string; state: Record<string, unknown>; parallelSpan?: Record<string, unknown> }
+   * >}
    */
   async function runBranchToJoin(nodeId, joinTargetId, branchCtx) {
     const parallelSpan = {
@@ -217,8 +226,17 @@ export function createR2ParallelRuntime(params) {
         const activityResult = await hooks.runPlaceholderActivity(
           /** @type {{ id: string; type: string; config?: object }} */ (node),
           scheduled,
-          hooks.getState()
+          hooks.getState(),
+          parallelSpan
         );
+        if (activityResult && typeof activityResult === "object" && "kind" in activityResult && activityResult.kind === "awaiting_activity") {
+          return {
+            kind: "awaiting_activity",
+            nodeId: activityResult.nodeId,
+            state: JSON.parse(JSON.stringify(hooks.getState())),
+            ...(activityResult.parallelSpan ? { parallelSpan: activityResult.parallelSpan } : {}),
+          };
+        }
         if (!activityResult.ok) {
           const { error, code } = activityResult;
           hooks.appendEvt("ActivityFailed", { nodeId: cur, error, ...(code !== undefined ? { code } : {}) });
@@ -270,6 +288,12 @@ export function createR2ParallelRuntime(params) {
   /**
    * @param {{ id: string; type: string; config?: object }} parallelNode
    * @param {string} joinTargetId
+   * @returns {Promise<
+   *   | { kind: 'ok' }
+   *   | { kind: 'failed'; error: string }
+   *   | { kind: 'interrupt'; nodeId: string; state: Record<string, unknown> }
+   *   | { kind: 'awaiting_activity'; nodeId: string; state: Record<string, unknown>; parallelSpan?: Record<string, unknown> }
+   * >}
    */
   async function executeParallelBlock(parallelNode, joinTargetId) {
     const cfg =
@@ -341,6 +365,7 @@ export function createR2ParallelRuntime(params) {
           branchName: b.name,
           branchEntryNodeId: b.entry,
         });
+        if (r.kind === "awaiting_activity") return r;
         if (r.kind === "interrupt") return r;
         if (r.kind === "ok") {
           successIndex = i;
@@ -368,6 +393,7 @@ export function createR2ParallelRuntime(params) {
           branchName: b.name,
           branchEntryNodeId: b.entry,
         });
+        if (r.kind === "awaiting_activity") return r;
         if (r.kind === "interrupt") return r;
         if (r.kind === "ok") {
           successes += 1;

@@ -23,6 +23,7 @@ function mapEngineFailure(error) {
  * @param {unknown} parsed
  */
 function startResponseFromPort(parsed) {
+  const parallelSpan = parsed.parallelSpan;
   const response = {
     execution_id: parsed.executionId,
     status: parsed.status,
@@ -30,6 +31,17 @@ function startResponseFromPort(parsed) {
     ...(parsed.result !== undefined ? { result: parsed.result } : {}),
     ...(parsed.error !== undefined ? { error: parsed.error } : {}),
     ...(parsed.nodeId !== undefined ? { node_id: parsed.nodeId } : {}),
+    ...(parsed.state !== undefined ? { state: parsed.state } : {}),
+    ...(parallelSpan
+      ? {
+          parallel_span: {
+            parallel_node_id: parallelSpan.parallelNodeId,
+            join_target_id: parallelSpan.joinTargetId,
+            branch_name: parallelSpan.branchName,
+            branch_entry_node_id: parallelSpan.branchEntryNodeId,
+          },
+        }
+      : {}),
   };
   return workflowStartResultSchema.parse(response);
 }
@@ -51,6 +63,7 @@ function statusResponseFromPort(parsed) {
  * @param {unknown} parsed
  */
 function resumeResponseFromPort(parsed) {
+  const parallelSpan = parsed.parallelSpan;
   const response = {
     execution_id: parsed.executionId,
     status: parsed.status,
@@ -58,6 +71,17 @@ function resumeResponseFromPort(parsed) {
     ...(parsed.result !== undefined ? { result: parsed.result } : {}),
     ...(parsed.error !== undefined ? { error: parsed.error } : {}),
     ...(parsed.nodeId !== undefined ? { node_id: parsed.nodeId } : {}),
+    ...(parsed.state !== undefined ? { state: parsed.state } : {}),
+    ...(parallelSpan
+      ? {
+          parallel_span: {
+            parallel_node_id: parallelSpan.parallelNodeId,
+            join_target_id: parallelSpan.joinTargetId,
+            branch_name: parallelSpan.branchName,
+            branch_entry_node_id: parallelSpan.branchEntryNodeId,
+          },
+        }
+      : {}),
   };
   return workflowResumeResultSchema.parse(response);
 }

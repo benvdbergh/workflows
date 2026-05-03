@@ -20,27 +20,38 @@ export const workflowResumeArgsSchema = z.object({
   resume_payload: z.object({}).passthrough(),
 });
 
+export const workflowParallelSpanSchema = z.object({
+  parallel_node_id: z.string(),
+  join_target_id: z.string(),
+  branch_name: z.string(),
+  branch_entry_node_id: z.string(),
+});
+
 export const workflowStartResultSchema = z.object({
   execution_id: z.string(),
-  status: z.enum(["completed", "failed", "interrupted"]),
+  status: z.enum(["completed", "failed", "interrupted", "awaiting_activity"]),
   final_state: z.object({}).passthrough().optional(),
   result: z.unknown().optional(),
   error: z.string().optional(),
   node_id: z.string().optional(),
+  state: z.object({}).passthrough().optional(),
+  parallel_span: workflowParallelSpanSchema.optional(),
 });
 
 export const workflowStatusResultSchema = z.object({
   execution_id: z.string(),
-  phase: z.enum(["running", "completed", "failed", "interrupted"]),
+  phase: z.enum(["running", "completed", "failed", "interrupted", "awaiting_activity"]),
   current_node_id: z.string().optional(),
   last_error: z.string().optional(),
 });
 
 export const workflowResumeResultSchema = z.object({
   execution_id: z.string(),
-  status: z.enum(["completed", "failed", "interrupted"]),
+  status: z.enum(["completed", "failed", "interrupted", "awaiting_activity"]),
   final_state: z.object({}).passthrough().optional(),
   result: z.unknown().optional(),
   error: z.string().optional(),
   node_id: z.string().optional(),
+  state: z.object({}).passthrough().optional(),
+  parallel_span: workflowParallelSpanSchema.optional(),
 });

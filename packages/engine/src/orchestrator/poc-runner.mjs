@@ -175,6 +175,92 @@ async function buildSetStateOutput(node, state, jq) {
 }
 
 /**
+ * @typedef {{ parallelNodeId: string; joinTargetId: string; branchName: string; branchEntryNodeId: string }} ParallelSpanPayload
+ */
+
+/**
+ * Shared `step` / `llm_call` / `tool_call` boundary for the POC walker (replay, in-process executor, host yield).
+ *
+ * @param {object} args
+ * @param {{ id: string; type: string; config?: object }} args.node
+ * @param {{ replayed: boolean }} args.scheduled
+ * @param {Record<string, unknown>} args.state
+ * @param {string} args.executionId
+ * @param {import("./activity-executor.mjs").ActivityExecutor} args.executor
+ * @param {import("./replay-loader.mjs").ReplayHydrationResult} args.replay
+ * @param {"in_process" | "host_mediated"} args.activityExecutionMode
+ * @param {(name: string, payload: Record<string, unknown>) => number} args.appendEvt
+ * @param {ParallelSpanPayload | undefined} [args.parallelSpan]
+ * @returns {Promise<
+ *   | { kind: "completed"; output: Record<string, unknown> }
+ *   | { kind: "failed"; error: string; code?: string }
+ *   | { kind: "awaiting_activity"; nodeId: string; parallelSpan?: ParallelSpanPayload }
+ * >}
+ */
+async function runPlaceholderActivityStep(args) {
+  const {
+    node,
+    scheduled,
+    state,
+    executionId,
+    executor,
+    replay,
+    activityExecutionMode,
+    appendEvt,
+    parallelSpan,
+  } = args;
+
+  const replayedOutput = scheduled.replayed ? replay.replayResults.get(node.id) : undefined;
+  if (replayedOutput) {
+    const output = JSON.parse(JSON.stringify(replayedOutput));
+    appendEvt("ActivityCompleted", { nodeId: node.id, result: output, replayed: true });
+    return { kind: "completed", output };
+  }
+
+  /** @type {Record<string, unknown>} */
+  const reqPayload = { nodeId: node.id, nodeType: node.type };
+  if (
+    parallelSpan &&
+    typeof parallelSpan.parallelNodeId === "string" &&
+    typeof parallelSpan.joinTargetId === "string" &&
+    typeof parallelSpan.branchName === "string" &&
+    typeof parallelSpan.branchEntryNodeId === "string"
+  ) {
+    reqPayload.parallelSpan = { ...parallelSpan };
+  }
+  appendEvt("ActivityRequested", reqPayload);
+
+  if (activityExecutionMode === "host_mediated") {
+    return {
+      kind: "awaiting_activity",
+      nodeId: node.id,
+      ...(parallelSpan &&
+      typeof parallelSpan.parallelNodeId === "string" &&
+      typeof parallelSpan.joinTargetId === "string" &&
+      typeof parallelSpan.branchName === "string" &&
+      typeof parallelSpan.branchEntryNodeId === "string"
+        ? { parallelSpan: { ...parallelSpan } }
+        : {}),
+    };
+  }
+
+  const activityResult = await executor.executeActivity({
+    executionId,
+    node: /** @type {{ id: string; type: string; config?: object }} */ (node),
+    state,
+  });
+  if (!activityResult.ok) {
+    return {
+      kind: "failed",
+      error: activityResult.error,
+      ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+    };
+  }
+  appendEvt("ActivityCompleted", { nodeId: node.id, result: activityResult.output });
+  return { kind: "completed", output: activityResult.output };
+}
+
+/**
  * @param {string} nodeId
  * @param {{ replayed: boolean }} scheduled
  * @param {(name: string, payload: Record<string, unknown>) => { replayed: boolean }} appendCmd
@@ -364,6 +450,7 @@ async function resolveSwitchTarget(node, state, jq) {
  * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
  * @property {import("./activity-executor.mjs").ActivityExecutor} [activityExecutor]
+ * @property {"in_process" | "host_mediated"} [activityExecutionMode] default in-process stub/executor; `host_mediated` yields after `ActivityRequested` until `submitActivityOutcome`.
  */
 
 /**
@@ -372,10 +459,19 @@ async function resolveSwitchTarget(node, state, jq) {
  *   | { status: "completed"; finalState: Record<string, unknown>; result?: unknown }
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown> }
  *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
+ *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload }
  * >}
  */
 export async function runPocWorkflow(options) {
-  const { definition, input, executionId, store, stubActivityOutputs = {}, activityExecutor } = options;
+  const {
+    definition,
+    input,
+    executionId,
+    store,
+    stubActivityOutputs = {},
+    activityExecutor,
+    activityExecutionMode = "in_process",
+  } = options;
   const executor = activityExecutor ?? new StubActivityExecutor(stubActivityOutputs);
 
   if (!definition || typeof definition !== "object") {
@@ -530,28 +626,33 @@ export async function runPocWorkflow(options) {
       buildSetStateOutput,
       runWaitNode: (node, scheduled) =>
         runWaitNodeExecution(node.id, scheduled, appendCmd, appendEvt, node.config),
-      runPlaceholderActivity: async (node, scheduled, st) => {
-        const replayedOutput = scheduled.replayed ? replay.replayResults.get(node.id) : undefined;
-        if (replayedOutput) {
-          const output = JSON.parse(JSON.stringify(replayedOutput));
-          appendEvt("ActivityCompleted", { nodeId: node.id, result: output, replayed: true });
-          return { ok: /** @type {true} */ (true), output };
-        }
-        appendEvt("ActivityRequested", { nodeId: node.id, nodeType: node.type });
-        const activityResult = await executor.executeActivity({
-          executionId,
-          node: /** @type {{ id: string; type: string; config?: object }} */ (node),
+      runPlaceholderActivity: async (node, scheduled, st, parallelSpan) => {
+        const step = await runPlaceholderActivityStep({
+          node,
+          scheduled,
           state: st,
+          executionId,
+          executor,
+          replay,
+          activityExecutionMode,
+          appendEvt,
+          parallelSpan,
         });
-        if (!activityResult.ok) {
+        if (step.kind === "awaiting_activity") {
           return {
-            ok: /** @type {false} */ (false),
-            error: activityResult.error,
-            ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+            kind: /** @type {"awaiting_activity"} */ ("awaiting_activity"),
+            nodeId: step.nodeId,
+            ...(step.parallelSpan ? { parallelSpan: step.parallelSpan } : {}),
           };
         }
-        appendEvt("ActivityCompleted", { nodeId: node.id, result: activityResult.output });
-        return { ok: /** @type {true} */ (true), output: activityResult.output };
+        if (step.kind === "failed") {
+          return {
+            ok: /** @type {false} */ (false),
+            error: step.error,
+            ...(step.code !== undefined ? { code: step.code } : {}),
+          };
+        }
+        return { ok: /** @type {true} */ (true), output: step.output };
       },
     },
   });
@@ -628,6 +729,15 @@ export async function runPocWorkflow(options) {
           /** @type {{ id: string; type: string; config?: object }} */ (node),
           joinTarget
         );
+        if (pr.kind === "awaiting_activity") {
+          return {
+            status: "awaiting_activity",
+            executionId,
+            nodeId: pr.nodeId,
+            state: pr.state,
+            ...(pr.parallelSpan ? { parallelSpan: pr.parallelSpan } : {}),
+          };
+        }
         if (pr.kind === "interrupt") {
           return {
             status: "interrupted",
@@ -699,32 +809,39 @@ export async function runPocWorkflow(options) {
       if (node.type === "start" || node.type === "end") {
         output = {};
       } else if (PLACEHOLDER_TYPES.has(node.type)) {
-        const replayedOutput = scheduled.replayed ? replay.replayResults.get(current) : undefined;
-        if (replayedOutput) {
-          output = JSON.parse(JSON.stringify(replayedOutput));
-          appendEvt("ActivityCompleted", { nodeId: current, result: output, replayed: true });
-        } else {
-          appendEvt("ActivityRequested", { nodeId: current, nodeType: node.type });
-          const activityResult = await executor.executeActivity({
+        const step = await runPlaceholderActivityStep({
+          node: /** @type {{ id: string; type: string; config?: object }} */ (node),
+          scheduled,
+          state,
+          executionId,
+          executor,
+          replay,
+          activityExecutionMode,
+          appendEvt,
+          parallelSpan: undefined,
+        });
+        if (step.kind === "awaiting_activity") {
+          return {
+            status: "awaiting_activity",
             executionId,
-            node: /** @type {{ id: string; type: string; config?: object }} */ (node),
-            state,
-          });
-          if (!activityResult.ok) {
-            const { error, code } = activityResult;
-            appendEvt("ActivityFailed", { nodeId: current, error, ...(code !== undefined ? { code } : {}) });
-            appendCmd("FailNode", {
-              nodeId: current,
-              reason: "activity_failed",
-              message: error,
-              ...(code !== undefined ? { code } : {}),
-            });
-            appendEvt("ExecutionFailed", { error });
-            return { status: "failed", error, finalState: state };
-          }
-          output = activityResult.output;
-          appendEvt("ActivityCompleted", { nodeId: current, result: output });
+            nodeId: step.nodeId,
+            state: JSON.parse(JSON.stringify(state)),
+            ...(step.parallelSpan ? { parallelSpan: step.parallelSpan } : {}),
+          };
         }
+        if (step.kind === "failed") {
+          const { error, code } = step;
+          appendEvt("ActivityFailed", { nodeId: current, error, ...(code !== undefined ? { code } : {}) });
+          appendCmd("FailNode", {
+            nodeId: current,
+            reason: "activity_failed",
+            message: error,
+            ...(code !== undefined ? { code } : {}),
+          });
+          appendEvt("ExecutionFailed", { error });
+          return { status: "failed", error, finalState: state };
+        }
+        output = step.output;
       } else {
         throw new Error(`Unsupported node type "${node.type}"`);
       }
@@ -822,6 +939,7 @@ function latestPrimaryEvent(rows) {
  * @property {Record<string, unknown>} resumePayload
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
  * @property {import("./activity-executor.mjs").ActivityExecutor} [activityExecutor]
+ * @property {"in_process" | "host_mediated"} [activityExecutionMode]
  */
 
 /**
@@ -830,10 +948,19 @@ function latestPrimaryEvent(rows) {
  *   | { status: "completed"; finalState: Record<string, unknown>; result?: unknown }
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown> }
  *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
+ *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload }
  * >}
  */
 export async function resumePocWorkflow(options) {
-  const { definition, executionId, store, resumePayload, stubActivityOutputs = {}, activityExecutor } = options;
+  const {
+    definition,
+    executionId,
+    store,
+    resumePayload,
+    stubActivityOutputs = {},
+    activityExecutor,
+    activityExecutionMode = "in_process",
+  } = options;
   const executor = activityExecutor ?? new StubActivityExecutor(stubActivityOutputs);
 
   if (!definition || typeof definition !== "object") {
@@ -1040,6 +1167,8 @@ export async function resumePocWorkflow(options) {
     return { replayed: false };
   }
 
+  const emptyReplay = { replayResults: /** @type {Map<string, Record<string, unknown>>} */ (new Map()) };
+
   const { executeParallelBlock: resumeExecuteParallel } = createR2ParallelRuntime({
     byId,
     outgoing,
@@ -1058,22 +1187,33 @@ export async function resumePocWorkflow(options) {
       buildSetStateOutput,
       runWaitNode: (node, scheduled) =>
         runWaitNodeExecution(node.id, scheduled, resumeAppendCmd, appendEvt, node.config),
-      runPlaceholderActivity: async (node, _scheduled, st) => {
-        appendEvt("ActivityRequested", { nodeId: node.id, nodeType: node.type });
-        const activityResult = await executor.executeActivity({
-          executionId,
-          node: /** @type {{ id: string; type: string; config?: object }} */ (node),
+      runPlaceholderActivity: async (node, _scheduled, st, parallelSpan) => {
+        const step = await runPlaceholderActivityStep({
+          node,
+          scheduled: { replayed: false },
           state: st,
+          executionId,
+          executor,
+          replay: /** @type {import("./replay-loader.mjs").ReplayHydrationResult} */ (emptyReplay),
+          activityExecutionMode,
+          appendEvt,
+          parallelSpan,
         });
-        if (!activityResult.ok) {
+        if (step.kind === "awaiting_activity") {
           return {
-            ok: /** @type {false} */ (false),
-            error: activityResult.error,
-            ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+            kind: /** @type {"awaiting_activity"} */ ("awaiting_activity"),
+            nodeId: step.nodeId,
+            ...(step.parallelSpan ? { parallelSpan: step.parallelSpan } : {}),
           };
         }
-        appendEvt("ActivityCompleted", { nodeId: node.id, result: activityResult.output });
-        return { ok: /** @type {true} */ (true), output: activityResult.output };
+        if (step.kind === "failed") {
+          return {
+            ok: /** @type {false} */ (false),
+            error: step.error,
+            ...(step.code !== undefined ? { code: step.code } : {}),
+          };
+        }
+        return { ok: /** @type {true} */ (true), output: step.output };
       },
     },
   });
@@ -1155,6 +1295,15 @@ export async function resumePocWorkflow(options) {
           /** @type {{ id: string; type: string; config?: object }} */ (node),
           joinTarget
         );
+        if (pr.kind === "awaiting_activity") {
+          return {
+            status: "awaiting_activity",
+            executionId,
+            nodeId: pr.nodeId,
+            state: pr.state,
+            ...(pr.parallelSpan ? { parallelSpan: pr.parallelSpan } : {}),
+          };
+        }
         if (pr.kind === "interrupt") {
           return {
             status: "interrupted",
@@ -1226,14 +1375,28 @@ export async function resumePocWorkflow(options) {
       if (node.type === "start" || node.type === "end") {
         output = {};
       } else if (PLACEHOLDER_TYPES.has(node.type)) {
-        appendEvt("ActivityRequested", { nodeId: current, nodeType: node.type });
-        const activityResult = await executor.executeActivity({
-          executionId,
+        const step = await runPlaceholderActivityStep({
           node: /** @type {{ id: string; type: string; config?: object }} */ (node),
+          scheduled: { replayed: false },
           state,
+          executionId,
+          executor,
+          replay: /** @type {import("./replay-loader.mjs").ReplayHydrationResult} */ (emptyReplay),
+          activityExecutionMode,
+          appendEvt,
+          parallelSpan: undefined,
         });
-        if (!activityResult.ok) {
-          const { error, code } = activityResult;
+        if (step.kind === "awaiting_activity") {
+          return {
+            status: "awaiting_activity",
+            executionId,
+            nodeId: step.nodeId,
+            state: JSON.parse(JSON.stringify(state)),
+            ...(step.parallelSpan ? { parallelSpan: step.parallelSpan } : {}),
+          };
+        }
+        if (step.kind === "failed") {
+          const { error, code } = step;
           appendEvt("ActivityFailed", { nodeId: current, error, ...(code !== undefined ? { code } : {}) });
           appendCmd("FailNode", {
             nodeId: current,
@@ -1244,8 +1407,7 @@ export async function resumePocWorkflow(options) {
           appendEvt("ExecutionFailed", { error });
           return { status: "failed", error, finalState: state };
         }
-        output = activityResult.output;
-        appendEvt("ActivityCompleted", { nodeId: current, result: output });
+        output = step.output;
       } else {
         throw new Error(`Unsupported node type "${node.type}"`);
       }
@@ -1294,4 +1456,212 @@ export async function resumePocWorkflow(options) {
     appendEvt("ExecutionFailed", { error: msg });
     return { status: "failed", error: msg, finalState: state };
   }
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
+ */
+function findLatestNonCheckpointEvent(rows) {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind === "event" && row.name === "CheckpointWritten") continue;
+    return row;
+  }
+  return undefined;
+}
+
+/**
+ * @param {unknown} span
+ * @returns {span is ParallelSpanPayload}
+ */
+function isParallelSpanPayload(span) {
+  if (!span || typeof span !== "object" || Array.isArray(span)) return false;
+  const s = /** @type {Record<string, unknown>} */ (span);
+  return (
+    typeof s.parallelNodeId === "string" &&
+    typeof s.joinTargetId === "string" &&
+    typeof s.branchName === "string" &&
+    typeof s.branchEntryNodeId === "string"
+  );
+}
+
+/**
+ * @param {unknown} a
+ * @param {unknown} b
+ * @returns {boolean}
+ */
+function parallelSpansEqual(a, b) {
+  if (!isParallelSpanPayload(a) || !isParallelSpanPayload(b)) return false;
+  return (
+    a.parallelNodeId === b.parallelNodeId &&
+    a.joinTargetId === b.joinTargetId &&
+    a.branchName === b.branchName &&
+    a.branchEntryNodeId === b.branchEntryNodeId
+  );
+}
+
+/**
+ * @typedef {object} SubmitActivityOutcomeOptions
+ * @property {object} definition
+ * @property {string} executionId
+ * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store
+ * @property {Record<string, unknown>} input Same `input` as the initial `runPocWorkflow` / `startWorkflow` call (replay reconstruction requires it).
+ * @property {string} nodeId Activity node id matching the pending `ActivityRequested` event.
+ * @property {{ ok: true; result?: Record<string, unknown> } | { ok: false; error: string; code?: string }} outcome
+ * @property {ParallelSpanPayload} [expectedParallelSpan] Required when the pending request carries `parallelSpan` (parallel branches); must match exactly.
+ * @property {"in_process" | "host_mediated"} [activityExecutionMode] Continuation mode for any further activities (default `host_mediated`).
+ * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
+ * @property {import("./activity-executor.mjs").ActivityExecutor} [activityExecutor]
+ */
+
+/**
+ * Append `ActivityCompleted` / `ActivityFailed` after a host-mediated yield and continue the POC walker from persisted history.
+ *
+ * @param {SubmitActivityOutcomeOptions} options
+ * @returns {Promise<
+ *   | { status: "completed"; finalState: Record<string, unknown>; result?: unknown }
+ *   | { status: "failed"; error: string; finalState?: Record<string, unknown>; code?: string }
+ *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
+ *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload }
+ * >}
+ */
+export async function submitActivityOutcome(options) {
+  const {
+    definition,
+    executionId,
+    store,
+    input,
+    nodeId,
+    outcome,
+    expectedParallelSpan,
+    activityExecutionMode = "host_mediated",
+    stubActivityOutputs = {},
+    activityExecutor,
+  } = options;
+
+  if (!definition || typeof definition !== "object") {
+    return { status: "failed", error: "definition must be a non-null object", code: "SUBMIT_VALIDATION_ERROR" };
+  }
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { status: "failed", error: "input must be a plain object", code: "SUBMIT_VALIDATION_ERROR" };
+  }
+  if (typeof executionId !== "string" || !executionId) {
+    return { status: "failed", error: "executionId must be a non-empty string", code: "SUBMIT_VALIDATION_ERROR" };
+  }
+  if (typeof nodeId !== "string" || !nodeId) {
+    return { status: "failed", error: "nodeId must be a non-empty string", code: "SUBMIT_VALIDATION_ERROR" };
+  }
+  if (!store || typeof store.append !== "function" || typeof store.listByExecution !== "function") {
+    return { status: "failed", error: "store must implement ExecutionHistoryStore", code: "SUBMIT_VALIDATION_ERROR" };
+  }
+
+  const v = validateWorkflowDefinition(definition);
+  if (!v.ok) {
+    const msg = v.errors?.map((e) => `${e.instancePath || "/"} ${e.message}`).join("; ") ?? "schema validation failed";
+    return { status: "failed", error: msg, code: "SUBMIT_VALIDATION_ERROR" };
+  }
+
+  try {
+    assertNoCustomReducers(definition);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: "failed", error: msg, code: "SUBMIT_VALIDATION_ERROR" };
+  }
+
+  const rows = store.listByExecution(executionId);
+  try {
+    assertHistoryReadableByEngine(rows);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: "failed", error: msg, code: "SUBMIT_VALIDATION_ERROR" };
+  }
+  if (rows.length === 0) {
+    return {
+      status: "failed",
+      error: `Execution "${executionId}" was not found.`,
+      code: "ACTIVITY_SUBMIT_NOT_AWAITING",
+    };
+  }
+
+  const last = findLatestNonCheckpointEvent(rows);
+  if (!last || last.kind !== "event" || last.name !== "ActivityRequested") {
+    return {
+      status: "failed",
+      error: 'Cannot submit activity outcome: last event is not "ActivityRequested".',
+      code: "ACTIVITY_SUBMIT_NOT_AWAITING",
+    };
+  }
+  const pendingNodeId = typeof last.payload?.nodeId === "string" ? last.payload.nodeId : "";
+  if (pendingNodeId !== nodeId) {
+    return {
+      status: "failed",
+      error: `Activity submit nodeId "${nodeId}" does not match pending node "${pendingNodeId}".`,
+      code: "ACTIVITY_SUBMIT_NODE_MISMATCH",
+    };
+  }
+
+  const reqSpan = last.payload?.parallelSpan;
+  if (isParallelSpanPayload(reqSpan)) {
+    if (!expectedParallelSpan || !parallelSpansEqual(expectedParallelSpan, reqSpan)) {
+      return {
+        status: "failed",
+        error: "Activity submit parallelSpan does not match pending ActivityRequested.parallelSpan.",
+        code: "ACTIVITY_SUBMIT_PARALLEL_MISMATCH",
+      };
+    }
+  } else if (expectedParallelSpan) {
+    return {
+      status: "failed",
+      error: "expectedParallelSpan was provided but pending activity is not in a parallel branch.",
+      code: "ACTIVITY_SUBMIT_PARALLEL_MISMATCH",
+    };
+  }
+
+  if (!outcome.ok) {
+    const { error, code } = outcome;
+    store.append(executionId, {
+      kind: "event",
+      name: "ActivityFailed",
+      payload: { executionId, nodeId, error, ...(code !== undefined ? { code } : {}) },
+    });
+    store.append(executionId, {
+      kind: "command",
+      name: "FailNode",
+      payload: {
+        executionId,
+        nodeId,
+        reason: "activity_failed",
+        message: error,
+        ...(code !== undefined ? { code } : {}),
+      },
+    });
+    store.append(executionId, {
+      kind: "event",
+      name: "ExecutionFailed",
+      payload: { executionId, error },
+    });
+    return { status: "failed", error, finalState: latestStateFromHistory(store.listByExecution(executionId)) };
+  }
+
+  const rawResult = outcome.result;
+  const resultObj =
+    rawResult && typeof rawResult === "object" && !Array.isArray(rawResult)
+      ? /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(rawResult)))
+      : {};
+  store.append(executionId, {
+    kind: "event",
+    name: "ActivityCompleted",
+    payload: { executionId, nodeId, result: resultObj },
+  });
+
+  return runPocWorkflow({
+    definition,
+    input,
+    executionId,
+    store,
+    stubActivityOutputs,
+    activityExecutor,
+    activityExecutionMode,
+  });
 }
