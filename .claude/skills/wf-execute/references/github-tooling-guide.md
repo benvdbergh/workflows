@@ -9,6 +9,8 @@ Execution interactions for:
 
 This guide covers the issue -> branch -> PR -> project status lifecycle.
 
+There is **no** repository Actions workflow that auto-adds issues or PRs to Project #4; triage adds cards and updates fields (UI or `gh project` with the right scopes).
+
 Story/epic **acceptance criteria and scope** are authoritative on the **GitHub issue** (see `../wf-plan/references/workflows-github-backlog-override.md`). Do not treat removed per-story markdown as live requirements.
 
 ## Primary tools
