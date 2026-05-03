@@ -1,7 +1,7 @@
 # As-Is System Overview (POC Alpha Baseline)
 
 Last updated: 2026-05-03
-Status: Current implementation baseline (not a target architecture). **Assistant-class target posture** (host-mediated activities; graph-driven orchestration) is documented in [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md). **Reference-engine target** for automation and unattended runs additionally includes **engine-direct** activity execution (MCP transports and bounded local commands) with operator configuration that can **reuse or translate** common MCP host manifest shapes; see the evolution note in ADR-0002 and R2 architectural runway in `ROADMAP.md`.
+Status: Current implementation baseline (not a target architecture). **Assistant-class target posture** (host-mediated activities; graph-driven orchestration) is documented in [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md). **Reference-engine target** for automation and unattended runs additionally includes **engine-direct** activity execution (MCP transports and bounded local commands) with operator configuration that can **reuse or translate** common MCP host manifest shapes; normative security and configuration rules for that profile are in [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). See the evolution note in ADR-0002 and R2 architectural runway in `ROADMAP.md`.
 
 ## Purpose
 
