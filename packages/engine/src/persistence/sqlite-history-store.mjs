@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { CURRENT_HISTORY_RECORD_SCHEMA_VERSION } from "./history-record-schema-version.mjs";
 
 /** @typedef {import("./types.mjs").HistoryAppendInput} HistoryAppendInput */
 /** @typedef {import("./types.mjs").HistoryRow} HistoryRow */
@@ -16,9 +17,16 @@ function ensureSchema(db) {
       name TEXT NOT NULL,
       payload_json TEXT NOT NULL,
       created_at TEXT NOT NULL,
+      record_schema_version INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY (execution_id, seq)
     );
   `);
+  /** @type {Array<{ name: string }>} */
+  const cols = db.prepare("PRAGMA table_info(history)").all();
+  const names = new Set(cols.map((c) => c.name));
+  if (!names.has("record_schema_version")) {
+    db.exec(`ALTER TABLE history ADD COLUMN record_schema_version INTEGER NOT NULL DEFAULT 1`);
+  }
 }
 
 /**
@@ -80,10 +88,18 @@ export class SqliteExecutionHistoryStore {
       const nextSeq = m + 1;
       this.#db
         .prepare(
-          `INSERT INTO history (execution_id, seq, kind, name, payload_json, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`
+          `INSERT INTO history (execution_id, seq, kind, name, payload_json, created_at, record_schema_version)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
         )
-        .run(executionId, nextSeq, input.kind, input.name, payloadJson, createdAt);
+        .run(
+          executionId,
+          nextSeq,
+          input.kind,
+          input.name,
+          payloadJson,
+          createdAt,
+          CURRENT_HISTORY_RECORD_SCHEMA_VERSION
+        );
       this.#db.exec("COMMIT");
       return nextSeq;
     } catch (err) {
@@ -104,7 +120,8 @@ export class SqliteExecutionHistoryStore {
    */
   readRange(executionId, fromSeq, toSeq) {
     let sql = `
-      SELECT execution_id, seq, kind, name, payload_json, created_at
+      SELECT execution_id, seq, kind, name, payload_json, created_at,
+             COALESCE(record_schema_version, 1) AS record_schema_version
       FROM history
       WHERE execution_id = ?
     `;
@@ -121,7 +138,7 @@ export class SqliteExecutionHistoryStore {
     sql += ` ORDER BY seq ASC`;
     const raw = this.#db.prepare(sql.trim()).all(...params);
     return raw.map((r) => {
-      const row = /** @type {{ execution_id: string; seq: number; kind: string; name: string; payload_json: string; created_at: string }} */ (
+      const row = /** @type {{ execution_id: string; seq: number; kind: string; name: string; payload_json: string; created_at: string; record_schema_version?: number }} */ (
         r
       );
       return /** @type {HistoryRow} */ ({
@@ -131,6 +148,8 @@ export class SqliteExecutionHistoryStore {
         name: row.name,
         payload: JSON.parse(row.payload_json),
         createdAt: row.created_at,
+        recordSchemaVersion:
+          typeof row.record_schema_version === "number" ? row.record_schema_version : 1,
       });
     });
   }

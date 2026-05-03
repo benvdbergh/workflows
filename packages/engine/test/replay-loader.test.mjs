@@ -165,4 +165,26 @@ describe("hydrateReplayContext", () => {
     const interruptEvent = replay.events.find((row) => row.name === "InterruptRaised");
     assert.ok(interruptEvent);
   });
+
+  it("rejects history rows newer than this engine supports", () => {
+    /** @type {{ listByExecution: (id: string) => import("../src/persistence/types.mjs").HistoryRow[] }} */
+    const store = {
+      listByExecution() {
+        return [
+          {
+            executionId: "x",
+            seq: 1,
+            kind: "command",
+            name: "StartRun",
+            payload: {},
+            recordSchemaVersion: 999_999,
+          },
+        ];
+      },
+    };
+    assert.throws(
+      () => hydrateReplayContext({ executionId: "x", store }),
+      /record_schema_version 999999/
+    );
+  });
 });

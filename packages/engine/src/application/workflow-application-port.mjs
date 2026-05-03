@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { runPocWorkflow, resumePocWorkflow } from "../orchestrator/poc-runner.mjs";
+import { resumePocWorkflow, runPocWorkflow } from "../orchestrator/poc-runner.mjs";
+import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 
 const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "InterruptRaised"]);
 
@@ -131,6 +132,7 @@ export function createWorkflowApplicationPort(deps) {
      */
     async getWorkflowStatus(request) {
       const rows = store.listByExecution(request.executionId);
+      assertHistoryReadableByEngine(rows);
       if (rows.length === 0) {
         const err = new Error(`Execution "${request.executionId}" was not found.`);
         err.code = "EXECUTION_NOT_FOUND";

@@ -24,6 +24,7 @@ function runContract(store) {
   for (let i = 0; i < listed.length; i++) {
     assert.equal(listed[i].seq, i + 1);
     assert.equal(listed[i].executionId, exA);
+    assert.equal(listed[i].recordSchemaVersion, 1);
   }
   const seqs = listed.map((r) => r.seq);
   const sorted = [...seqs].sort((a, b) => a - b);
@@ -69,5 +70,31 @@ describe("SqliteExecutionHistoryStore", () => {
     db = new DatabaseSync(":memory:");
     store = new SqliteExecutionHistoryStore({ database: db });
     runContract(store);
+  });
+
+  it("migrates legacy history table without record_schema_version", () => {
+    db = new DatabaseSync(":memory:");
+    db.exec(`
+      CREATE TABLE history (
+        execution_id TEXT NOT NULL,
+        seq INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (execution_id, seq)
+      );
+    `);
+    db.prepare(
+      `INSERT INTO history (execution_id, seq, kind, name, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run("legacy-exec", 1, "command", "StartRun", "{}", new Date().toISOString());
+    store = new SqliteExecutionHistoryStore({ database: db });
+    const rows = store.listByExecution("legacy-exec");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].recordSchemaVersion, 1);
+    const next = store.append("legacy-exec", { kind: "event", name: "RunStarted", payload: {} });
+    assert.equal(next, 2);
+    assert.equal(store.listByExecution("legacy-exec")[1].recordSchemaVersion, 1);
   });
 });
