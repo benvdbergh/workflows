@@ -176,8 +176,11 @@ Each checkpoint payload includes `executionId`, `workflowVersion`, `definitionHa
 | `name`         | TEXT    | Command/event name (maps to POC taxonomies) |
 | `payload_json` | TEXT    | JSON-serialized payload object |
 | `created_at`   | TEXT    | ISO 8601 timestamp when the row was appended |
+| `record_schema_version` | INTEGER | Persisted **row envelope** version (not `document.schema`); see below |
 
 Primary key: `(execution_id, seq)`. Historical rows are not updated or deleted by the adapter API.
+
+**Envelope versioning:** Each row is stamped with `record_schema_version` (currently `1`). Opening an existing database without this column runs `ALTER TABLE … ADD COLUMN … DEFAULT 1`. Replay, resume, and status paths call `assertHistoryReadableByEngine`: rows newer than this engine build fail fast so hosts upgrade `@agent-workflow/engine` instead of corrupting replay. Policy and read rules: [`docs/persistence-history-record-versioning.md`](../../docs/persistence-history-record-versioning.md).
 
 **Concurrency:** Treat the store as **single-writer per process** for a given execution (and avoid multiple processes appending to the same file for the same execution id). SQLite assigns `seq` inside a **transaction** (`BEGIN IMMEDIATE` … `COMMIT`) that reads `MAX(seq)` for the execution and then inserts the next row, so ordering stays monotonic for that writer.
 

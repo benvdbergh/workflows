@@ -12,6 +12,7 @@ import {
   applyOutputWithReducers,
   stateSchemaForValidation,
 } from "./linear-runner.mjs";
+import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 import { hydrateReplayContext } from "./replay-loader.mjs";
 
 const require = createRequire(import.meta.url);
@@ -552,6 +553,7 @@ export async function resumePocWorkflow(options) {
   }
 
   const rows = store.listByExecution(executionId);
+  assertHistoryReadableByEngine(rows);
   const lastRow = latestPrimaryEvent(rows);
   if (!lastRow || lastRow.name !== "InterruptRaised") {
     const err = 'Cannot resume: last history event is not "InterruptRaised".';

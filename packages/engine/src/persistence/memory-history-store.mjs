@@ -1,3 +1,5 @@
+import { CURRENT_HISTORY_RECORD_SCHEMA_VERSION } from "./history-record-schema-version.mjs";
+
 /** @typedef {import("./types.mjs").HistoryAppendInput} HistoryAppendInput */
 /** @typedef {import("./types.mjs").HistoryRow} HistoryRow */
 /** @typedef {import("./types.mjs").ExecutionHistoryStore} ExecutionHistoryStore */
@@ -29,6 +31,7 @@ export class MemoryExecutionHistoryStore {
       name: input.name,
       payload: structuredClone(input.payload),
       createdAt,
+      recordSchemaVersion: CURRENT_HISTORY_RECORD_SCHEMA_VERSION,
     };
     rows.push(row);
     this.#byExecution.set(executionId, rows);

@@ -10,6 +10,12 @@ export { StubActivityExecutor } from "./orchestrator/activity-executor.mjs";
 export { MemoryExecutionHistoryStore } from "./persistence/memory-history-store.mjs";
 export { SqliteExecutionHistoryStore } from "./persistence/sqlite-history-store.mjs";
 export {
+  assertHistoryReadableByEngine,
+  coerceRecordSchemaVersion,
+  CURRENT_HISTORY_RECORD_SCHEMA_VERSION,
+  recordSchemaVersionOf,
+} from "./persistence/history-record-schema-version.mjs";
+export {
   assertNoCustomReducers,
   applyOutputWithReducers,
   computeLinearNodePath,
