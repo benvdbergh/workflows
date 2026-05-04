@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { validateWorkflowDefinition } from "../packages/engine/src/validate.mjs";
 import {
   MemoryExecutionHistoryStore,
+  RejectingActivityExecutor,
   runPocWorkflow,
   submitActivityOutcome,
 } from "../packages/engine/src/index.mjs";
@@ -25,6 +26,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *     payload?: Record<string, unknown>;
  *   }>;
  *   activityExecutionMode?: "in_process" | "host_mediated";
+ *   assertNoActivityExecutorInvocation?: boolean;
  *   activitySubmissions?: Array<{
  *     nodeId: string;
  *     outcome:
@@ -169,6 +171,8 @@ async function runReplayVector(vector) {
 
   const activityExecutionMode = vector.activityExecutionMode ?? "in_process";
   const activitySubmissions = Array.isArray(vector.activitySubmissions) ? vector.activitySubmissions : [];
+  const assertNoActivityExecutorInvocation = vector.assertNoActivityExecutorInvocation === true;
+  const activityExecutor = assertNoActivityExecutorInvocation ? new RejectingActivityExecutor() : undefined;
 
   let run = await runPocWorkflow({
     definition,
@@ -176,6 +180,7 @@ async function runReplayVector(vector) {
     executionId,
     store,
     activityExecutionMode,
+    ...(activityExecutor ? { activityExecutor } : {}),
   });
 
   for (const step of activitySubmissions) {
@@ -188,6 +193,7 @@ async function runReplayVector(vector) {
       outcome: step.outcome,
       ...(step.expectedParallelSpan ? { expectedParallelSpan: step.expectedParallelSpan } : {}),
       activityExecutionMode,
+      ...(activityExecutor ? { activityExecutor } : {}),
     });
     if (step.expectFailure) {
       if (sub.status !== "failed" || sub.code !== step.expectFailure.code) {

@@ -6,7 +6,7 @@
  * @typedef {import("./orchestrator/activity-executor.mjs").ActivityExecutor} ActivityExecutor
  */
 export * from "./validate.mjs";
-export { StubActivityExecutor } from "./orchestrator/activity-executor.mjs";
+export { RejectingActivityExecutor, StubActivityExecutor } from "./orchestrator/activity-executor.mjs";
 export {
   callMcpToolStdio,
   DEFAULT_MCP_ACTIVITY_TOOL_TIMEOUT_MS,
