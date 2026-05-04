@@ -1,0 +1,112 @@
+{
+  "id": "replay.engine_direct_activity.parallel.in_process_replay_completed_no_invoke",
+  "description": "Parallel branch tool_call: in_process + rejecting activity port; prefix includes ActivityRequested (with parallelSpan) and ActivityCompleted; tail replay must not invoke executeActivity for a1.",
+  "kind": "replay",
+  "definition": "examples/conformance-host-activity-parallel.workflow.json",
+  "input": {},
+  "activityExecutionMode": "in_process",
+  "assertNoActivityExecutorInvocation": true,
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "conformance-host-par",
+        "workflowVersion": "1.0.0",
+        "inputKeys": []
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "start", "state": {} }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "fork" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "fork" }
+    },
+    {
+      "kind": "command",
+      "name": "StartParallel",
+      "payload": {
+        "nodeId": "fork",
+        "join": "all",
+        "branchNames": ["only"]
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ParallelForked",
+      "payload": {
+        "nodeId": "fork",
+        "join": "all",
+        "branchNames": ["only"]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "a1" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "a1" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": {
+        "nodeId": "a1",
+        "nodeType": "tool_call",
+        "parallelSpan": {
+          "parallelNodeId": "fork",
+          "joinTargetId": "join",
+          "branchName": "only",
+          "branchEntryNodeId": "a1"
+        }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "a1",
+        "result": { "y": "branch" }
+      }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "CompleteNode", "nodeId": "a1" },
+      { "name": "JoinParallel", "nodeId": "fork" },
+      { "name": "CompleteNode", "nodeId": "fork" },
+      { "name": "ScheduleNode", "nodeId": "join" },
+      { "name": "CompleteNode", "nodeId": "join" },
+      { "name": "ScheduleNode", "nodeId": "end" },
+      { "name": "CompleteNode", "nodeId": "end" }
+    ]
+  }
+}
