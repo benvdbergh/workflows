@@ -33,6 +33,17 @@ Expected behavior:
 - Process stays running and waits on stdio for MCP requests.
 - No startup banner is required; absence of immediate crash is success.
 
+### Optional: engine-direct MCP `tool_call` (R2)
+
+To exercise **real** MCP `tools/call` for `tool_call` workflow nodes (instead of stubs), start the server with an operator manifest path:
+
+- **Environment:** set `WORKFLOW_ENGINE_MCP_CONFIG` to a manifest JSON path (same shape as `workflows-engine mcp-manifest validate` — see [`mcp-operator-manifest.md`](mcp-operator-manifest.md)).
+- **CLI:** append `--mcp-config /absolute/or/relative/path.json` after the `workflows-engine-mcp` bin; this wins over the env var when both are set.
+
+If the manifest cannot be read or fails schema validation, the process **exits with code 1** before listening on stdio (diagnostics on stderr). This path is **opt-in**; omit both to keep Story-4-3 default stub behavior.
+
+Trust boundaries, secrets, and when to prefer host-mediated execution: [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). The host-mediated smoke steps below are unchanged; engine-direct does not replace `workflow_submit_activity` for `activity_execution_mode: host_mediated`.
+
 ## 2) Connect from an MCP-capable host (copy/paste)
 
 ### Operator setup (published package)

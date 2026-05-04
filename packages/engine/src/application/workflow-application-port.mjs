@@ -145,10 +145,14 @@ function findLatestNonCheckpointEvent(rows) {
 /**
  * Stable application-facing port for workflow control operations used by interface adapters.
  *
- * @param {{ store: import("../persistence/types.mjs").ExecutionHistoryStore }} deps
+ * @param {{
+ *   store: import("../persistence/types.mjs").ExecutionHistoryStore;
+ *   activityExecutor?: import("../orchestrator/activity-executor.mjs").ActivityExecutor;
+ * }} deps
+ * Optional `activityExecutor` runs `tool_call` nodes in-process (e.g. MCP manifest executor); omit to use the stub executor.
  */
 export function createWorkflowApplicationPort(deps) {
-  const { store } = deps;
+  const { store, activityExecutor } = deps;
 
   return {
     /**
@@ -166,6 +170,7 @@ export function createWorkflowApplicationPort(deps) {
         input: request.input,
         executionId,
         store,
+        ...(activityExecutor ? { activityExecutor } : {}),
         ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
       });
 
@@ -250,6 +255,7 @@ export function createWorkflowApplicationPort(deps) {
         executionId: request.executionId,
         resumePayload: request.resumePayload,
         store,
+        ...(activityExecutor ? { activityExecutor } : {}),
         ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
       });
 
@@ -288,6 +294,7 @@ export function createWorkflowApplicationPort(deps) {
         ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
         ...(request.stubActivityOutputs ? { stubActivityOutputs: request.stubActivityOutputs } : {}),
         ...(request.activityExecutor ? { activityExecutor: request.activityExecutor } : {}),
+        ...(!request.activityExecutor && activityExecutor ? { activityExecutor } : {}),
       });
 
       return {

@@ -67,6 +67,19 @@ This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `wo
 
 Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
 
+### Engine-direct `tool_call` execution (optional)
+
+By default, `workflows-engine-mcp` uses the **in-process stub** executor for activity placeholders (same backward-compatible demo behavior as before).
+
+To run **`tool_call` nodes against real MCP stdio servers**, enable engine-direct configuration:
+
+- **Environment:** set `WORKFLOW_ENGINE_MCP_CONFIG` to the absolute or relative path of an operator MCP manifest JSON file.
+- **CLI:** pass `--mcp-config <path>` after the bin name (overrides `WORKFLOW_ENGINE_MCP_CONFIG` when both are set).
+
+The manifest matches the schema validated by `workflows-engine mcp-manifest validate` (Cursor-style `mcpServers` with stdio `command` / `args` / `env`). Workflow nodes use `tool_call` with `config.server` (manifest key) and `config.tool` (MCP tool name). If the file is missing or invalid JSON/schema, the process **exits with code 1** before accepting MCP traffic; errors are written to **stderr**.
+
+Security, credentials, and trust boundaries for this profile are documented in [ADR-0003: Engine-direct MCP activity execution](../../docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md). Host-mediated completion via `workflow_submit_activity` is unchanged when you use `activity_execution_mode: host_mediated`; after a submit, continuations still use the same port-level executor when engine-direct is enabled.
+
 ### Host compatibility constraints for no-install use
 
 - **Node runtime:** Node.js `>=22.5.0` is required (uses `node:sqlite`).
