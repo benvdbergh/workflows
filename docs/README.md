@@ -1,6 +1,6 @@
 # Documentation Index
 
-**Last reviewed:** 2026-04-13  
+**Last reviewed:** 2026-05-04  
 **Review cadence:** at each alpha milestone
 
 This index makes the documentation information architecture explicit:

@@ -1,7 +1,7 @@
 # As-Is System Overview (POC Alpha Baseline)
 
-Last updated: 2026-05-03
-Status: Current implementation baseline (not a target architecture). **Assistant-class target posture** (host-mediated activities; graph-driven orchestration) is documented in [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md). **Reference-engine target** for automation and unattended runs additionally includes **engine-direct** activity execution (MCP transports and bounded local commands) with operator configuration that can **reuse or translate** common MCP host manifest shapes; normative security and configuration rules for that profile are in [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). See the evolution note in ADR-0002 and R2 architectural runway in `ROADMAP.md`.
+Last updated: 2026-05-04
+Status: Current implementation baseline (not a target architecture). The Node.js reference engine at **`@agent-workflow/engine@0.1.0-alpha.3`** implements the **POC + R2** profile ([`docs/poc-scope.md`](../poc-scope.md)), including **host-mediated** and **engine-direct** `tool_call` execution per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md) and [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). **Assistant-class** deployments still favor host-mediated activities; engine-direct is for operator/automation profiles. See `ROADMAP.md` for R3+ targets (`agent_delegate`, `subworkflow`, REST/SDK parity).
 
 ## Purpose
 
@@ -9,7 +9,7 @@ Document the current implementation state of the Agent Workflow Protocol reposit
 
 - Future design-first increments.
 - Structured ADR authoring.
-- Release planning and architecture runway decisions (`R2` onward).
+- Release planning and architecture runway decisions (R3 onward).
 
 This is an as-is snapshot. RFC documents remain the normative target contract.
 

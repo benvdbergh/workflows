@@ -45,7 +45,7 @@ No-install npm usage for MCP hosts:
 npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 
 # consume a pinned, reproducible package version
-npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.0-alpha.3 workflows-engine-mcp
 ```
 
 **Operator setup (default for MCP clients)** — register the published package; the host runs `npx` and does not need this repository on disk. Use `-y` (non-interactive) and `-p` so npm selects the `workflows-engine-mcp` bin when both `workflows-engine` and `workflows-engine-mcp` are present:

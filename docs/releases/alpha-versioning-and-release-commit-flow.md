@@ -1,6 +1,6 @@
 # Alpha Versioning and Final Release Commit Flow
 
-**Last reviewed:** 2026-04-13
+**Last reviewed:** 2026-05-04
 
 This policy keeps alpha releases predictable while the repository remains pre-1.0.
 

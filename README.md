@@ -4,7 +4,7 @@
 >
 > **Alpha evaluation focus:** this repository now packages a practical alpha narrative for external evaluators. Start with the quickstart and release notes, then dive into architecture and conformance details.
 
-**Last reviewed:** 2026-04-13  
+**Last reviewed:** 2026-05-04  
 **Review cadence:** every 30 days while alpha scope is evolving
 
 A vendor-neutral, declarative standard for **stateful, multi-step AI agent workflow execution** with deterministic replay, durable checkpoints, human-in-the-loop interrupts, and MCP-compatible tool integration.
@@ -208,9 +208,9 @@ The [`examples/`](examples/) directory contains the canonical lighthouse fixture
 
 ## Reference implementation
 
-**In this repository (POC, Node.js):** [`packages/engine/`](packages/engine/README.md) implements EPIC-1–aligned definition validation, an append-only command/event history (`SqliteExecutionHistoryStore` via `node:sqlite` or in-memory), and orchestration for the POC node subset including linear runs, `switch` routing, and `interrupt` / resume. Requires Node.js **≥ 22.5.0** (see root `package.json` `engines`).
+**In this repository (POC + R2 core, Node.js):** [`packages/engine/`](packages/engine/README.md) (`@agent-workflow/engine`) implements definition validation for the profile in [`docs/poc-scope.md`](docs/poc-scope.md), an append-only command/event history (`SqliteExecutionHistoryStore` via `node:sqlite` or in-memory), orchestration including `parallel` / `wait` / `set_state`, `switch`, `interrupt` / resume, host-mediated and engine-direct `tool_call` activity paths, checkpoint policies, and the MCP stdio adapter. The [`conformance/`](conformance/) harness exercises schema and replay vectors in CI. Requires Node.js **≥ 22.5.0** (see root `package.json` `engines`).
 
-**Longer term (RFC-08):** [RFC-08](docs/RFC/rfc-08-reference-implementation.md) still describes a production-style MVP: **core binary** (Rust or Go), **Python SDK**, **MCP stdio adapter**, and a **conformance suite** beyond what this POC package covers. Replay/checkpoint semantics and MCP integration are tracked in later epics.
+**Longer term (RFC-08):** [RFC-08](docs/RFC/rfc-08-reference-implementation.md) still describes a production-style MVP: **core binary** (Rust or Go), **Python SDK**, and **REST/SDK surfaces** at parity with the reference adapter set. `agent_delegate` and `subworkflow` are planned for R3; see [`ROADMAP.md`](ROADMAP.md).
 
 ---
 

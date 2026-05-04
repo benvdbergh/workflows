@@ -11,7 +11,7 @@ This runbook verifies the EPIC-4 MCP stdio adapter from an MCP-capable host usin
 ## Prerequisites
 
 - Node.js `>=22.5.0`
-- **Operator setup:** the host runs the published [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) via `npx` (no clone). Use **`0.0.2`** or **`@alpha`** once it resolves to a build that bundles the POC schema; see [No-install MCP quickstart](../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx).
+- **Operator setup:** the host runs the published [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) via `npx` (no clone). Use **`0.1.0-alpha.3`** (or **`@alpha`**) for a build that bundles the current schema; see [No-install MCP quickstart](../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx).
 - **Development setup:** clone this repository, then from the repo root:
 
 ```bash
