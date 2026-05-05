@@ -84,3 +84,4 @@ Desktop.ini
 # =========================
 .claude/settings.local.json
 .cursor/mcp.json
+.cursor/mcp-operator-paperclip.local.json

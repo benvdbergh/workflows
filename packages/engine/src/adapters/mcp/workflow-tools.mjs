@@ -24,6 +24,18 @@ function mapEngineFailure(error) {
 /**
  * @param {unknown} parsed
  */
+/**
+ * Many MCP hosts surface only `content` text to the operator or agent; duplicate the
+ * transport contract object into that text so `result` / `final_state` remain visible
+ * without structured-result UI.
+ *
+ * @param {string} headline
+ * @param {unknown} structured
+ */
+function withStructuredJsonInText(headline, structured) {
+  return `${headline}\n\nStructured result (JSON):\n${JSON.stringify(structured, null, 2)}`;
+}
+
 function startResponseFromPort(parsed) {
   const parallelSpan = parsed.parallelSpan;
   const response = {
@@ -154,9 +166,15 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
           throw mapEngineFailure(new Error(response.error));
         }
 
+        const structured = startResponseFromPort(response);
         return {
-          content: [{ type: "text", text: `Execution ${response.executionId} ${response.status}.` }],
-          structuredContent: startResponseFromPort(response),
+          content: [
+            {
+              type: "text",
+              text: withStructuredJsonInText(`Execution ${response.executionId} ${response.status}.`, structured),
+            },
+          ],
+          structuredContent: structured,
         };
       } catch (error) {
         const adapted =
@@ -176,9 +194,15 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
           executionId: parsed.execution_id,
         });
 
+        const structured = statusResponseFromPort(response);
         return {
-          content: [{ type: "text", text: `Execution ${response.executionId} is ${response.phase}.` }],
-          structuredContent: statusResponseFromPort(response),
+          content: [
+            {
+              type: "text",
+              text: withStructuredJsonInText(`Execution ${response.executionId} is ${response.phase}.`, structured),
+            },
+          ],
+          structuredContent: structured,
         };
       } catch (error) {
         const adapted =
@@ -208,9 +232,18 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
           throw new McpAdapterError(code, response.error);
         }
 
+        const structured = resumeResponseFromPort(response);
         return {
-          content: [{ type: "text", text: `Execution ${response.executionId} ${response.status} after resume.` }],
-          structuredContent: resumeResponseFromPort(response),
+          content: [
+            {
+              type: "text",
+              text: withStructuredJsonInText(
+                `Execution ${response.executionId} ${response.status} after resume.`,
+                structured
+              ),
+            },
+          ],
+          structuredContent: structured,
         };
       } catch (error) {
         const adapted =
@@ -249,9 +282,18 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
           throw mcpErrorForSubmitFailure(response.code, response.error);
         }
 
+        const structured = submitActivityResponseFromPort(response);
         return {
-          content: [{ type: "text", text: `Execution ${response.executionId} ${response.status} after activity submit.` }],
-          structuredContent: submitActivityResponseFromPort(response),
+          content: [
+            {
+              type: "text",
+              text: withStructuredJsonInText(
+                `Execution ${response.executionId} ${response.status} after activity submit.`,
+                structured
+              ),
+            },
+          ],
+          structuredContent: structured,
         };
       } catch (error) {
         const adapted =
