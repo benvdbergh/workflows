@@ -1,7 +1,7 @@
 # As-Is System Overview (POC Alpha Baseline)
 
 Last updated: 2026-05-04
-Status: Current implementation baseline (not a target architecture). The Node.js reference engine at **`@agent-workflow/engine@0.1.0-alpha.3`** implements the **POC + R2** profile ([`docs/poc-scope.md`](../poc-scope.md)), including **host-mediated** and **engine-direct** `tool_call` execution per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md) and [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). **Assistant-class** deployments still favor host-mediated activities; engine-direct is for operator/automation profiles. See `ROADMAP.md` for R3+ targets (`agent_delegate`, `subworkflow`, REST/SDK parity).
+Status: Current implementation baseline (not a target architecture). The Node.js reference engine at **`@agent-workflow/engine@0.1.0-alpha.4`** implements the **POC + R2** profile ([`docs/poc-scope.md`](../poc-scope.md)), including **host-mediated** and **engine-direct** `tool_call` execution per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md) and [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). **Assistant-class** deployments still favor host-mediated activities; engine-direct is for operator/automation profiles. See `ROADMAP.md` for R3+ targets (`agent_delegate`, `subworkflow`, REST/SDK parity).
 
 ## Purpose
 

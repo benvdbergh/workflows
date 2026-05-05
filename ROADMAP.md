@@ -6,7 +6,7 @@ This roadmap translates the full RFC scope (`docs/RFC/`) into sequenced, workabl
 
 ## Planning assumptions
 
-- **Current baseline:** the reference engine package [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) implements the **POC + R2** profile in [`docs/poc-scope.md`](docs/poc-scope.md): core nodes plus `parallel`, `wait`, `set_state`, checkpoint policies, host-mediated and engine-direct activity execution (see [`docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md`](docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md)), schema validation, and the conformance harness (`npm run conformance`). Published line: **`v0.1.0-alpha.3`** on the `alpha` dist-tag (see `docs/releases/alpha-release-notes.md`).
+- **Current baseline:** the reference engine package [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) implements the **POC + R2** profile in [`docs/poc-scope.md`](docs/poc-scope.md): core nodes plus `parallel`, `wait`, `set_state`, checkpoint policies, host-mediated and engine-direct activity execution (see [`docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md`](docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md)), schema validation, and the conformance harness (`npm run conformance`). Published line: **`v0.1.0-alpha.4`** on the `alpha` dist-tag (see `docs/releases/alpha-release-notes.md`).
 - **Next planning focus:** **R3** (delegation and composition: `agent_delegate`, `subworkflow`, richer interoperability).
 - This roadmap prioritizes vertical value slices while maintaining architectural runway for durability, interoperability, and governance.
 - Release names are planning labels; semantic versions are assigned during release planning.
@@ -23,7 +23,7 @@ This roadmap translates the full RFC scope (`docs/RFC/`) into sequenced, workabl
 
 ## R2 Beta - Full Core Orchestration
 
-**Reference-engine status (2026-05):** R2 core orchestration for the Node.js engine is **delivered** and tracked in repository conformance + package `@agent-workflow/engine@0.1.0-alpha.3`. Remaining RFC-08 aspirational items (for example full reducer-matrix conformance, MCP mock roundtrip vectors) may still be deferred; see `conformance/README.md` and `docs/releases/alpha-release-notes.md`.
+**Reference-engine status (2026-05):** R2 core orchestration for the Node.js engine is **delivered** and tracked in repository conformance + package `@agent-workflow/engine@0.1.0-alpha.4`. Remaining RFC-08 aspirational items (for example full reducer-matrix conformance, MCP mock roundtrip vectors) may still be deferred; see `conformance/README.md` and `docs/releases/alpha-release-notes.md`.
 
 ### Outcome
 

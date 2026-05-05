@@ -2,7 +2,7 @@
 
 **Last reviewed:** 2026-05-04
 
-**Current published engine:** `@agent-workflow/engine@0.1.0-alpha.3` on the npm `alpha` dist-tag (see also [ROADMAP.md](../../ROADMAP.md) — R2 core orchestration for the reference engine is **delivered**; next major slice is R3).
+**Current published engine:** `@agent-workflow/engine@0.1.0-alpha.4` on the npm `alpha` dist-tag (see also [ROADMAP.md](../../ROADMAP.md) — R2 core orchestration for the reference engine is **delivered**; next major slice is R3).
 
 Release policy and checklist reference: [alpha-versioning-and-release-commit-flow.md](alpha-versioning-and-release-commit-flow.md)
 
@@ -55,7 +55,7 @@ npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 ### Reproducible install (exact pinned version)
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.0-alpha.3 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp
 ```
 
 ### Provider-neutral MCP client configuration examples
@@ -88,7 +88,7 @@ Pinned, immutable client configuration:
       "args": [
         "-y",
         "-p",
-        "@agent-workflow/engine@0.1.0-alpha.3",
+        "@agent-workflow/engine@0.1.0-alpha.4",
         "workflows-engine-mcp"
       ]
     }
@@ -113,7 +113,7 @@ Run this sequence for every alpha publish event.
      - `also_point_latest_dist_tag`: `true` (default) runs `npm dist-tag add @agent-workflow/engine@<version> latest` after publish so **`alpha` and `latest` both resolve to the same tarball** (typical when promoting a pre-release to the default channel). Set `false` if you intentionally want `latest` left on an older build.
 3. Post-publish smoke test:
    - `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp --help`
-   - `npx -y -p @agent-workflow/engine@0.1.0-alpha.3 workflows-engine-mcp --help`
+   - `npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp --help`
 4. Announcement update:
    - Update launch templates and release notes with the published version.
    - Publish channel posts from `docs/community-launch-playbook.md`.

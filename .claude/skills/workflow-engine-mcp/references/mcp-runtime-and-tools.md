@@ -11,7 +11,7 @@ npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 Pin a specific version for reproducibility:
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.0-alpha.3 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp
 ```
 
 **From a local engine source tree:** run the package’s MCP stdio entrypoint with `node` (exact path depends on your clone layout).
