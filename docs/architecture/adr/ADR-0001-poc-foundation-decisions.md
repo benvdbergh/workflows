@@ -88,7 +88,7 @@ The narrowed boundary was intentional and not a contradiction of RFC intent; it 
 - Keep `docs/poc-scope.md` authoritative and explicit about out-of-scope elements.
 - Use conformance harness and CI as non-optional quality gates.
 - Require roadmap/RFC traceability in issue and PR templates.
-- Maintain an as-is architecture baseline (`docs/architecture/as-is-system-overview.md`) for shared understanding.
+- Maintain an **as-is** architecture baseline in [`docs/architecture/arc42/README.md`](../arc42/README.md) plus [Sections **3**](../arc42/03-context-and-scope.md)–[**11**](../arc42/11-risks-and-technical-debt.md) (`docs/architecture/arc42/`), with runtime/deployment rationale concentrated in **[Section 6 (Runtime view)](../arc42/06-runtime-view.md)** and **[Section 7 (Deployment view)](../arc42/07-deployment-view.md)** alongside linked **Draw.io** views.
 
 ## Exit criteria for this decision posture
 
@@ -115,5 +115,5 @@ At that point, design-first governance and structured ADR sequencing become the 
 - `docs/RFC/rfc-04-execution-model.md`
 - `docs/RFC/rfc-08-reference-implementation.md`
 - `ROADMAP.md`
-- `docs/governance/spec-architecture-governance.md`
-- `docs/architecture/as-is-system-overview.md`
+- [`docs/architecture/README.md`](../README.md) (architecture portal)
+- [`docs/architecture/arc42/README.md`](../arc42/README.md) (**as-is spine**; runtime narration: [`06-runtime-view.md`](../arc42/06-runtime-view.md))

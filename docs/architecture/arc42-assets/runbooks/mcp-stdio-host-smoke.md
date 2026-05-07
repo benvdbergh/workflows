@@ -4,14 +4,14 @@ This runbook verifies the MCP stdio adapter from an MCP-capable host using a det
 
 ## Scope and non-goals
 
-- Scope: local smoke validation of `workflow_start`, `workflow_status`, and `workflow_resume`, plus an **optional** `workflow_submit_activity` path when using `activity_execution_mode: "host_mediated"` ([ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md)).
+- Scope: local smoke validation of `workflow_start`, `workflow_status`, and `workflow_resume`, plus an **optional** `workflow_submit_activity` path when using `activity_execution_mode: "host_mediated"` ([ADR-0002](../../adr/ADR-0002-host-mediated-activity-execution.md)).
 - Default `workflow_start` behavior remains **in-process** activity stubs unless the host sets `activity_execution_mode` to `host_mediated`.
 - Non-goals: production auth, multi-tenant isolation, secret management hardening, remote exposure.
 
 ## Prerequisites
 
 - Node.js `>=22.5.0`
-- **Operator setup:** the host runs the published [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) via `npx` (no clone). Use **`0.1.0-alpha.4`** (or **`@alpha`**) for a build that bundles the current schema; see [No-install MCP quickstart](../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx).
+- **Operator setup:** the host runs the published [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) via `npx` (no clone). Use **`0.1.0-alpha.4`** (or **`@alpha`**) for a build that bundles the current schema; see [No-install MCP quickstart](../../../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx).
 - **Development setup:** clone this repository, then from the repo root:
 
 ```bash
@@ -37,12 +37,12 @@ Expected behavior:
 
 To exercise **real** MCP `tools/call` for `tool_call` workflow nodes (instead of stubs), start the server with an operator manifest path:
 
-- **Environment:** set `WORKFLOW_ENGINE_MCP_CONFIG` to a manifest JSON path (same shape as `workflows-engine mcp-manifest validate` — see [`mcp-operator-manifest.md`](mcp-operator-manifest.md)).
+- **Environment:** set `WORKFLOW_ENGINE_MCP_CONFIG` to a manifest JSON path (same shape as `workflows-engine mcp-manifest validate` — see [`mcp-operator-manifest.md`](../contracts/mcp-operator-manifest.md)).
 - **CLI:** append `--mcp-config /absolute/or/relative/path.json` after the `workflows-engine-mcp` bin; this wins over the env var when both are set.
 
 If the manifest cannot be read or fails schema validation, the process **exits with code 1** before listening on stdio (diagnostics on stderr). This path is **opt-in**; omit both to keep default in-process stub behavior.
 
-Trust boundaries, secrets, and when to prefer host-mediated execution: [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). The host-mediated smoke steps below are unchanged; engine-direct does not replace `workflow_submit_activity` for `activity_execution_mode: host_mediated`.
+Trust boundaries, secrets, and when to prefer host-mediated execution: [ADR-0003](../../adr/ADR-0003-engine-direct-mcp-activity-execution.md). The host-mediated smoke steps below are unchanged; engine-direct does not replace `workflow_submit_activity` for `activity_execution_mode: host_mediated`.
 
 ## 2) Connect from an MCP-capable host (copy/paste)
 
@@ -59,7 +59,7 @@ Trust boundaries, secrets, and when to prefer host-mediated execution: [ADR-0003
 }
 ```
 
-Pin a version instead of `@alpha` when you need a fixed build ([release notes](../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)).
+Pin a version instead of `@alpha` when you need a fixed build ([release notes](../../../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)).
 
 ### Development setup (local engine checkout)
 
@@ -160,7 +160,7 @@ Expected structured result shape:
 }
 ```
 
-With the default POC stub, `confidence` is deterministic for this fixture (see `packages/engine/test/poc-runner.test.mjs`). Assert `status` and `intent` first; treat numeric fields as stub-specific unless a real activity adapter is configured.
+With the default POC stub, `confidence` is deterministic for this fixture (see `packages/engine/test/workflow-graph-walker.test.mjs`). Assert `status` and `intent` first; treat numeric fields as stub-specific unless a real activity adapter is configured.
 
 ### 3.4 Optional — `workflow_submit_activity` (host-mediated)
 

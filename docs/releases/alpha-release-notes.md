@@ -40,7 +40,7 @@ These notes are for external evaluators and early adopters validating the curren
 
 Use the published package directly from npm without cloning this repository.
 
-**Operator vs development MCP wiring:** treat the **operator setup** (published `@agent-workflow/engine` via `npx`, below) as the default for MCP-capable hosts and demos. Use a **development setup** (absolute path to `packages/engine/src/mcp-stdio-server.mjs` in your clone) only when you are modifying the engine or MCP adapter. Step-by-step host guides: [MCP stdio host smoke](../architecture/mcp-stdio-host-smoke.md), [Lighthouse MCP walkthrough](../architecture/lighthouse-mcp-host-guided-demo-walkthrough.md).
+**Operator vs development MCP wiring:** treat the **operator setup** (published `@agent-workflow/engine` via `npx`, below) as the default for MCP-capable hosts and demos. Use a **development setup** (absolute path to `packages/engine/src/mcp-stdio-server.mjs` in your clone) only when you are modifying the engine or MCP adapter. Step-by-step host guides: [MCP stdio host smoke](../architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md), [Lighthouse MCP walkthrough](../architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md).
 
 The package is published under the npm organization scope **`@agent-workflow`** ([npm org](https://www.npmjs.com/org/agent-workflow)), not a separate `agent-workflow-protocol` scope.
 

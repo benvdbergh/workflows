@@ -41,13 +41,12 @@ That posture extends **Option C (hybrid)** and optional **Option A**-style surfa
 - Reference MCP stdio exposes `workflow_submit_activity` and status projection for `awaiting_activity`; extend conformance and governance naming as needed.
 - Conformance vectors for pause, submit result, replay idempotency.
 - Engine-direct MCP/cmd execution and manifest-aligned operator configuration (see [ADR-0003](ADR-0003-engine-direct-mcp-activity-execution.md)).
-- Update `docs/architecture/as-is-system-overview.md` and as-built diagrams as profiles mature.
+- Update numbered **arc42** narratives—especially **`docs/architecture/arc42/06-runtime-view.md`**, **`04-solution-strategy.md`**, and **`docs/architecture/arc42/07-deployment-view.md`**—and **`as-built-views.drawio`** as profiles mature.
 
 ## References
 
-- `docs/architecture/as-is-system-overview.md`
+- [`docs/architecture/arc42/06-runtime-view.md`](../arc42/06-runtime-view.md) (host-mediated flow + MCP loop)
 - `docs/poc-scope.md`
 - `docs/RFC/rfc-04-execution-model.md`, `docs/RFC/rfc-05-integration-interfaces.md`, `docs/RFC/rfc-06-interoperability.md`
 - `docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md`
 - `ROADMAP.md`
-- `docs/governance/spec-architecture-governance.md`

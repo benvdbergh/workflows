@@ -60,7 +60,7 @@ Use `references/skill-escalation.md` for escalation criteria.
 - Design evidence is present and aligned with `docs/governance/spec-architecture-governance.md` Gate B.
 - Scope trace is explicit to relevant RFC and `docs/poc-scope.md` boundaries.
 - ADR posture is explicit: link existing ADR(s) or state "ADR deferred" with rationale and follow-up owner.
-- Architecture diagram evidence is current in `docs/architecture/as-built-views.drawio`; if target alignment is discussed, also reference `docs/architecture/rfc-target-views.drawio`.
+- Architecture diagram evidence is current in `docs/architecture/arc42-assets/diagrams/as-built-views.drawio`; if target alignment is discussed, also reference `docs/architecture/arc42-assets/archive/target-state/rfc-target-views.drawio`.
 
 ### Project field concepts
 

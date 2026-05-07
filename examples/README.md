@@ -66,8 +66,8 @@ From your MCP-capable host, execute:
 2. `workflow_status` to inspect phase and current node
 3. `workflow_resume` when interrupted at `human_review` with `resume_payload = { "intent": "billing" }` or `{ "intent": "technical" }`
 
-Tool contracts and error codes are documented in `packages/engine/README.md`, and an end-to-end host smoke flow is documented in `docs/architecture/mcp-stdio-host-smoke.md`.
-Lighthouse-specific host walkthrough: `docs/architecture/lighthouse-mcp-host-guided-demo-walkthrough.md`.
+Tool contracts and error codes are documented in `packages/engine/README.md`, and an end-to-end host smoke flow is documented in `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`.
+Lighthouse-specific host walkthrough: `docs/architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md`.
 
 ### Crash-resume replay proof
 
@@ -77,4 +77,4 @@ Run the deterministic replay demo script:
 node scripts/demo-lighthouse-replay-crash-resume.mjs
 ```
 
-Runbook and evidence interpretation: `docs/architecture/lighthouse-replay-crash-resume-demo.md`.
+Runbook and evidence interpretation: `docs/architecture/arc42-assets/demos/lighthouse-replay-crash-resume-demo.md`.

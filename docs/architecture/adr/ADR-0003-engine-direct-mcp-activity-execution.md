@@ -53,13 +53,15 @@ Without normative repository rules, engine-direct execution risks duplicating ho
 - **Formal verification** of MCP servers or tool implementations.
 - **Universal** redaction/DLP guarantees across all tool payloads and logs.
 
-## Governance alignment (`docs/governance/spec-architecture-governance.md`)
+## Governance alignment (architecture documentation)
+
+Evidence expectations for changes touching engine-direct surfaces are aligned with the **`docs/architecture/`** portal ([`README.md`](../README.md), [`arc42/README.md`](../arc42/README.md), ADR index).
 
 | Gate | Engine-direct–related evidence |
 |------|----------------------------------|
 | **Gate A (Intake)** | Use case for automation/engine-owned tools; explicit pointer to [RFC-06 §6.1](../../RFC/rfc-06-interoperability.md#61-composing-mcp); initial risk note (credentials, child processes, egress). |
 | **Gate B (Build ready)** | This ADR linked; affected surfaces listed (MCP adapter, executor port, manifest loader, conformance); runway dependencies (for example parent ADR-0002) linked on the issue graph. |
-| **Gate C (Merge ready)** | PR traceability section complete; behavior or contract changes accompanied by docs/tests/conformance per the implementing issue; material topology changes reflected in `as-is-system-overview.md` and as-built diagrams when applicable. |
+| **Gate C (Merge ready)** | PR traceability section complete; behavior or contract changes accompanied by docs/tests/conformance per the implementing issue; material topology changes reflected in **`docs/architecture/arc42/`** (especially context **§3**, building blocks/deployment **§5–§7**, runtime **§6**, risks **§11**) plus [`as-built-views.drawio`](../arc42-assets/diagrams/as-built-views.drawio) when applicable. |
 
 ## Follow-up
 
@@ -71,6 +73,6 @@ Without normative repository rules, engine-direct execution risks duplicating ho
 - [ADR-0002 — Host-mediated activity execution](ADR-0002-host-mediated-activity-execution.md) (default posture and hybrid context)
 - [RFC-06 — Interoperability, §6.1](../../RFC/rfc-06-interoperability.md#61-composing-mcp)
 - [RFC-07 — Security model](../../RFC/rfc-07-security-model.md)
-- `docs/architecture/as-is-system-overview.md`
+- [`docs/architecture/arc42/04-solution-strategy.md`](../arc42/04-solution-strategy.md); [`docs/architecture/arc42/06-runtime-view.md`](../arc42/06-runtime-view.md); [`docs/architecture/arc42/07-deployment-view.md`](../arc42/07-deployment-view.md)
 - `docs/poc-scope.md`, `ROADMAP.md`
-- `docs/governance/spec-architecture-governance.md`
+- `docs/architecture/README.md`, [`docs/architecture/arc42/README.md`](../arc42/README.md)

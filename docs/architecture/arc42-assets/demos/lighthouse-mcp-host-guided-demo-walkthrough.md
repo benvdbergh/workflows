@@ -4,14 +4,14 @@ This guide runs the lighthouse scenario through MCP host tools without redefinin
 
 ## Scope and non-goals
 
-- Scope: lighthouse workflow path using `workflow_start`, `workflow_status`, and `workflow_resume`. Use `workflow_submit_activity` when you run with `activity_execution_mode: "host_mediated"` (see `mcp-stdio-host-smoke.md`).
+- Scope: lighthouse workflow path using `workflow_start`, `workflow_status`, and `workflow_resume`. Use `workflow_submit_activity` when you run with `activity_execution_mode: "host_mediated"` (see `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`).
 - Non-goals: redefining adapter contracts, production auth, remote deployment hardening.
 
 ## Prerequisites
 
 - Node.js `>=22.5.0`
 - Lighthouse definition path: `examples/lighthouse-customer-routing.workflow.json`
-- Contract baseline: `docs/architecture/mcp-stdio-host-smoke.md`
+- Contract baseline: `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`
 
 For **development setup** only (local engine source): clone this repository and run `npm install` at the repo root.
 
@@ -153,6 +153,6 @@ Expected error shape:
 
 ## References
 
-- `docs/architecture/mcp-stdio-host-smoke.md`
+- `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`
 - `packages/engine/README.md`
 - `examples/lighthouse-customer-routing.workflow.json`

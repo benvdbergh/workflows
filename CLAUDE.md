@@ -16,7 +16,7 @@ A specification, contract, and **POC engine** repository for the **Agent Workflo
 - `scripts/sync-engine-poc-schema.mjs` — syncs the root `schemas/workflow-definition-poc.json` into `packages/engine/schemas/` (run automatically on `prepack`)
 - **GitHub issues** in `benvdbergh/workflows` (+ [Project #4](https://github.com/users/benvdbergh/projects/4)) — canonical epics/stories, acceptance criteria, and planning narrative (see `.project-planning.yaml` and `.claude/skills/wf-plan/references/workflows-github-backlog-override.md`)
 - `docs/releases/` — release notes and versioning/CI governance docs for the alpha
-- `docs/architecture/` — operator runbooks and architecture diagrams (MCP stdio smoke runbook, demo walkthroughs)
+- `docs/architecture/` — arc42 baseline (`docs/architecture/arc42/`), linked assets under `docs/architecture/arc42-assets/` (diagrams, demos, operator runbooks); ADRs in `docs/architecture/adr/`
 - `ROADMAP.md` — post-alpha release plan (R2 Beta through GA and beyond)
 
 ## Validation and engine commands
@@ -69,7 +69,7 @@ The engine ships two bins: `workflows-engine` (validation CLI) and `workflows-en
 npm run engine:mcp:stdio
 ```
 
-MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `workflow_submit_activity`. Operator smoke runbook: `docs/architecture/mcp-stdio-host-smoke.md`.
+MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `workflow_submit_activity`. Operator smoke runbook: `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`.
 
 ## Key architectural decisions
 
