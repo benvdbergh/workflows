@@ -22,7 +22,7 @@ Validate an operator MCP manifest (Cursor-style `mcpServers` subset for stdio se
 node packages/engine/src/cli.mjs mcp-manifest validate path/to/mcp.json
 ```
 
-See `docs/architecture/mcp-operator-manifest.md` and exports `validateMcpOperatorManifest`, `readAndValidateMcpOperatorManifestFile`, `resolveMcpOperatorManifestPath` from the package entrypoint.
+See `docs/architecture/arc42-assets/contracts/mcp-operator-manifest.md` and exports `validateMcpOperatorManifest`, `readAndValidateMcpOperatorManifestFile`, `resolveMcpOperatorManifestPath` from the package entrypoint.
 
 ## MCP stdio adapter
 
@@ -65,7 +65,7 @@ npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp
 
 This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, `workflow_resume`, and **`workflow_submit_activity`** (host-mediated activity completion; see below). The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
 
-Operator smoke runbook: `docs/architecture/mcp-stdio-host-smoke.md`.
+Operator smoke runbook: `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`.
 
 ### Engine-direct `tool_call` execution (optional)
 
