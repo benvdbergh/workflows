@@ -1,7 +1,7 @@
-# As-Is System Overview (POC Alpha Baseline)
+# As-is system overview (reference engine baseline)
 
-Last updated: 2026-05-04
-Status: Current implementation baseline (not a target architecture). The Node.js reference engine at **`@agent-workflow/engine@0.1.0-alpha.4`** implements the **POC + R2** profile ([`docs/poc-scope.md`](../poc-scope.md)), including **host-mediated** and **engine-direct** `tool_call` execution per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md) and [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). **Assistant-class** deployments still favor host-mediated activities; engine-direct is for operator/automation profiles. See `ROADMAP.md` for R3+ targets (`agent_delegate`, `subworkflow`, REST/SDK parity).
+Last updated: 2026-05-05
+Status: Current implementation baseline (not a target architecture). The Node.js reference engine **`@agent-workflow/engine`** implements the profile in [`docs/poc-scope.md`](../poc-scope.md), including **host-mediated** and **engine-direct** `tool_call` execution per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md) and [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). **Assistant-class** deployments still favor host-mediated activities; engine-direct is for operator and automation profiles. See `ROADMAP.md` for later targets such as `agent_delegate`, `subworkflow`, and REST/SDK parity.
 
 ## Purpose
 
@@ -17,11 +17,11 @@ This is an as-is snapshot. RFC documents remain the normative target contract.
 
 This document is structured using practical architecture viewpoints for the current implementation state:
 
-1. **Context and scope viewpoint**: protocol intent, active POC boundary, and repo role.
+1. **Context and scope viewpoint**: protocol intent, active engine profile boundary, and repo role.
 2. **Building block viewpoint**: functional components and internal dependencies.
 3. **Deployment/physical viewpoint**: process topology and runtime communication paths.
 4. **Runtime behavior viewpoint**: validate/execute, interrupt/resume, and host invocation flows.
-5. **Evolution viewpoint**: known gaps from current POC to roadmap targets.
+5. **Evolution viewpoint**: known gaps from the shipped profile to roadmap targets.
 
 Primary diagram artifacts:
 
@@ -33,11 +33,11 @@ Primary diagram artifacts:
 The repository currently acts as:
 
 1. Protocol specification source (`docs/RFC/`).
-2. POC contract and fixtures (`docs/poc-scope.md`, `schemas/`, `examples/`).
+2. Engine profile contract and fixtures (`docs/poc-scope.md`, `schemas/`, `examples/`).
 3. Executable Node.js reference package (`packages/engine/`).
 4. Quality gate and replay checks (`conformance/`, CI workflows).
 
-Current architecture is intentionally optimized for POC learning speed and deterministic behavior over broad feature completeness.
+Current architecture is intentionally optimized for fast iteration and deterministic behavior over full protocol surface area.
 
 ## Current implementation scope (what exists)
 
@@ -70,13 +70,13 @@ Source of truth for this boundary: `docs/poc-scope.md`.
   - SQLite adapter (`node:sqlite`) for durable local history.
   - In-memory adapter for tests and lightweight runs.
 - Orchestration follows deterministic replay-oriented command/event progression.
-- Checkpoint events are emitted in the POC walker at deterministic boundaries.
+- Checkpoint events are emitted in the general graph walker at deterministic boundaries.
 
 ### Activity execution boundary (as-implemented vs target)
 
-- **As-implemented (reference package):** `step`, `llm_call`, and `tool_call` are driven through an injectable **`ActivityExecutor`** port. Default **`activityExecutionMode: "in_process"`** runs the executor immediately after `ActivityRequested`. With **`activityExecutionMode: "host_mediated"`**, the POC walker **returns** after persisting `ActivityRequested` (`status: "awaiting_activity"`); the host calls **`submitActivityOutcome`** (application port **`submitWorkflowActivity`**) to append `ActivityCompleted` / `ActivityFailed` and continue via the same deterministic replay path used for crash recovery. Parallel branches include **`parallelSpan`** on the request and yield payload for correlation. The shipped MCP stdio binary still defaults to in-process stub execution; a control-plane submit tool is tracked separately (see RFC-05 / ADR-0002 follow-ups).
-- **Target (assistant-class):** **Host-mediated execution** per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md): the engine records `ActivityRequested` and yields; the **MCP host** runs tools or model calls, then submits results on a control-plane callback (see `docs/RFC/rfc-05-integration-interfaces.md`, section 5.2). **Hybrid** in-process executors remain valid for tests or embedded profiles, not the default assumption for IDE/assistant hosts.
-- **Target (reference engine — automation):** The engine **invokes** configured MCP **tools/call** (and **MAY** invoke bounded local command handlers where the deployment profile allows) inside the runtime during `in_process` activity execution, without requiring the conversational host to submit each outcome. Credential and server definitions **SHOULD** be alignable with host-side manifest formats (for example IDE `mcp.json`-style descriptors) so operators can avoid parallel, unrelated secret graphs where policy permits.
+- **As-implemented (reference package):** `step`, `llm_call`, and `tool_call` are driven through an injectable **`ActivityExecutor`** port. Default **`activityExecutionMode: "in_process"`** runs the executor immediately after `ActivityRequested`. With **`activityExecutionMode: "host_mediated"`**, the walker **returns** after persisting `ActivityRequested` (`status: "awaiting_activity"`); the host calls **`submitActivityOutcome`** (application port **`submitWorkflowActivity`**) or, over MCP, **`workflow_submit_activity`**, to append `ActivityCompleted` / `ActivityFailed` and continue via the same deterministic replay path used for crash recovery. Parallel branches include **`parallelSpan`** on the request and yield payload for correlation. The shipped MCP stdio binary defaults to in-process stub execution; opt-in **engine-direct** loading uses `WORKFLOW_ENGINE_MCP_CONFIG` / `--mcp-config` per `packages/engine/README.md` and [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md).
+- **Assistant-class hosts:** **Host-mediated execution** per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md): the engine records `ActivityRequested` and yields; the **MCP host** runs tools or model calls, then submits results (see `docs/RFC/rfc-05-integration-interfaces.md`, section 5.2). **Hybrid** in-process executors remain valid for tests or embedded profiles, not the default assumption for IDE/assistant hosts.
+- **Automation / engine-direct:** The engine **invokes** configured MCP **tools/call** (and **MAY** invoke bounded local command handlers where the deployment profile allows) during `in_process` activity execution when an operator supplies a validated manifest, without requiring the conversational host to submit each outcome. Credential and server definitions **SHOULD** align with host-side manifest formats (for example IDE `mcp.json`-style descriptors) so operators can avoid duplicate secret graphs where policy permits.
 - **Positioning:** Host-mediated paths mirror Cursor-class clients (host owns tools and credentials for that profile). Engine-direct paths target unattended and automation scenarios while preserving **deterministic** next-step selection from the graph and state, not a free-form agent loop inside the engine.
 
 ### Interfaces and surfaces
@@ -101,10 +101,10 @@ The MCP adapter maps tool DTOs to the internal application port and returns stru
 ## Logical building blocks (as implemented)
 
 1. **Contract layer**
-   - RFC docs and POC scope note define semantics and active subset.
+   - RFC docs and [`docs/poc-scope.md`](../poc-scope.md) define semantics and the active subset.
    - JSON schema enforces definition-time constraints.
 2. **Execution core**
-   - Walkers (`linear` and general POC) produce command/event histories.
+   - Walkers (`linear` and general graph walker) produce command/event histories.
    - Reducer application and state validation occur during node completion.
 3. **Persistence boundary**
    - `ExecutionHistoryStore` abstraction with SQLite and memory implementations.
@@ -122,14 +122,14 @@ The as-is building block view is captured in:
 Functional component groups:
 
 - **Contract/definition**
-  - RFC and POC scope documents.
-  - POC JSON schema contract.
+  - RFC and engine profile (`docs/poc-scope.md`).
+  - Workflow JSON Schema bundle under `schemas/`.
 - **Validation**
   - Engine validation and CLI surfaces.
   - Repo-level validation script and CI gate integration.
 - **Application/orchestration**
   - Application port.
-  - POC runner (`run`/`resume`) and linear runner.
+  - General graph runner (`run`/`resume`) and linear runner.
   - Activity execution boundary and replay loader.
 - **Persistence**
   - `ExecutionHistoryStore` abstraction and concrete memory/SQLite implementations.
@@ -148,7 +148,7 @@ Physical/runtime perspectives shown:
 
 - **Operator host mode**
   - MCP host invokes published `workflows-engine-mcp` over stdio.
-  - Engine process runs application port and POC runner with in-memory history by default.
+  - Engine process runs application port and graph runner with in-memory history by default.
   - Optional package fetch and optional SQLite persistence path.
 - **Local development mode**
   - MCP host invokes local `node .../mcp-stdio-server.mjs`.
@@ -162,7 +162,7 @@ Physical/runtime perspectives shown:
 
 ### Flow A: Validate and execute workflow
 
-1. Definition validated against POC schema and static constraints.
+1. Definition validated against the bundled workflow schema and static constraints.
 2. Execution starts with input-bound initial state.
 3. Nodes are scheduled and completed/fail with command/event recording.
 4. State updates are merged using reducer policies.
@@ -181,7 +181,7 @@ Physical/runtime perspectives shown:
 1. Host invokes `workflow_start` with definition and input.
 2. Adapter runs orchestration through application port.
 3. Host polls `workflow_status`.
-4. Host uses `workflow_resume` for interrupt continuation.
+4. Host uses `workflow_resume` for interrupt continuation and `workflow_submit_activity` when the execution is awaiting a host-mediated activity (see `docs/architecture/mcp-stdio-host-smoke.md`).
 
 ### Flow D: Host-mediated activity (ADR-0002; engine path implemented)
 
@@ -193,19 +193,19 @@ Physical/runtime perspectives shown:
 
 ## Architecture strengths in current state
 
-- Clear protocol-to-POC boundary through `docs/poc-scope.md`.
+- Clear protocol-to-engine-profile boundary through `docs/poc-scope.md`.
 - Deterministic command/event model with replay-oriented design.
 - Stable adapter boundary (`createWorkflowApplicationPort`) reducing coupling.
 - Explicit conformance harness as part of the delivery contract.
 - Practical local/operator split for MCP deployment model.
-- Checkpoints after R2 parallel branch steps carry a **`parallelSpan`** correlation object (parallel node id, join target, branch name, branch entry) alongside inline state snapshots.
+- Checkpoints after parallel branch steps carry a **`parallelSpan`** correlation object (parallel node id, join target, branch name, branch entry) alongside inline state snapshots.
 
 ## Known gaps and intentional limitations
 
-- `agent_delegate` and `subworkflow` remain deferred for this profile (R3+).
-- Host-mediated **submit** is exposed on the reference MCP stdio adapter (`workflow_submit_activity`). **Engine-direct** MCP or command execution with manifest-aligned configuration in that adapter remains **roadmap** work; activity nodes still use the in-process stub unless a custom `ActivityExecutor` is injected at the application port.
+- `agent_delegate` and `subworkflow` remain out of scope for this profile; see `ROADMAP.md`.
+- Host-mediated **submit** is exposed on the reference MCP stdio adapter (`workflow_submit_activity`). **Engine-direct** `tool_call` execution is **opt-in** via `WORKFLOW_ENGINE_MCP_CONFIG` or `--mcp-config` on `workflows-engine-mcp`; without that, activity nodes use the in-process stub unless a custom `ActivityExecutor` is injected at the application port.
 - Conformance coverage is not yet full RFC-08 breadth.
-- Security hardening posture is intentionally POC-level for local stdio scenarios.
+- Security hardening posture is intentionally limited for local stdio scenarios (see ADR-0002 and ADR-0003).
 - Multi-surface parity (REST/SDK breadth) is roadmap scope, not as-is baseline.
 
 ## Candidate architecture viewpoints for next phase
@@ -215,7 +215,7 @@ Use this as-is baseline to derive versioned viewpoints:
 1. **Context view**: protocol contract, engine, host integrations, operator boundary.
 2. **Refined component view**: split orchestration internals and adapter surfaces by bounded responsibilities.
 3. **Runtime behavior view**: normal execution, replay recovery, interrupt/resume sequence.
-4. **Evolution view**: gap-to-roadmap mapping from POC profile to `R2-R5`.
+4. **Evolution view**: gap-to-roadmap mapping from the shipped profile to later releases (`ROADMAP.md`).
 
 ## ADR bootstrap guidance
 

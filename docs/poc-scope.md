@@ -1,6 +1,6 @@
-# POC scope — engine profile (POC + R2 core orchestration)
+# Engine profile — authoritative reference engine scope
 
-This note is the **authoritative subset** of the Agent Workflow Protocol RFCs that the reference engine schema bundle and `@agent-workflow/engine` **MUST** support. It extends the original POC milestone with **R2** node types (`parallel`, `wait`, `set_state`) and related commands/events. It does **not** replace the RFCs; where this document is silent, do **not** assume full RFC behavior.
+This note is the **authoritative subset** of the Agent Workflow Protocol RFCs that the reference engine schema bundle and `@agent-workflow/engine` **MUST** support. It includes core orchestration node types (`parallel`, `wait`, `set_state`) and related commands/events beyond the first runnable milestone. It does **not** replace the RFCs; where this document is silent, do **not** assume full RFC behavior.
 
 **Normative sources (read in full for semantics):**
 
@@ -150,14 +150,14 @@ Lifecycle phases [RFC-04 §4.2](rfc-04-execution-model.md#42-phases) **MUST** be
 
 ---
 
-## 7. Alignment with lighthouse (Epic 6)
+## 7. Alignment with lighthouse
 
-The [Lighthouse demo workflow](epics/Epic-6-Lighthouse-demo-workflow.md) is expected to exercise **`llm_call`**, **`switch`**, **`interrupt`**, and MCP-shaped **`tool_call`** within this POC scope. This note **does not** narrow away that vertical; timeline cuts **MUST** be explicit in a revised scope if they occur.
+The Lighthouse demo workflow (`examples/lighthouse-customer-routing.workflow.json`) is expected to exercise **`llm_call`**, **`switch`**, **`interrupt`**, and MCP-shaped **`tool_call`** within this profile. This note **does not** narrow away that vertical; timeline cuts **MUST** be explicit in a revised scope if they occur.
 
 ---
 
 ## 8. Change control
 
-Updates to this file **SHOULD** be paired with schema bundle version bumps and fixture updates ([STORY-1-2](stories/Story-1-2-Publish-POC-JSON-Schema-bundle-under-schemas.md) and following stories).
+Updates to this file **SHOULD** be paired with schema bundle version bumps and fixture updates (track in the repository issue backlog).
 
 **Machine-readable contract:** [schemas/workflow-definition-poc.json](../schemas/workflow-definition-poc.json) (see [schemas/README.md](../schemas/README.md)).

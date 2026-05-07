@@ -1,0 +1,89 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/v1",
+    "name": "paperclip-read-compact",
+    "version": "1.0.0",
+    "description": "Same Paperclip read chain as paperclip-read-snapshot, then a set_state step that projects jq-derived summaries and clears the bulky raw tool payload so completed final_state and MCP payloads stay small (token-efficiency demo). Each jq assignment sees the full pre-step state; merge reducers apply after."
+  },
+  "state_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+      "report": {
+        "type": "object"
+      },
+      "text": {
+        "type": ["string", "null"]
+      }
+    }
+  },
+  "nodes": [
+    {
+      "id": "begin",
+      "type": "start",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        }
+      }
+    },
+    {
+      "id": "list_projects",
+      "type": "tool_call",
+      "config": {
+        "server": "paperclip",
+        "tool": "paperclipListProjects",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "list_goals",
+      "type": "tool_call",
+      "config": {
+        "server": "paperclip",
+        "tool": "paperclipListGoals",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "list_issues",
+      "type": "tool_call",
+      "config": {
+        "server": "paperclip",
+        "tool": "paperclipListIssues",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "compact",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "report": {
+            "jq": "{ raw_chars: ((.text // \"\") | tostring | length), preview: ((.text // \"\") | tostring | .[0:120]), parsed_issue_ids: (try (((.text // \"\") | fromjson) as $d | (if ($d | type) == \"array\" then $d elif ($d.items | type) == \"array\" then $d.items elif ($d.issues | type) == \"array\" then $d.issues elif ($d.results | type) == \"array\" then $d.results elif ($d.data | type) == \"array\" then $d.data elif ($d.data.items | type) == \"array\" then $d.data.items elif ($d.data.issues | type) == \"array\" then $d.data.issues else [] end) | map(.id // .issueId // .issue_id // .uuid // empty) | map(select(. != null and . != \"\"))) catch []) }"
+          },
+          "text": {
+            "literal": ""
+          }
+        }
+      }
+    },
+    {
+      "id": "finish",
+      "type": "end",
+      "config": {
+        "output_mapping": ".report"
+      }
+    }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "begin" },
+    { "source": "begin", "target": "list_projects" },
+    { "source": "list_projects", "target": "list_goals" },
+    { "source": "list_goals", "target": "list_issues" },
+    { "source": "list_issues", "target": "compact" },
+    { "source": "compact", "target": "finish" }
+  ]
+}

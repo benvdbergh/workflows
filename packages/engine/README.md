@@ -1,6 +1,6 @@
 # `@agent-workflow/engine`
 
-Publishable npm package: **definition-time** validation for Agent Workflow Protocol workflow documents (POC profile + **R2** `parallel`, `wait`, `set_state`), an **append-only execution history** port (SQLite or in-memory), a **linear graph runner** (STORY-2-3), and a **general graph walker** with `switch`, `interrupt` / resume, **parallel** join policies (`all` / `any` / `n_of_m`), **wait** (`duration` / `until`; `signal` needs a host), and **set_state**.
+Publishable npm package: **definition-time** validation for Agent Workflow Protocol workflow documents per [`docs/poc-scope.md`](../../docs/poc-scope.md), an **append-only execution history** port (SQLite or in-memory), a **linear graph runner**, and a **general graph walker** with `switch`, `interrupt` / resume, **parallel** join policies (`all` / `any` / `n_of_m`), **wait** (`duration` / `until`; `signal` needs a host), and **set_state**.
 
 ## Entrypoint (CLI)
 
@@ -24,7 +24,7 @@ node packages/engine/src/cli.mjs mcp-manifest validate path/to/mcp.json
 
 See `docs/architecture/mcp-operator-manifest.md` and exports `validateMcpOperatorManifest`, `readAndValidateMcpOperatorManifestFile`, `resolveMcpOperatorManifestPath` from the package entrypoint.
 
-## MCP stdio adapter (STORY-4-1 bootstrap)
+## MCP stdio adapter
 
 Run from repository root:
 
@@ -65,7 +65,7 @@ npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp
 
 This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, `workflow_resume`, and **`workflow_submit_activity`** (host-mediated activity completion; see below). The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
 
-Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
+Operator smoke runbook: `docs/architecture/mcp-stdio-host-smoke.md`.
 
 ### Engine-direct `tool_call` execution (optional)
 
@@ -125,7 +125,7 @@ Exit codes:
 
 | Code | Meaning |
 |------|---------|
-| 0 | Document is valid against the POC schema. |
+| 0 | Document is valid against the bundled workflow schema. |
 | 1 | JSON parsed but schema validation failed (details on stderr). |
 | 2 | Usage error, I/O failure, or JSON parse error. |
 
@@ -138,17 +138,17 @@ The package exports:
 - `validateWorkflowDefinition(data)` — returns `{ ok: true }` or `{ ok: false, errors }` where `errors` is AJV’s `ErrorObject[]` (includes `instancePath`, `keyword`, `schemaPath`, etc.).
 - `compileWorkflowValidator()` — returns a reusable `(data) => { ok: true } | { ok: false, errors }` function; the compiled schema is cached per process.
 - `findWorkflowRepoRoot(startDir?)` — locates the **workflows** monorepo root (lighthouse fixture + root `package.json` named `workflows`) for tests and examples; schema loading prefers the bundled `packages/engine/schemas/workflow-definition-poc.json` when present.
-- `runPocWorkflow(...)` / `resumePocWorkflow(...)` — general POC graph walker with `switch` and `interrupt` (see **General POC orchestration** below).
+- `runPocWorkflow(...)` / `resumePocWorkflow(...)` — general graph walker with `switch` and `interrupt` (see **General graph orchestration** below).
 
-### Linear orchestration (STORY-2-3, STORY-2-4)
+### Linear orchestration
 
 **API:** `runLinearWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor? })` → `Promise<{ status: 'completed'|'failed', finalState?, result?, error? }>`.
 
-Phases: **validate** (POC schema + reject `state_schema.properties.*.reducer === "custom"`) → **start** (`ExecutionStarted`) → **walk** each node on the unique chain from `__start__` through exactly one `start` … `end` → **complete** (`ExecutionCompleted` with jq result) or **fail** (`ExecutionFailed`, plus `FailNode` command when failure happens after start).
+Phases: **validate** (bundled workflow schema + reject `state_schema.properties.*.reducer === "custom"`) → **start** (`ExecutionStarted`) → **walk** each node on the unique chain from `__start__` through exactly one `start` … `end` → **complete** (`ExecutionCompleted` with jq result) or **fail** (`ExecutionFailed`, plus `FailNode` command when failure happens after start).
 
-**Graph rules:** Edges must form a **single linear path** covering every node: exactly one edge from `__start__`, at most one outgoing edge per node, no cycles, exactly one `start` and one `end`. `switch` and `interrupt` nodes are rejected (STORY-2-5). Unknown topology errors throw from `computeLinearNodePath` or return `{ status: 'failed', error }` from `runLinearWorkflow`.
+**Graph rules:** Edges must form a **single linear path** covering every node: exactly one edge from `__start__`, at most one outgoing edge per node, no cycles, exactly one `start` and one `end`. `switch` and `interrupt` nodes are rejected by this runner (use the general graph walker). Unknown topology errors throw from `computeLinearNodePath` or return `{ status: 'failed', error }` from `runLinearWorkflow`.
 
-**Activity boundary (STORY-2-4):** `step`, `llm_call`, and `tool_call` are executed through an **`ActivityExecutor`** port (`executeActivity(ctx)` → success with `output` or failure with `error` / optional `code`). The walker only calls this port (no MCP, HTTP, or provider SDKs inside the runner). **`StubActivityExecutor`** is the default: deterministic, returns `{}` or per-node outputs from an `outputsByNodeId` map. Pass `activityExecutor` to inject real adapters; pass `stubActivityOutputs` only affects the default stub when `activityExecutor` is omitted.
+**Activity boundary:** `step`, `llm_call`, and `tool_call` are executed through an **`ActivityExecutor`** port (`executeActivity(ctx)` → success with `output` or failure with `error` / optional `code`). The walker only calls this port (no MCP, HTTP, or provider SDKs inside the runner). **`StubActivityExecutor`** is the default: deterministic, returns `{}` or per-node outputs from an `outputsByNodeId` map. Pass `activityExecutor` to inject real adapters; pass `stubActivityOutputs` only affects the default stub when `activityExecutor` is omitted.
 
 **Limitation:** Per-node **`retry`** and **`timeout`** settings from the workflow definition are **not** applied by this runner yet; failures return immediately after a single `executeActivity` call.
 
@@ -158,23 +158,23 @@ Phases: **validate** (POC schema + reject `state_schema.properties.*.reducer ===
 
 **`end` node `config.output_mapping`:** Must be a **jq** program string. It is evaluated with **jq’s input root = the current workflow state object** (after all reducer updates from prior nodes). If `output_mapping` is omitted, the runner uses `.` (identity). Evaluation uses the **`jq-wasm`** package (WebAssembly jq — no native compile).
 
-**History (POC names):** Appends include at least `ExecutionStarted`; for each node `ScheduleNode` (command) and `NodeScheduled` (event); for activities `ActivityRequested` then `ActivityCompleted` or `ActivityFailed`; `CompleteNode` (command); `StateUpdated` (event) after state changes; terminal `ExecutionCompleted` or `ExecutionFailed`. On activity failure the runner records `ActivityFailed`, then `FailNode` (`reason: "activity_failed"`), then `ExecutionFailed`. Payloads include `executionId` and `nodeId` where applicable.
+**History (command/event names):** Appends include at least `ExecutionStarted`; for each node `ScheduleNode` (command) and `NodeScheduled` (event); for activities `ActivityRequested` then `ActivityCompleted` or `ActivityFailed`; `CompleteNode` (command); `StateUpdated` (event) after state changes; terminal `ExecutionCompleted` or `ExecutionFailed`. On activity failure the runner records `ActivityFailed`, then `FailNode` (`reason: "activity_failed"`), then `ExecutionFailed`. Payloads include `executionId` and `nodeId` where applicable.
 
 **Helpers (also exported):** `assertNoCustomReducers(definition)`, `applyOutputWithReducers(state, output, stateSchema)`, `computeLinearNodePath(nodes, outgoingMap)`.
 
-### General POC orchestration (STORY-2-5)
+### General graph orchestration
 
 **API:** `runPocWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })` and `resumePocWorkflow({ definition, executionId, store, resumePayload, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })`. **`activityExecutionMode`** defaults to `"in_process"` (run `ActivityExecutor` immediately). With **`"host_mediated"`**, the walker returns `{ status: 'awaiting_activity', nodeId, state, parallelSpan? }` after `ActivityRequested` (see ADR-0002). Continue by appending the outcome and calling `runPocWorkflow` again, or use **`submitActivityOutcome({ definition, executionId, store, input, nodeId, outcome, expectedParallelSpan?, ... })`** (also exported) which validates the pending request and re-enters the walker. Parallel branches attach **`parallelSpan`** to `ActivityRequested`; submits for those nodes must pass the same **`expectedParallelSpan`**.
 
-`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, and R2 `parallel`, `wait`, `set_state`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
+`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, and `set_state`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
 
-**`switch` routing:** Successors come **only** from `config.cases` (first jq match wins; jq input root is the **current workflow state object**, same as STORY-2-3) and `config.default` when no case matches. If any `cases` exist and none match and `default` is omitted, the run fails with a clear error. **Static `edges` whose `source` is the switch node id are ignored for routing** (they may exist in documents; the engine does not follow them). This matches the POC recommendation in `docs/poc-scope.md` (avoid duplicate routing channels).
+**`switch` routing:** Successors come **only** from `config.cases` (first jq match wins; jq input root is the **current workflow state object**, same as the linear runner) and `config.default` when no case matches. If any `cases` exist and none match and `default` is omitted, the run fails with a clear error. **Static `edges` whose `source` is the switch node id are ignored for routing** (they may exist in documents; the engine does not follow them). This matches the routing guidance in `docs/poc-scope.md` (avoid duplicate routing channels).
 
 **Static `edges` (non-switch):** Exactly one outgoing edge from `__start__`, and from each of `start`, `step`, `llm_call`, `tool_call`, and `interrupt`; none from `end`. The walker does not require outgoing edges from `switch` nodes.
 
 **Resume:** `resumePocWorkflow` loads history, takes the latest `StateUpdated` payload `state`, validates `resumePayload` with Ajv against the interrupt node’s `config.resume_schema` (reducer annotations stripped the same way as workflow `state_schema`), merges resume fields into state (overwrite keys), then continues from the **single** static successor of the interrupt node. Invalid resume appends `FailNode` (`reason: "resume_validation_failed"` when schema fails) and `ExecutionFailed`. If the last event is not `InterruptRaised`, resume fails with `FailNode` / `ExecutionFailed` and `reason: "resume_not_allowed"`.
 
-**Checkpoint policy (STORY-3-3):** the POC walker emits `CheckpointWritten` events at deterministic `after_each_node` boundaries:
+**Checkpoint policy:** the graph walker emits `CheckpointWritten` events at deterministic `after_each_node` boundaries:
 - after each `StateUpdated` event (normal node completion and switch completion),
 - and after `InterruptRaised` (so interrupted runs have a recovery-safe boundary).
 
@@ -182,7 +182,7 @@ Each checkpoint payload includes `executionId`, `workflowVersion`, `definitionHa
 
 **Recovery loading:** `hydrateReplayContext({ startMode: "safe_point" })` prefers the latest valid `CheckpointWritten` boundary and starts replay from `lastAppliedEventSeq + 1`. If checkpoints are absent or invalid, hydration falls back to genesis replay (`startSeq = 1`).
 
-### Execution history (STORY-2-2)
+### Execution history
 
 **Port:** `ExecutionHistoryStore` (documented in `src/persistence/types.mjs`) — append-only, per-`executionId` ordering.
 
@@ -202,7 +202,7 @@ Each checkpoint payload includes `executionId`, `workflowVersion`, `definitionHa
 | `execution_id` | TEXT    | Correlation key for one run |
 | `seq`          | INTEGER | Monotonic sequence per execution (part of primary key) |
 | `kind`         | TEXT    | `command` or `event` |
-| `name`         | TEXT    | Command/event name (maps to POC taxonomies) |
+| `name`         | TEXT    | Command/event name (protocol taxonomies) |
 | `payload_json` | TEXT    | JSON-serialized payload object |
 | `created_at`   | TEXT    | ISO 8601 timestamp when the row was appended |
 | `record_schema_version` | INTEGER | Persisted **row envelope** version (not `document.schema`); see below |
@@ -235,7 +235,7 @@ history.close();
 
 - **Schema contract:** The engine validates against the same file as CI and `scripts/validate-workflows.mjs`: **`schemas/workflow-definition-poc.json`** (JSON Schema Draft 2020-12).
 - **Ajv options:** `allErrors: true`, `strict: false` — identical to `scripts/validate-workflows.mjs` to avoid drift from “repo truth.”
-- **Engine-specific limits:** None beyond the schema and JSON parse rules. The engine does **not** enforce file size limits, `document.schema` version bumps, or trace companions; only the POC workflow **definition** JSON shape is checked.
+- **Engine-specific limits:** None beyond the schema and JSON parse rules. The engine does **not** enforce file size limits, `document.schema` version bumps, or trace companions; only the workflow **definition** JSON shape is checked.
 - **Resolution rule:** The engine loads `schemas/workflow-definition-poc.json` from the **published package** (`packages/engine/schemas/` next to `src/`, kept in sync with the repo canonical schema). In a full **workflows** monorepo checkout it can fall back to the root `schemas/` copy. `findWorkflowRepoRoot()` locates the monorepo root via `examples/lighthouse-customer-routing.workflow.json` and the root `package.json` named `workflows` (for tests and fixtures), not via schema path alone.
 
 ## Tests
@@ -256,6 +256,6 @@ Check that:
 
 - tarball metadata resolves to `@agent-workflow/engine` with the intended version/tag source,
 - both binaries are present: `src/cli.mjs` and `src/mcp-stdio-server.mjs`,
-- bundled POC schema is present: `schemas/workflow-definition-poc.json`,
+- bundled workflow schema is present: `schemas/workflow-definition-poc.json`,
 - runtime/library entrypoint is present: `src/index.mjs`,
 - payload is minimal (runtime `src/`, bundled `schemas/`, package docs), with no test fixtures or unrelated repository files.

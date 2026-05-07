@@ -36,7 +36,7 @@ Current domain coverage:
 - `vectors/schema/invalid/*.vector.json`
 - `vectors/replay/**/*.vector.json` (includes `replay/host-activity/` for host-mediated activity replay and submit error codes; `replay/engine-direct-activity/` for in-process / engine-direct replay invariants)
 
-Future domains (replay, reducers, interrupts) should follow the same layout and runner contract.
+Additional domains (expanded reducer matrices, dedicated interrupt-resume cases, MCP mock roundtrip, and similar) should follow the same layout and runner contract.
 
 ## Vector format
 

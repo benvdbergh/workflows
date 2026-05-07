@@ -199,7 +199,7 @@ function assertNoUnsupportedNodeTypes(nodes) {
   for (const n of nodes) {
     if (n.type === "switch" || n.type === "interrupt") {
       throw new Error(
-        `Node "${n.id}" has type "${n.type}", which is not supported by the linear runner (see STORY-2-5 / docs/poc-scope.md).`
+        `Node "${n.id}" has type "${n.type}", which is not supported by the linear runner (see docs/poc-scope.md).`
       );
     }
   }

@@ -13,7 +13,7 @@ A vendor-neutral, declarative standard for **stateful, multi-step AI agent workf
 
 Use README for onboarding, and `docs/` for deeper architecture and operations content.
 
-- Quickstart validation commands: [POC schema and validation](#poc-schema-and-validation)
+- Quickstart validation commands: [Workflow schema and validation](#workflow-schema-and-validation)
 - Alpha release notes (highlights, caveats, known limitations): [docs/releases/alpha-release-notes.md](docs/releases/alpha-release-notes.md)
 - No-install MCP quickstart and publish/operator runbook: [docs/releases/alpha-release-notes.md#no-install-mcp-quickstart-npx](docs/releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)
 - MCP host wiring: **operator setup** (default) runs the published engine via `npx`; **development setup** points the host at `packages/engine/src/mcp-stdio-server.mjs` in a clone — [walkthrough](docs/architecture/lighthouse-mcp-host-guided-demo-walkthrough.md), [smoke runbook](docs/architecture/mcp-stdio-host-smoke.md)
@@ -141,11 +141,11 @@ Workflow definitions must be normalized to canonical JSON before validation or e
 
 ```
 docs/RFC/          # Full protocol specification (9 sections)
-docs/poc-scope.md  # POC subset — what the first engine milestone must support
-schemas/           # JSON Schema Draft 2020-12 bundle for the POC subset
+docs/poc-scope.md  # Engine profile — normative subset for the reference engine + schema bundle
+schemas/           # JSON Schema Draft 2020-12 bundle for that profile
 examples/          # Golden fixtures: workflow + RFC-04 trace companions
 conformance/       # Conformance harness vectors + deterministic runner entrypoint
-packages/engine/   # POC Node.js engine — validation, history store, orchestration (see package README)
+packages/engine/   # Node.js reference engine — validation, history store, orchestration (see package README)
 scripts/           # validate-workflows.mjs (AJV, CI-aligned)
 .github/workflows/ # CI: validate-workflows
 ```
@@ -169,11 +169,11 @@ scripts/           # validate-workflows.mjs (AJV, CI-aligned)
 
 ---
 
-## POC schema and validation
+## Workflow schema and validation
 
-The [`schemas/`](schemas/) directory contains the **workflow JSON Schema bundle** (Draft 2020-12) for the profile in [`docs/poc-scope.md`](docs/poc-scope.md) (POC nodes plus R2 `parallel`, `wait`, and `set_state`). `agent_delegate` and `subworkflow` remain out of scope until R3.
+The [`schemas/`](schemas/) directory contains the **workflow JSON Schema bundle** (Draft 2020-12) for the profile in [`docs/poc-scope.md`](docs/poc-scope.md), including `parallel`, `wait`, and `set_state`. `agent_delegate` and `subworkflow` are not in that profile yet; see [`ROADMAP.md`](ROADMAP.md).
 
-Validate all golden fixtures locally (Node.js 20+). **CI** uses Node.js **24** with `actions/checkout@v5` and `actions/setup-node@v5` per [GitHub’s Node 20 deprecation on runners](https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/).
+Validate locally with Node.js **≥ 22.5.0** (see root `package.json` `engines`). **CI** uses Node.js **24** with `actions/checkout@v5` and `actions/setup-node@v5` per [GitHub’s Node 20 deprecation on runners](https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/).
 
 ```bash
 npm ci
@@ -208,9 +208,9 @@ The [`examples/`](examples/) directory contains the canonical lighthouse fixture
 
 ## Reference implementation
 
-**In this repository (POC + R2 core, Node.js):** [`packages/engine/`](packages/engine/README.md) (`@agent-workflow/engine`) implements definition validation for the profile in [`docs/poc-scope.md`](docs/poc-scope.md), an append-only command/event history (`SqliteExecutionHistoryStore` via `node:sqlite` or in-memory), orchestration including `parallel` / `wait` / `set_state`, `switch`, `interrupt` / resume, host-mediated and engine-direct `tool_call` activity paths, checkpoint policies, and the MCP stdio adapter. The [`conformance/`](conformance/) harness exercises schema and replay vectors in CI. Requires Node.js **≥ 22.5.0** (see root `package.json` `engines`).
+**In this repository (Node.js):** [`packages/engine/`](packages/engine/README.md) (`@agent-workflow/engine`) implements definition validation for the profile in [`docs/poc-scope.md`](docs/poc-scope.md), an append-only command/event history (`SqliteExecutionHistoryStore` via `node:sqlite` or in-memory), orchestration including `parallel` / `wait` / `set_state`, `switch`, `interrupt` / resume, host-mediated and engine-direct `tool_call` activity paths, checkpoint policies, and the MCP stdio adapter. The [`conformance/`](conformance/) harness exercises schema and replay vectors in CI. Requires Node.js **≥ 22.5.0** (see root `package.json` `engines`).
 
-**Longer term (RFC-08):** [RFC-08](docs/RFC/rfc-08-reference-implementation.md) still describes a production-style MVP: **core binary** (Rust or Go), **Python SDK**, and **REST/SDK surfaces** at parity with the reference adapter set. `agent_delegate` and `subworkflow` are planned for R3; see [`ROADMAP.md`](ROADMAP.md).
+**Longer term (RFC-08):** [RFC-08](docs/RFC/rfc-08-reference-implementation.md) describes a production-style program (multi-language core, Python SDK, REST/SDK parity). The monorepo already ships a Node reference engine; see the as-built note in RFC-08. Delegation and sub-workflows are on the roadmap; see [`ROADMAP.md`](ROADMAP.md).
 
 ---
 

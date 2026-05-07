@@ -22,9 +22,6 @@ function mapEngineFailure(error) {
 }
 
 /**
- * @param {unknown} parsed
- */
-/**
  * Many MCP hosts surface only `content` text to the operator or agent; duplicate the
  * transport contract object into that text so `result` / `final_state` remain visible
  * without structured-result UI.

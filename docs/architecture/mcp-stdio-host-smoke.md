@@ -1,10 +1,10 @@
-# MCP stdio host smoke path (Story-4-3)
+# MCP stdio host smoke path
 
-This runbook verifies the EPIC-4 MCP stdio adapter from an MCP-capable host using a deterministic `start -> status -> resume` flow plus one structured error assertion.
+This runbook verifies the MCP stdio adapter from an MCP-capable host using a deterministic `start -> status -> resume` flow plus one structured error assertion.
 
 ## Scope and non-goals
 
-- Scope: local POC smoke validation of `workflow_start`, `workflow_status`, and `workflow_resume`, plus an **optional** `workflow_submit_activity` path when using `activity_execution_mode: "host_mediated"` ([ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md)).
+- Scope: local smoke validation of `workflow_start`, `workflow_status`, and `workflow_resume`, plus an **optional** `workflow_submit_activity` path when using `activity_execution_mode: "host_mediated"` ([ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md)).
 - Default `workflow_start` behavior remains **in-process** activity stubs unless the host sets `activity_execution_mode` to `host_mediated`.
 - Non-goals: production auth, multi-tenant isolation, secret management hardening, remote exposure.
 
@@ -33,14 +33,14 @@ Expected behavior:
 - Process stays running and waits on stdio for MCP requests.
 - No startup banner is required; absence of immediate crash is success.
 
-### Optional: engine-direct MCP `tool_call` (R2)
+### Optional: engine-direct MCP `tool_call`
 
 To exercise **real** MCP `tools/call` for `tool_call` workflow nodes (instead of stubs), start the server with an operator manifest path:
 
 - **Environment:** set `WORKFLOW_ENGINE_MCP_CONFIG` to a manifest JSON path (same shape as `workflows-engine mcp-manifest validate` — see [`mcp-operator-manifest.md`](mcp-operator-manifest.md)).
 - **CLI:** append `--mcp-config /absolute/or/relative/path.json` after the `workflows-engine-mcp` bin; this wins over the env var when both are set.
 
-If the manifest cannot be read or fails schema validation, the process **exits with code 1** before listening on stdio (diagnostics on stderr). This path is **opt-in**; omit both to keep Story-4-3 default stub behavior.
+If the manifest cannot be read or fails schema validation, the process **exits with code 1** before listening on stdio (diagnostics on stderr). This path is **opt-in**; omit both to keep default in-process stub behavior.
 
 Trust boundaries, secrets, and when to prefer host-mediated execution: [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). The host-mediated smoke steps below are unchanged; engine-direct does not replace `workflow_submit_activity` for `activity_execution_mode: host_mediated`.
 

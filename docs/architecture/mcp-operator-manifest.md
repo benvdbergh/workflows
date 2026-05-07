@@ -28,6 +28,15 @@ When code or tooling needs a manifest path without an explicit caller argument, 
 
 If none of the above apply, `resolveMcpOperatorManifestPath` returns `null` (no implicit manifest).
 
+## `workflows-engine-mcp` engine-direct config (separate resolution path)
+
+Library helpers above apply when tooling calls `resolveMcpOperatorManifestPath()` without an explicit path. The **`workflows-engine-mcp`** process instead loads a manifest for **engine-direct** `tool_call` execution from:
+
+- Environment variable **`WORKFLOW_ENGINE_MCP_CONFIG`**, or
+- CLI flag **`--mcp-config <path>`** after the bin name (overrides the env var when both are set).
+
+That startup path is **independent** of `AGENT_WORKFLOW_MCP_MANIFEST` and `<cwd>/.agent-workflow/mcp.json`. See `packages/engine/README.md` (engine-direct section) and [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md).
+
 ## CLI validation
 
 From the repository root (after `npm install`):

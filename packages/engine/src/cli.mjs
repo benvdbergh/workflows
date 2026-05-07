@@ -70,7 +70,7 @@ async function cmdValidateWorkflow(rest) {
   }
   const result = validateWorkflowDefinition(data);
   if (result.ok) {
-    process.stdout.write("OK: document matches POC workflow schema.\n");
+    process.stdout.write("OK: document matches workflow schema (see docs/poc-scope.md).\n");
     return;
   }
   process.stderr.write("Validation failed:\n");

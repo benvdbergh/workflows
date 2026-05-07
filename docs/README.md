@@ -19,7 +19,7 @@ This index makes the documentation information architecture explicit:
 - Contributor intake and support boundaries: [../CONTRIBUTING.md](../CONTRIBUTING.md), [../SUPPORT.md](../SUPPORT.md)
 - Alpha security baseline posture: [security/alpha-security-baseline.md](security/alpha-security-baseline.md)
 - Accepted security gaps register: [security/security-gap-register.md](security/security-gap-register.md)
-- POC scope contract: [poc-scope.md](poc-scope.md)
+- Engine profile (normative subset for the reference engine): [poc-scope.md](poc-scope.md)
 - Specification overview: [RFC/rfc-00-overview.md](RFC/rfc-00-overview.md)
 
 ## Architecture and Demo Walkthroughs
@@ -38,12 +38,11 @@ MCP guides default to **operator setup** (published `@agent-workflow/engine` via
 ## Validation and Conformance
 
 - Conformance harness usage: [../conformance/README.md](../conformance/README.md)
-- Repository-wide workflow validation script notes: [../README.md#poc-schema-and-validation](../README.md#poc-schema-and-validation)
+- Repository-wide workflow validation script notes: [../README.md#workflow-schema-and-validation](../README.md#workflow-schema-and-validation)
 
 ## Planning and Roadmap Artifacts
 
-- Epic tracking: [epics/](epics/)
-- Story tracking: [stories/](stories/)
+- Backlog, epics, and stories: [github.com/benvdbergh/workflows](https://github.com/benvdbergh/workflows) (see repository `CONTRIBUTING.md` and `.project-planning.yaml` for Project conventions).
 - Spec and architecture governance (design-first): [governance/spec-architecture-governance.md](governance/spec-architecture-governance.md)
 - GitHub metadata tracking checklist: [repository-metadata-checklist.md](repository-metadata-checklist.md)
 - GitHub project operating model: [releases/github-project-operating-model.md](releases/github-project-operating-model.md)

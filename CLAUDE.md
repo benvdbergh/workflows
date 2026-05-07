@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A specification, contract, and **POC engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The POC alpha (`@agent-workflow/engine@0.1.0-alpha.4`) has been released to npm under the `alpha` dist-tag.
 
 - `docs/RFC/` — nine-section RFC defining the protocol (workflow definition schema, execution model, MCP/REST/SDK integration, security, governance)
-- `docs/poc-scope.md` — **authoritative POC subset**: which node types, commands/events, and reducers the first engine milestone must support (read this before implementing anything)
+- `docs/poc-scope.md` — **authoritative engine profile**: which node types, commands/events, and reducers the reference engine must support (read this before implementing anything)
 - `schemas/workflow-definition-poc.json` — JSON Schema Draft 2020-12 entry schema; validates POC workflow documents
 - `examples/` — golden fixtures (workflow + happy-path and failure/retry trace companions) for the lighthouse demo, plus a prompt-improver fixture
 - `conformance/` — conformance harness (`run-conformance.mjs`) with deterministic vector discovery under `conformance/vectors/` (`schema/` and `replay/` subtrees)
@@ -73,7 +73,7 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `work
 
 ## Key architectural decisions
 
-**Engine profile (POC + R2).** `docs/poc-scope.md` freezes the surface the reference engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, plus R2 `parallel`, `wait`, and `set_state`. Explicitly out of scope for this profile: `agent_delegate`, `subworkflow`. The schema enforces allowed `type` values via a `oneOf` discriminated union that rejects unknown `type` values.
+**Engine profile.** `docs/poc-scope.md` freezes the surface the reference engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, and `set_state`. Explicitly out of scope for this profile: `agent_delegate`, `subworkflow`. The schema enforces allowed `type` values via a `oneOf` discriminated union that rejects unknown `type` values.
 
 **JSON Schema `additionalProperties: false`** on the workflow root means adding top-level fields (e.g. `extensions`) will fail validation by design.
 

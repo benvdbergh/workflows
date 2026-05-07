@@ -4,7 +4,7 @@ This guide runs the lighthouse scenario through MCP host tools without redefinin
 
 ## Scope and non-goals
 
-- Scope: lighthouse workflow path using `workflow_start`, `workflow_status`, and `workflow_resume`.
+- Scope: lighthouse workflow path using `workflow_start`, `workflow_status`, and `workflow_resume`. Use `workflow_submit_activity` when you run with `activity_execution_mode: "host_mediated"` (see `mcp-stdio-host-smoke.md`).
 - Non-goals: redefining adapter contracts, production auth, remote deployment hardening.
 
 ## Prerequisites
@@ -51,7 +51,7 @@ Notes:
 
 - With **development setup**, use an absolute path in `args` so the client can launch the server reliably.
 - Restart or reload your MCP host/client after saving config so tools are rediscovered.
-- Expected tools: `workflow_start`, `workflow_status`, `workflow_resume`.
+- Expected tools: `workflow_start`, `workflow_status`, `workflow_resume`, and `workflow_submit_activity` (required for host-mediated activities).
 
 ## 2) Launch MCP stdio adapter (development setup only)
 

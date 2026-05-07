@@ -1,6 +1,6 @@
 # ADR-0001: POC foundation decisions and delivery posture
 
-- Status: Accepted
+- Status: Accepted (amended 2026-05-05)
 - Date: 2026-04-14
 - Deciders: Maintainers of `workflows`
 - Tags: POC, scope, delivery-model, governance
@@ -35,7 +35,11 @@ For the POC alpha phase, the project adopts the following decision set:
    - Use replay/conformance as acceptance gates for behavior stability.
 4. **Bias for practical interoperability over broad platform breadth.**
    - Prioritize MCP stdio path for operator and host integration.
-   - Defer broader interface parity until roadmap phases (`R2+`).
+   - Defer broader interface parity until roadmap phases after the active engine profile (see `docs/poc-scope.md`).
+
+## Amendment (2026-05-05)
+
+The **authoritative** node and command/event boundary for the reference engine is always [`docs/poc-scope.md`](../poc-scope.md). That profile now includes **`parallel`**, **`wait`**, and **`set_state`** alongside the original core set. The **“Scope implications (historical)”** subsection below preserves the **original 2026-04-14** boundary text for context; it is **not** the current implementation truth.
 
 ## Assumptions and reasoning
 
@@ -51,17 +55,19 @@ For the POC alpha phase, the project adopts the following decision set:
 - Code-first during high uncertainty exposes edge cases earlier (replay, resume, reducer behavior, adapter boundaries).
 - Conformance and schema gates provide objective quality controls that prevent ad hoc behavior drift.
 
-## Scope implications (as-is)
+## Scope implications (historical)
 
-In-scope profile includes:
+*Recorded at ADR acceptance (2026-04-14); superseded for runtime truth by the amendment above and by `docs/poc-scope.md`.*
+
+In-scope profile **at that date** included:
 
 - `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`
 
-Deferred from active runtime profile:
+**At that date**, deferred from the runtime profile:
 
 - `parallel`, `agent_delegate`, `subworkflow`, `wait`, `set_state`
 
-The POC boundary is intentional and not a contradiction of RFC intent; it is a staged delivery strategy.
+The narrowed boundary was intentional and not a contradiction of RFC intent; it was a staged delivery strategy.
 
 ## Consequences
 
