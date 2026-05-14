@@ -1,0 +1,70 @@
+{
+  "id": "replay.host_activity.linear.replay_completed_no_await",
+  "description": "History already contains ActivityCompleted for the tool_call; replay continues without a host submit even in host_mediated mode.",
+  "kind": "replay",
+  "definition": "examples/conformance-host-activity-linear.workflow.json",
+  "input": {},
+  "activityExecutionMode": "host_mediated",
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "conformance-host-linear",
+        "workflowVersion": "1.0.0",
+        "inputKeys": []
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "start", "state": {} }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "work" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "work" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": { "nodeId": "work", "nodeType": "tool_call" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "work",
+        "result": { "out": "replay" }
+      }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "CompleteNode", "nodeId": "work" },
+      { "name": "ScheduleNode", "nodeId": "end" },
+      { "name": "CompleteNode", "nodeId": "end" }
+    ]
+  }
+}

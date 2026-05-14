@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
-import { runPocWorkflow, resumePocWorkflow } from "../src/orchestrator/poc-runner.mjs";
+import { runPocWorkflow, resumePocWorkflow, submitActivityOutcome } from "../src/orchestrator/poc-runner.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -368,6 +368,91 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
 });
 
 describe("runPocWorkflow (checkpoint policy)", () => {
+  it("omits CheckpointWritten when checkpointing.strategy is disabled", async () => {
+    const definition = structuredClone(loadLighthouse());
+    definition.checkpointing = { strategy: "disabled" };
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-checkpoint-disabled";
+
+    const out = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "My API returns 500" },
+      executionId,
+      store,
+      stubActivityOutputs: {
+        classify: { intent: "technical", confidence: 0.9 },
+        search_kb: { snippets: [] },
+      },
+    });
+    assert.equal(out.status, "completed");
+    const checkpoints = store.listByExecution(executionId).filter((r) => r.name === "CheckpointWritten");
+    assert.equal(checkpoints.length, 0);
+  });
+
+  it("every_n_nodes emits fewer checkpoints than after_each_node on the R2 parallel fixture", async () => {
+    const root = findWorkflowRepoRoot(__dirname);
+    const base = JSON.parse(
+      readFileSync(path.join(root, "examples", "r2-research-parallel.workflow.json"), "utf8")
+    );
+    const intervalDef = structuredClone(base);
+    intervalDef.checkpointing = { strategy: "every_n_nodes", n: 2 };
+
+    async function countCheckpoints(def) {
+      const store = new MemoryExecutionHistoryStore();
+      const id = `exec-r2-cp-${def.checkpointing ? "i" : "d"}`;
+      const r = await runPocWorkflow({
+        definition: def,
+        input: { topic: "t" },
+        executionId: id,
+        store,
+        stubActivityOutputs: {
+          plan: {},
+          web_collect: { findings: ["a"] },
+          internal_collect: { findings: ["b"] },
+        },
+      });
+      assert.equal(r.status, "completed");
+      return store.listByExecution(id).filter((row) => row.name === "CheckpointWritten").length;
+    }
+
+    const eachCount = await countCheckpoints(base);
+    const intervalCount = await countCheckpoints(intervalDef);
+    assert.ok(eachCount >= 4);
+    assert.ok(intervalCount > 0);
+    assert.ok(intervalCount < eachCount);
+
+    const policyStore = new MemoryExecutionHistoryStore();
+    await runPocWorkflow({
+      definition: intervalDef,
+      input: { topic: "t" },
+      executionId: "exec-r2-cp-interval-policy",
+      store: policyStore,
+      stubActivityOutputs: {
+        plan: {},
+        web_collect: { findings: ["a"] },
+        internal_collect: { findings: ["b"] },
+      },
+    });
+    assert.ok(
+      policyStore.listByExecution("exec-r2-cp-interval-policy").some((r) => r.payload?.policy === "every_n_nodes")
+    );
+  });
+
+  it("returns failed when every_n_nodes is missing n", async () => {
+    const definition = structuredClone(loadLighthouse());
+    definition.checkpointing = { strategy: "every_n_nodes" };
+    const store = new MemoryExecutionHistoryStore();
+    const out = await runPocWorkflow({
+      definition,
+      input: { ticket_text: "x" },
+      executionId: "exec-bad-cp",
+      store,
+      stubActivityOutputs: { classify: { intent: "technical", confidence: 0.9 }, search_kb: { snippets: [] } },
+    });
+    assert.equal(out.status, "failed");
+    assert.match(out.error ?? "", /checkpointing/);
+  });
+
   it("writes after_each_node checkpoints with recovery metadata linked to history boundaries", async () => {
     const definition = loadLighthouse();
     const store = new MemoryExecutionHistoryStore();
@@ -406,5 +491,175 @@ describe("runPocWorkflow (checkpoint policy)", () => {
       assert.equal(boundary.kind, "event");
       assert.ok(boundary.name === "StateUpdated" || boundary.name === "InterruptRaised");
     }
+  });
+});
+
+describe("runPocWorkflow (host-mediated activities)", () => {
+  it("yields after ActivityRequested then completes via submitActivityOutcome (linear)", async () => {
+    /** @type {object} */
+    const definition = {
+      document: {
+        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        name: "host-med-linear",
+        version: "1.0.0",
+      },
+      state_schema: {
+        type: "object",
+        properties: {
+          out: { type: "string" },
+        },
+      },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "work",
+          type: "tool_call",
+          config: { server: "demo-mcp", tool: "stub", arguments: {} },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".out" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "work" },
+        { source: "work", target: "end" },
+      ],
+    };
+    assert.equal(validateWorkflowDefinition(definition).ok, true);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-host-linear";
+    const input = {};
+
+    const first = await runPocWorkflow({
+      definition,
+      input,
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(first.status, "awaiting_activity");
+    assert.equal(first.nodeId, "work");
+    const evs = store.listByExecution(executionId).filter((r) => r.kind === "event");
+    assert.equal(evs.at(-1)?.name, "ActivityRequested");
+
+    const badNode = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "wrong_node",
+      outcome: { ok: true, result: { out: "x" } },
+    });
+    assert.equal(badNode.status, "failed");
+    assert.equal(badNode.code, "ACTIVITY_SUBMIT_NODE_MISMATCH");
+
+    const done = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "work",
+      outcome: { ok: true, result: { out: "hi" } },
+    });
+    assert.equal(done.status, "completed");
+    assert.equal(done.result, "hi");
+
+    const notAwaiting = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "work",
+      outcome: { ok: true, result: { out: "nope" } },
+    });
+    assert.equal(notAwaiting.status, "failed");
+    assert.equal(notAwaiting.code, "ACTIVITY_SUBMIT_NOT_AWAITING");
+  });
+
+  it("yields inside parallel branch with parallelSpan; submit requires matching context", async () => {
+    /** @type {object} */
+    const definition = {
+      document: {
+        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        name: "host-med-parallel",
+        version: "1.0.0",
+      },
+      state_schema: {
+        type: "object",
+        properties: {
+          y: { type: "string" },
+        },
+      },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "fork",
+          type: "parallel",
+          config: {
+            join: "all",
+            branches: [{ name: "only", entry: "a1" }],
+          },
+        },
+        {
+          id: "a1",
+          type: "tool_call",
+          config: { server: "demo-mcp", tool: "stub", arguments: {} },
+        },
+        {
+          id: "join",
+          type: "set_state",
+          config: { assignments: { y: { literal: "after_join" } } },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".y" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "fork" },
+        { source: "fork", target: "join" },
+        { source: "a1", target: "join" },
+        { source: "join", target: "end" },
+      ],
+    };
+    assert.equal(validateWorkflowDefinition(definition).ok, true);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-host-par";
+    const input = {};
+
+    const first = await runPocWorkflow({
+      definition,
+      input,
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(first.status, "awaiting_activity");
+    assert.equal(first.nodeId, "a1");
+    assert.ok(first.parallelSpan);
+    assert.equal(first.parallelSpan.parallelNodeId, "fork");
+    assert.equal(first.parallelSpan.branchName, "only");
+
+    const missingSpan = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "a1",
+      outcome: { ok: true, result: { y: "branch" } },
+    });
+    assert.equal(missingSpan.status, "failed");
+    assert.equal(missingSpan.code, "ACTIVITY_SUBMIT_PARALLEL_MISMATCH");
+
+    const done = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "a1",
+      expectedParallelSpan: first.parallelSpan,
+      outcome: { ok: true, result: { y: "branch" } },
+    });
+    assert.equal(done.status, "completed");
+    assert.equal(done.result, "after_join");
   });
 });

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-A specification, contract, and **POC engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The POC alpha (`@agent-workflow/engine@0.0.2`) has been released to npm under the `alpha` dist-tag.
+A specification, contract, and **POC engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The POC alpha (`@agent-workflow/engine@0.1.0-alpha.4`) has been released to npm under the `alpha` dist-tag.
 
 - `docs/RFC/` — nine-section RFC defining the protocol (workflow definition schema, execution model, MCP/REST/SDK integration, security, governance)
 - `docs/poc-scope.md` — **authoritative POC subset**: which node types, commands/events, and reducers the first engine milestone must support (read this before implementing anything)
@@ -14,7 +14,7 @@ A specification, contract, and **POC engine** repository for the **Agent Workflo
 - `packages/engine/` — **`@agent-workflow/engine`** (npm org scope `@agent-workflow`): POC validation (CLI + library), append-only command/event history (SQLite or in-memory), linear runner, full POC walker with `switch` and `interrupt` / resume, and MCP stdio adapter (see `packages/engine/README.md`)
 - `scripts/validate-workflows.mjs` — repo-wide AJV validation used by CI and aligned with the engine's schema options
 - `scripts/sync-engine-poc-schema.mjs` — syncs the root `schemas/workflow-definition-poc.json` into `packages/engine/schemas/` (run automatically on `prepack`)
-- `docs/epics/` and `docs/stories/` — agile work items with YAML frontmatter (managed by the `project-planning` skill)
+- **GitHub issues** in `benvdbergh/workflows` (+ [Project #4](https://github.com/users/benvdbergh/projects/4)) — canonical epics/stories, acceptance criteria, and planning narrative (see `.project-planning.yaml` and `.claude/skills/wf-plan/references/workflows-github-backlog-override.md`)
 - `docs/releases/` — release notes and versioning/CI governance docs for the alpha
 - `docs/architecture/` — operator runbooks and architecture diagrams (MCP stdio smoke runbook, demo walkthroughs)
 - `ROADMAP.md` — post-alpha release plan (R2 Beta through GA and beyond)
@@ -69,11 +69,11 @@ The engine ships two bins: `workflows-engine` (validation CLI) and `workflows-en
 npm run engine:mcp:stdio
 ```
 
-MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`. Operator smoke runbook: `docs/architecture/mcp-stdio-host-smoke.md`.
+MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `workflow_submit_activity`. Operator smoke runbook: `docs/architecture/mcp-stdio-host-smoke.md`.
 
 ## Key architectural decisions
 
-**POC scope is intentionally narrow.** `docs/poc-scope.md` freezes the surface the first engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`. Explicitly out of scope: `parallel`, `agent_delegate`, `subworkflow`, `wait`, `set_state`. The schema enforces this via a `oneOf` discriminated union that rejects unknown `type` values.
+**Engine profile (POC + R2).** `docs/poc-scope.md` freezes the surface the reference engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, plus R2 `parallel`, `wait`, and `set_state`. Explicitly out of scope for this profile: `agent_delegate`, `subworkflow`. The schema enforces allowed `type` values via a `oneOf` discriminated union that rejects unknown `type` values.
 
 **JSON Schema `additionalProperties: false`** on the workflow root means adding top-level fields (e.g. `extensions`) will fail validation by design.
 
@@ -83,13 +83,15 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`. Opera
 
 **Schema sync is enforced at pack time.** `scripts/sync-engine-poc-schema.mjs` runs as `prepack` to copy the root schema into `packages/engine/schemas/`. Use `npm run check-engine-poc-schema-sync` to verify they are in sync without modifying files.
 
-**MCP adapter is layered over a stable application port.** `createWorkflowApplicationPort` is the internal boundary. The MCP stdio server (`mcp-stdio-server.mjs`) maps MCP request DTOs to that port and translates engine failures into structured tool errors with stable error codes (`VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, `ENGINE_FAILURE`, `INTERNAL_ERROR`).
+**MCP adapter is layered over a stable application port.** `createWorkflowApplicationPort` is the internal boundary. The MCP stdio server (`mcp-stdio-server.mjs`) maps MCP request DTOs to that port and translates engine failures into structured tool errors with stable error codes (`VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, activity-submit codes `ACTIVITY_SUBMIT_NOT_AWAITING`, `ACTIVITY_SUBMIT_NODE_MISMATCH`, `ACTIVITY_SUBMIT_PARALLEL_MISMATCH`, `SUBMIT_VALIDATION_ERROR`, `ENGINE_FAILURE`, `INTERNAL_ERROR`).
 
 **Release pipeline is fully manual and trusted-publish-based.** npm publish uses OIDC provenance (`--provenance`); no secrets stored in the repo. Release ops require `id-token: write` on the publish job only. See `docs/releases/alpha-ci-cd-packaging-governance.md` for the full permissions map and gate design.
 
 ## Work item conventions
 
-Epic and story files carry YAML frontmatter with `kind`, `id`, `status`, `depends_on`, `traces_to`, and `acceptance_criteria`. The `.project-planning.yaml` manifest at the repo root configures the planning skill (epics in `docs/epics/`, stories in `docs/stories/`).
+**Canonical backlog:** GitHub issues (and parent/sub-issue relationships) hold epic/story intent, acceptance criteria, status, and links to RFC/`docs/poc-scope.md`/ADRs. Use the `wf-plan`, `wf-design`, and `wf-execute` skills and `.project-planning.yaml` for `gh`/Project conventions. The global `project-planning` skill still applies to **process** (decomposition, dependencies, readiness); this repository **overrides the artifact location** to GitHub per `workflows-github-backlog-override.md`.
+
+**Legacy:** Historical per-epic and per-story markdown under `docs` was removed after GitHub became the planning store; do not recreate it.
 
 When changing the POC contract (scope note, schema, or fixtures), update all three together and bump `document.schema` in workflow instances.
 

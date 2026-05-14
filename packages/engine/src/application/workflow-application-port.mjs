@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { runPocWorkflow, resumePocWorkflow } from "../orchestrator/poc-runner.mjs";
+import { resumePocWorkflow, runPocWorkflow, submitActivityOutcome } from "../orchestrator/poc-runner.mjs";
+import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 
 const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "InterruptRaised"]);
 
@@ -8,6 +9,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {string | undefined} executionId
  * @property {object} definition
  * @property {Record<string, unknown>} input
+ * @property {"in_process" | "host_mediated"} [activityExecutionMode]
  */
 
 /**
@@ -20,22 +22,46 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {string} executionId
  * @property {object} definition
  * @property {Record<string, unknown>} resumePayload
+ * @property {"in_process" | "host_mediated"} [activityExecutionMode]
+ */
+
+/**
+ * @typedef {object} WorkflowParallelSpan
+ * @property {string} parallelNodeId
+ * @property {string} joinTargetId
+ * @property {string} branchName
+ * @property {string} branchEntryNodeId
+ */
+
+/**
+ * @typedef {object} WorkflowSubmitActivityRequest
+ * @property {string} executionId
+ * @property {object} definition
+ * @property {Record<string, unknown>} input
+ * @property {string} nodeId
+ * @property {{ ok: true; result?: Record<string, unknown> } | { ok: false; error: string; code?: string }} outcome
+ * @property {WorkflowParallelSpan} [expectedParallelSpan]
+ * @property {"in_process" | "host_mediated"} [activityExecutionMode]
+ * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
+ * @property {import("../orchestrator/activity-executor.mjs").ActivityExecutor} [activityExecutor]
  */
 
 /**
  * @typedef {object} WorkflowStartResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity"} status
  * @property {Record<string, unknown> | undefined} finalState
  * @property {unknown} [result]
  * @property {string | undefined} error
  * @property {string | undefined} nodeId
+ * @property {Record<string, unknown>} [state] Latest workflow state when status is `awaiting_activity`
+ * @property {WorkflowParallelSpan} [parallelSpan] When the pending activity runs under a `parallel` branch
  */
 
 /**
  * @typedef {object} WorkflowStatusResponse
  * @property {string} executionId
- * @property {"running" | "completed" | "failed" | "interrupted"} phase
+ * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity"} phase
  * @property {string | undefined} currentNodeId
  * @property {string | undefined} lastError
  */
@@ -43,11 +69,26 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
 /**
  * @typedef {object} WorkflowResumeResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity"} status
  * @property {Record<string, unknown> | undefined} finalState
  * @property {unknown} [result]
  * @property {string | undefined} error
  * @property {string | undefined} nodeId
+ * @property {Record<string, unknown>} [state]
+ * @property {WorkflowParallelSpan} [parallelSpan]
+ */
+
+/**
+ * @typedef {object} WorkflowSubmitActivityResponse
+ * @property {string} executionId
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity"} status
+ * @property {Record<string, unknown> | undefined} [finalState]
+ * @property {unknown} [result]
+ * @property {string | undefined} [error]
+ * @property {string | undefined} [nodeId]
+ * @property {Record<string, unknown>} [state]
+ * @property {WorkflowParallelSpan} [parallelSpan]
+ * @property {string | undefined} [code] Stable machine code when `status` is `failed` from submit validation
  */
 
 /**
@@ -90,12 +131,28 @@ function latestError(rows) {
 }
 
 /**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ */
+function findLatestNonCheckpointEvent(rows) {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (row.kind === "event" && row.name === "CheckpointWritten") continue;
+    return row;
+  }
+  return undefined;
+}
+
+/**
  * Stable application-facing port for workflow control operations used by interface adapters.
  *
- * @param {{ store: import("../persistence/types.mjs").ExecutionHistoryStore }} deps
+ * @param {{
+ *   store: import("../persistence/types.mjs").ExecutionHistoryStore;
+ *   activityExecutor?: import("../orchestrator/activity-executor.mjs").ActivityExecutor;
+ * }} deps
+ * Optional `activityExecutor` runs `tool_call` nodes in-process (e.g. MCP manifest executor); omit to use the stub executor.
  */
 export function createWorkflowApplicationPort(deps) {
-  const { store } = deps;
+  const { store, activityExecutor } = deps;
 
   return {
     /**
@@ -113,15 +170,26 @@ export function createWorkflowApplicationPort(deps) {
         input: request.input,
         executionId,
         store,
+        ...(activityExecutor ? { activityExecutor } : {}),
+        ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
       });
 
       return {
         executionId,
         status: runResult.status,
-        finalState: runResult.finalState,
+        ...(runResult.finalState !== undefined ? { finalState: runResult.finalState } : {}),
         ...(runResult.status === "completed" ? { result: runResult.result } : {}),
         ...(runResult.status === "failed" ? { error: runResult.error } : {}),
-        ...(runResult.status === "interrupted" ? { nodeId: runResult.nodeId } : {}),
+        ...(runResult.status === "interrupted"
+          ? { nodeId: runResult.nodeId, state: runResult.state }
+          : {}),
+        ...(runResult.status === "awaiting_activity"
+          ? {
+              nodeId: runResult.nodeId,
+              state: runResult.state,
+              ...(runResult.parallelSpan ? { parallelSpan: runResult.parallelSpan } : {}),
+            }
+          : {}),
       };
     },
 
@@ -131,6 +199,7 @@ export function createWorkflowApplicationPort(deps) {
      */
     async getWorkflowStatus(request) {
       const rows = store.listByExecution(request.executionId);
+      assertHistoryReadableByEngine(rows);
       if (rows.length === 0) {
         const err = new Error(`Execution "${request.executionId}" was not found.`);
         err.code = "EXECUTION_NOT_FOUND";
@@ -157,6 +226,17 @@ export function createWorkflowApplicationPort(deps) {
           lastError: undefined,
         };
       }
+      const lastNc = findLatestNonCheckpointEvent(rows);
+      if (lastNc?.kind === "event" && lastNc.name === "ActivityRequested") {
+        const nid =
+          typeof lastNc.payload?.nodeId === "string" ? lastNc.payload.nodeId : latestNodeId(rows);
+        return {
+          executionId: request.executionId,
+          phase: "awaiting_activity",
+          currentNodeId: nid,
+          lastError: undefined,
+        };
+      }
       return {
         executionId: request.executionId,
         phase: "running",
@@ -175,15 +255,61 @@ export function createWorkflowApplicationPort(deps) {
         executionId: request.executionId,
         resumePayload: request.resumePayload,
         store,
+        ...(activityExecutor ? { activityExecutor } : {}),
+        ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
       });
 
       return {
         executionId: request.executionId,
         status: runResult.status,
-        finalState: runResult.finalState,
+        ...(runResult.finalState !== undefined ? { finalState: runResult.finalState } : {}),
         ...(runResult.status === "completed" ? { result: runResult.result } : {}),
         ...(runResult.status === "failed" ? { error: runResult.error } : {}),
-        ...(runResult.status === "interrupted" ? { nodeId: runResult.nodeId } : {}),
+        ...(runResult.status === "interrupted"
+          ? { nodeId: runResult.nodeId, state: runResult.state }
+          : {}),
+        ...(runResult.status === "awaiting_activity"
+          ? {
+              nodeId: runResult.nodeId,
+              state: runResult.state,
+              ...(runResult.parallelSpan ? { parallelSpan: runResult.parallelSpan } : {}),
+            }
+          : {}),
+      };
+    },
+
+    /**
+     * @param {WorkflowSubmitActivityRequest} request
+     * @returns {Promise<WorkflowSubmitActivityResponse>}
+     */
+    async submitWorkflowActivity(request) {
+      const result = await submitActivityOutcome({
+        definition: request.definition,
+        executionId: request.executionId,
+        store,
+        input: request.input,
+        nodeId: request.nodeId,
+        outcome: request.outcome,
+        expectedParallelSpan: request.expectedParallelSpan,
+        ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
+        ...(request.stubActivityOutputs ? { stubActivityOutputs: request.stubActivityOutputs } : {}),
+        ...(request.activityExecutor ? { activityExecutor: request.activityExecutor } : {}),
+        ...(!request.activityExecutor && activityExecutor ? { activityExecutor } : {}),
+      });
+
+      return {
+        executionId: request.executionId,
+        status: result.status,
+        ...(result.finalState !== undefined ? { finalState: result.finalState } : {}),
+        ...(result.status === "completed" ? { result: result.result } : {}),
+        ...(result.status === "failed" ? { error: result.error, ...(result.code ? { code: result.code } : {}) } : {}),
+        ...(result.status === "interrupted" || result.status === "awaiting_activity"
+          ? {
+              nodeId: result.nodeId,
+              ...(result.state ? { state: result.state } : {}),
+              ...(result.parallelSpan ? { parallelSpan: result.parallelSpan } : {}),
+            }
+          : {}),
       };
     },
   };

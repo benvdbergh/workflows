@@ -45,3 +45,23 @@ export class StubActivityExecutor {
     return { ok: true, output };
   }
 }
+
+/**
+ * Fails any `executeActivity` call. Use in conformance and tests to prove replay does not
+ * re-invoke the engine activity port (e.g. engine-direct MCP) when results are already in history.
+ *
+ * @implements {ActivityExecutor}
+ */
+export class RejectingActivityExecutor {
+  /**
+   * @param {ActivityExecutorContext} ctx
+   * @returns {Promise<ActivityExecutorResult>}
+   */
+  async executeActivity(ctx) {
+    return {
+      ok: false,
+      error: `CONFORMANCE_ACTIVITY_PORT_INVOKED: executeActivity was called for node ${ctx.node.id} (expected replay to use recorded ActivityCompleted only).`,
+      code: "CONFORMANCE_ACTIVITY_PORT_INVOKED",
+    };
+  }
+}

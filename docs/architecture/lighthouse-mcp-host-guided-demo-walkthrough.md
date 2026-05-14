@@ -21,7 +21,7 @@ Pick one wiring mode. **Operator setup** is the default for MCP hosts: it runs t
 
 ### Operator setup (published package)
 
-Uses the npm package [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine). `@alpha` tracks the latest alpha publish; pin an exact version (for example `@0.0.2`) when you need reproducible bug reports or demos.
+Uses the npm package [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine). `@alpha` tracks the latest alpha publish; pin an exact version (for example `@0.1.0-alpha.4`) when you need reproducible bug reports or demos.
 
 ```json
 {

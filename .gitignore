@@ -83,3 +83,5 @@ Desktop.ini
 # Keep repository skills/docs tracked; ignore only user-local state.
 # =========================
 .claude/settings.local.json
+.cursor/mcp.json
+.cursor/mcp-operator-paperclip.local.json

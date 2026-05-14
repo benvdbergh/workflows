@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "demo-tool": {
+      "command": "npx",
+      "args": ["-y", "@example/mcp-server@1.0.0"],
+      "env": {
+        "EXAMPLE_TOKEN": "REDACTED_PLACEHOLDER"
+      }
+    },
+    "minimal": {
+      "command": "node"
+    }
+  }
+}

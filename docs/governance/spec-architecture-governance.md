@@ -32,9 +32,9 @@ Primary constraints and anchors:
    - `docs/poc-scope.md`
    - `ROADMAP.md`
 2. **Release and planning intent (delivery anchor):**
-   - `docs/epics/`
-   - `docs/stories/`
+   - GitHub issues and [Project #4](https://github.com/users/benvdbergh/projects/4) in `benvdbergh/workflows` (canonical epic/story and acceptance content)
    - `docs/releases/github-project-operating-model.md`
+   - Historical epic/story markdown under `docs` (removed; not authoritative)
 3. **Feature-level design decisions (execution anchor):**
    - Issue template fields + PR template traceability section.
    - ADR/design notes (location can evolve; links must be present in issue/PR).
@@ -53,6 +53,8 @@ Primary constraints and anchors:
   - PR includes spec/architecture traceability section.
   - Doc updates exist in same PR when behavior or contract changed.
   - Validation checks pass (`validate-workflows`, `conformance`, tests).
+
+**Engine-direct profile (R2 reference engine):** Issues that add or materially change **engine-direct** MCP execution (engine-owned MCP clients, manifest-aligned operator config, or bounded local handlers) **SHOULD** link [RFC-06 §6.1](../RFC/rfc-06-interoperability.md#61-composing-mcp) and [ADR-0003](../architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md) at Gate B, and cite concrete conformance or replay evidence at Gate C when behavior affects history or resumption. Gate mapping table: see ADR-0003 “Governance alignment.”
 
 ### Architecture view artifacts governance
 

@@ -19,10 +19,15 @@
  * @property {string} name
  * @property {object} payload Parsed JSON object.
  * @property {string} [createdAt] ISO 8601 timestamp when stored (if available).
+ * @property {number} [recordSchemaVersion] Persisted envelope version (see `history-record-schema-version.mjs`). Omitted or unset reads as **1**.
  */
 
 /**
  * Port: append-only, execution-scoped command/event history.
+ *
+ * **Record envelope:** Adapters MUST stamp each appended row with
+ * `CURRENT_HISTORY_RECORD_SCHEMA_VERSION` (see `history-record-schema-version.mjs`) so readers
+ * can fail fast on newer stores.
  *
  * **Concurrency:** Implementations should assume a **single writer per process** for a given
  * `executionId`. SQLite uses a transaction (read max `seq` then insert) so appends stay

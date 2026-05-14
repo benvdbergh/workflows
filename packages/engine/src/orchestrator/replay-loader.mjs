@@ -1,3 +1,5 @@
+import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
+
 /**
  * @typedef {import("../persistence/types.mjs").HistoryRow} HistoryRow
  * @typedef {import("../persistence/types.mjs").ExecutionHistoryStore} ExecutionHistoryStore
@@ -46,6 +48,7 @@ export function hydrateReplayContext(options) {
   }
 
   const allRows = store.listByExecution(executionId);
+  assertHistoryReadableByEngine(allRows);
   let startSeq = 1;
   const checkpoint = { used: false };
   if (startMode === "safe_point") {

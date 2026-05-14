@@ -103,7 +103,7 @@ Trusted publish runbook:
 1. Trigger `Release npm publish (manual)` with:
    - `release_ref`: intended tag/branch/SHA
    - `dist_tag`: `alpha` for channel builds, `latest` for accepted baseline promotions
-   - `also_point_latest_dist_tag`: `true` (default) to run `npm dist-tag add @agent-workflow/engine@<version> latest` after publish so `latest` matches the new build while `alpha` still receives the publish tag
+   - `also_point_latest_dist_tag`: `false` by default (alpha drops stay off `latest`). Set `true` only when intentionally promoting this exact version to npm `latest` after publish (runs `npm dist-tag add @agent-workflow/engine@<version> latest`).
 2. Confirm `release-quality-gates` passes.
 3. Verify `publish-engine-package` success and capture npm publish logs in release evidence.
 4. Update release notes/tag metadata with published version and dist-tag.
@@ -117,3 +117,7 @@ Troubleshooting quick reference:
   - Bump `packages/engine/package.json` version and retag per versioning policy.
 - Wrong channel published:
   - Confirm `dist_tag` selection at dispatch; use `alpha` for pre-release iterations and reserve `latest` for approved baseline.
+- Publish step succeeds but **latest dist-tag** step fails:
+  - Check logs on the separate **Point latest dist-tag** step; confirm OIDC/trusted publishing allows `npm dist-tag` for this package (same registry auth as publish).
+- Combined-step ambiguity:
+  - Publish and `latest` pointer are separate steps so logs show whether `npm publish` or `npm dist-tag add` failed ([workflow](https://github.com/benvdbergh/workflows/blob/master/.github/workflows/release-npm-publish.yml)).

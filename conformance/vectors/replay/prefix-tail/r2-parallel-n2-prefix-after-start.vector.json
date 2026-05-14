@@ -1,0 +1,57 @@
+{
+  "id": "replay.prefix.tail.r2.parallel.n2.after_start",
+  "description": "join=n_of_m (n=2) with 3 branches: only two branches run before cancel + join.",
+  "kind": "replay",
+  "definition": "examples/r2-parallel-join-n2-of-3.workflow.json",
+  "input": {},
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "r2-parallel-join-n2-of-3",
+        "workflowVersion": "1.0.0",
+        "inputKeys": []
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "start", "state": {} }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "ScheduleNode", "nodeId": "fanout" },
+      { "name": "StartParallel", "nodeId": "fanout" },
+      { "name": "ScheduleNode", "nodeId": "collect_a" },
+      { "name": "CompleteNode", "nodeId": "collect_a" },
+      { "name": "ScheduleNode", "nodeId": "collect_b" },
+      { "name": "CompleteNode", "nodeId": "collect_b" },
+      { "name": "CancelParallelBranch", "nodeId": "fanout" },
+      { "name": "JoinParallel", "nodeId": "fanout" },
+      { "name": "CompleteNode", "nodeId": "fanout" },
+      { "name": "ScheduleNode", "nodeId": "rest" },
+      { "name": "StartTimer", "nodeId": "rest" },
+      { "name": "CompleteNode", "nodeId": "rest" },
+      { "name": "ScheduleNode", "nodeId": "end" },
+      { "name": "CompleteNode", "nodeId": "end" }
+    ]
+  }
+}

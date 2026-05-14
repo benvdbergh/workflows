@@ -27,6 +27,8 @@ Use when work item decomposition is not execution-ready:
 - Dependencies are unclear or sequencing is missing.
 - Acceptance criteria do not define executable completion.
 
+Refine the **GitHub issue** (and sub-issues / relationships) as the planning output; do not author new per-story markdown under `docs`. See `../wf-plan/references/workflows-github-backlog-override.md`. For **how** to edit issues/projects safely (stdin bodies, field IDs, GraphQL/REST), use **`../wf-plan/references/github-tooling-guide.md`**—the same mechanics **`wf-execute`** applies during implementation.
+
 ### Escalate to `minimalist-coding`
 
 Use when implementation quality guidance is required:

@@ -74,4 +74,4 @@ POC note: where the active profile excludes `agent_delegate`, implementations MA
 
 ## 8.5 Performance and scaling (non-normative)
 
-Initial target: single-tenant laptop/demo deployments with hundreds of concurrent executions. Horizontal scaling, multi-region checkpoint stores, and activity worker pools are **out of scope** for MVP but **SHOULD** be architecturally plausible via pluggable stores and queues.
+Initial target: single-tenant laptop/demo deployments with hundreds of concurrent executions. Horizontal scaling, multi-region checkpoint stores, and dedicated activity worker pools (or equivalent **host-mediated** completion queues) are **out of scope** for MVP but **SHOULD** be architecturally plausible via pluggable stores and queues.

@@ -65,7 +65,7 @@ flowchart LR
   A2A2 -->|"tasks"| AG["Other agents"]
 ```
 
-**Model Context Protocol (MCP)** succeeded in part by solving an immediate integration pain with a small surface area and working implementations. **This protocol** targets the adjacent pain: **what happens after** the model chooses a multi-step plan — coordinating steps, branching, parallelism, interrupts, and replayable execution — while **composing MCP** for tool steps and **A2A** (or equivalent) for agent delegation where applicable.
+**Model Context Protocol (MCP)** succeeded in part by solving an immediate integration pain with a small surface area and working implementations. **This protocol** targets the adjacent pain: coordinating multi-step execution with branching, parallelism, interrupts, and replayable execution—whether the step sequence is **model-chosen** or **graph-defined** (deterministic control flow)—while **composing MCP** for activity steps (often executed by the host) and **A2A** (or equivalent) for agent delegation where applicable.
 
 ## Opportunity
 

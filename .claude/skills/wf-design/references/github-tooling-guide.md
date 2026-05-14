@@ -9,6 +9,8 @@ Design interactions for:
 
 This guide focuses on issue-centric design discovery, decision logging, and handoff readiness.
 
+There is **no** repository Actions workflow that auto-adds issues or PRs to Project #4; triage adds cards and updates fields (UI or `gh project` with the right scopes).
+
 ## Primary tools
 
 - `gh issue view`, `gh issue comment`, `gh issue edit`
@@ -31,8 +33,10 @@ This guide focuses on issue-centric design discovery, decision logging, and hand
 
 - Design decomposition should be reflected as native **Parent/Sub-issue** links.
 - Proposed design blockers must be added as native `blocked by` relationships when accepted.
-- Issue body design notes summarize rationale; relationships encode structure and dependency truth.
+- Issue body holds design + planning narrative (and links to RFC/`poc-scope`/ADRs); relationships encode structure and dependency truth when the two differ.
 - After dependency updates, ensure project `Blocked` state is aligned.
+
+Canonical backlog policy: `../wf-plan/references/workflows-github-backlog-override.md`.
 
 ## Safe operating rules
 

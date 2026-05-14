@@ -6,6 +6,7 @@ import {
   workflowResumeArgsSchema,
   workflowStartArgsSchema,
   workflowStatusArgsSchema,
+  workflowSubmitActivityArgsSchema,
 } from "./contracts.mjs";
 import { createMcpWorkflowToolHandlers } from "./workflow-tools.mjs";
 
@@ -13,7 +14,7 @@ const enginePackageJsonPath = fileURLToPath(new URL("../../../package.json", imp
 const enginePackageVersion = JSON.parse(readFileSync(enginePackageJsonPath, "utf8")).version;
 
 /**
- * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function }} workflowPort
+ * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function }} workflowPort
  */
 export function createMcpWorkflowStdioServer(workflowPort) {
   const server = new McpServer({
@@ -50,6 +51,17 @@ export function createMcpWorkflowStdioServer(workflowPort) {
       inputSchema: workflowResumeArgsSchema,
     },
     (args) => handlers.workflow_resume(args)
+  );
+
+  server.registerTool(
+    "workflow_submit_activity",
+    {
+      title: "Submit host-mediated activity outcome",
+      description:
+        "After workflow_start with activity_execution_mode host_mediated, submit success or failure for the pending ActivityRequested node. Requires the same definition and input as the initial start.",
+      inputSchema: workflowSubmitActivityArgsSchema,
+    },
+    (args) => handlers.workflow_submit_activity(args)
   );
 
   return {

@@ -1,8 +1,10 @@
 {
-  "generated": "2026-04-14T10:16:55.425453Z",
-  "totalSkills": 3,
+  "generated": "2026-05-04T00:00:00Z",
+  "totalSkills": 4,
   "alwaysLoadedCount": 0,
-  "deferredCount": 3,
+  "deferredCount": 4,
+  "planning_backlog": "github",
+  "planning_override_doc": "wf-plan/references/workflows-github-backlog-override.md",
   "skills": {
     "wf-design": {
       "name": "wf-design",
@@ -25,6 +27,20 @@
         "work starts from an issue and needs consistent status transitions",
         "field updates",
         "and execution reporting through closure"
+      ],
+      "workflows": [],
+      "tier": "deferred"
+    },
+    "workflow-engine-mcp": {
+      "name": "workflow-engine-mcp",
+      "path": "workflow-engine-mcp/SKILL.md",
+      "fullDescription": "Guides authoring, validating, and running Agent Workflow Protocol workflow documents against the @agent-workflow/engine MCP stdio adapter (bundled JSON Schema under assets/). Covers node-type selection, engine-direct operator manifests, host-mediated activities, jq/state shaping for small MCP payloads, and stable adapter error codes. Use when the user mentions workflows-engine-mcp, workflow_start, workflow_status, workflow_resume, workflow_submit_activity, WORKFLOW_ENGINE_MCP_CONFIG, operator MCP manifest, validating workflow JSON, or running workflows via the workflow engine MCP server.",
+      "triggers": [
+        "workflows-engine-mcp",
+        "workflow_start",
+        "WORKFLOW_ENGINE_MCP_CONFIG",
+        "operator MCP manifest",
+        "validating workflow JSON"
       ],
       "workflows": [],
       "tier": "deferred"

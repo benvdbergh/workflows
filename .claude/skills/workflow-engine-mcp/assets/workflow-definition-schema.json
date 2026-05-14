@@ -1,0 +1,441 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/agent-workflow/v1/workflow-definition",
+  "title": "Agent Workflow Protocol — workflow definition",
+  "description": "JSON Schema for Agent Workflow Protocol workflow documents (includes parallel, wait, set_state orchestration nodes). Normative semantics follow RFC-03 workflow definition schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["document", "state_schema", "nodes", "edges"],
+  "properties": {
+    "document": { "$ref": "#/$defs/document_metadata" },
+    "state_schema": { "$ref": "#/$defs/state_schema_blob" },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/workflow_node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "checkpointing": {
+      "type": "object",
+      "description": "Optional checkpoint policy per RFC-03 §3.9; reference engine honors strategy/n.",
+      "additionalProperties": true,
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "description": "after_each_node (default), every_n_nodes, or disabled."
+        },
+        "policy": {
+          "type": "string",
+          "description": "Alias of strategy for document authors."
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Required when strategy/policy is every_n_nodes."
+        },
+        "interval": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Alias of n for every_n_nodes."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "document_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "name", "version"],
+      "properties": {
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "description": "URI identifying the protocol or profile version."
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }
+      }
+    },
+    "state_schema_blob": {
+      "type": "object",
+      "description": "JSON Schema object describing workflow state. Reducer annotations must be overwrite, append, or merge only; rejecting custom may require additional tooling beyond this schema.",
+      "minProperties": 1
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source node id or synthetic __start__."
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Target node id."
+        }
+      }
+    },
+    "retry_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_attempts"],
+      "properties": {
+        "max_attempts": { "type": "integer", "minimum": 1 },
+        "initial_interval": { "type": "string" },
+        "backoff_coefficient": { "type": "number" },
+        "max_interval": { "type": "string" },
+        "non_retryable_errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "node_level_timeout": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Duration string (e.g. 30s, 24h); parsing per engine profile."
+    },
+    "node_level_metadata": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "workflow_node": {
+      "oneOf": [
+        { "$ref": "#/$defs/node_start" },
+        { "$ref": "#/$defs/node_end" },
+        { "$ref": "#/$defs/node_step" },
+        { "$ref": "#/$defs/node_llm_call" },
+        { "$ref": "#/$defs/node_tool_call" },
+        { "$ref": "#/$defs/node_switch" },
+        { "$ref": "#/$defs/node_interrupt" },
+        { "$ref": "#/$defs/node_parallel" },
+        { "$ref": "#/$defs/node_wait" },
+        { "$ref": "#/$defs/node_set_state" }
+      ]
+    },
+    "node_start": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "start" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "input_schema": { "type": "object", "additionalProperties": true }
+          }
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_end": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "end" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "output_schema": { "type": "object", "additionalProperties": true },
+            "output_mapping": {
+              "type": "string",
+              "minLength": 1,
+              "description": "jq expression per RFC-03 §3.3."
+            }
+          }
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "step" },
+        "config": {
+          "type": "object",
+          "description": "Must reference implementation (handler or code_ref) per RFC-03 §3.7 step.",
+          "additionalProperties": true,
+          "anyOf": [
+            { "required": ["handler"] },
+            { "required": ["code_ref"] }
+          ]
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_llm_call": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "llm_call" },
+        "config": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Model, prompts, output_schema, etc. per RFC-03 §3.7; minimal or stub configs are valid for demos."
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_tool_call": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "tool_call" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["server", "tool"],
+          "properties": {
+            "server": { "type": "string", "minLength": 1 },
+            "tool": { "type": "string", "minLength": 1 },
+            "arguments": { "type": "object", "additionalProperties": true }
+          }
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_switch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "switch" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cases"],
+          "properties": {
+            "cases": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["when", "target"],
+                "properties": {
+                  "when": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "jq expression per RFC-03 §3.3."
+                  },
+                  "target": { "type": "string", "minLength": 1 }
+                }
+              }
+            },
+            "default": { "type": "string", "minLength": 1 }
+          }
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_interrupt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "interrupt" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["resume_schema"],
+          "properties": {
+            "resume_schema": {
+              "type": "object",
+              "minProperties": 1,
+              "description": "JSON Schema for resume payload."
+            },
+            "prompt": { "type": "string", "minLength": 1 },
+            "prompt_ref": { "type": "string", "minLength": 1 },
+            "timeout": { "type": "string", "minLength": 1 }
+          },
+          "anyOf": [
+            { "required": ["prompt"] },
+            { "required": ["prompt_ref"] }
+          ]
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_parallel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "parallel" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["join", "branches"],
+          "properties": {
+            "join": {
+              "type": "string",
+              "enum": ["all", "any", "n_of_m"]
+            },
+            "n": { "type": "integer", "minimum": 1 },
+            "branches": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "entry"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "entry": { "type": "string", "minLength": 1 }
+                }
+              }
+            },
+            "timeout": { "$ref": "#/$defs/node_level_timeout" }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": { "join": { "const": "n_of_m" } },
+                "required": ["join"]
+              },
+              "then": { "required": ["n"] }
+            }
+          ]
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_wait": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "wait" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": ["duration", "until", "signal"]
+            },
+            "duration_ms": { "type": "integer", "minimum": 0 },
+            "duration": { "type": "string", "minLength": 1 },
+            "until": { "type": "string", "minLength": 1 },
+            "signal": { "type": "string", "minLength": 1 }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": { "kind": { "const": "duration" } },
+                "required": ["kind"]
+              },
+              "then": {
+                "anyOf": [{ "required": ["duration_ms"] }, { "required": ["duration"] }]
+              }
+            },
+            {
+              "if": {
+                "properties": { "kind": { "const": "until" } },
+                "required": ["kind"]
+              },
+              "then": { "required": ["until"] }
+            },
+            {
+              "if": {
+                "properties": { "kind": { "const": "signal" } },
+                "required": ["kind"]
+              },
+              "then": { "required": ["signal"] }
+            }
+          ]
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_set_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "set_state" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["assignments"],
+          "properties": {
+            "assignments": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["jq"],
+                    "properties": {
+                      "jq": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "jq expression evaluated against current state; result merged per state_schema reducers."
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["literal"],
+                    "properties": {
+                      "literal": true
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    }
+  }
+}

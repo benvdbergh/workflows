@@ -1,6 +1,6 @@
 # `@agent-workflow/engine`
 
-Publishable npm package: **definition-time** validation for Agent Workflow Protocol POC workflow documents, an **append-only execution history** port (SQLite or in-memory), a **linear graph runner** (STORY-2-3), and a **general POC walker** (STORY-2-5) with `switch` and `interrupt` / resume.
+Publishable npm package: **definition-time** validation for Agent Workflow Protocol workflow documents (POC profile + **R2** `parallel`, `wait`, `set_state`), an **append-only execution history** port (SQLite or in-memory), a **linear graph runner** (STORY-2-3), and a **general graph walker** with `switch`, `interrupt` / resume, **parallel** join policies (`all` / `any` / `n_of_m`), **wait** (`duration` / `until`; `signal` needs a host), and **set_state**.
 
 ## Entrypoint (CLI)
 
@@ -15,6 +15,14 @@ Or use the package bin name when linked:
 ```bash
 npx workflows-engine validate path/to/workflow.json
 ```
+
+Validate an operator MCP manifest (Cursor-style `mcpServers` subset for stdio servers):
+
+```bash
+node packages/engine/src/cli.mjs mcp-manifest validate path/to/mcp.json
+```
+
+See `docs/architecture/mcp-operator-manifest.md` and exports `validateMcpOperatorManifest`, `readAndValidateMcpOperatorManifestFile`, `resolveMcpOperatorManifestPath` from the package entrypoint.
 
 ## MCP stdio adapter (STORY-4-1 bootstrap)
 
@@ -37,7 +45,7 @@ No-install npm usage for MCP hosts:
 npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 
 # consume a pinned, reproducible package version
-npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp
 ```
 
 **Operator setup (default for MCP clients)** — register the published package; the host runs `npx` and does not need this repository on disk. Use `-y` (non-interactive) and `-p` so npm selects the `workflows-engine-mcp` bin when both `workflows-engine` and `workflows-engine-mcp` are present:
@@ -55,9 +63,22 @@ npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp
 
 **Development setup** — point `node` at `packages/engine/src/mcp-stdio-server.mjs` inside your clone when working on the adapter or engine.
 
-This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, and `workflow_resume`. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
+This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, `workflow_resume`, and **`workflow_submit_activity`** (host-mediated activity completion; see below). The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
 
 Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
+
+### Engine-direct `tool_call` execution (optional)
+
+By default, `workflows-engine-mcp` uses the **in-process stub** executor for activity placeholders (same backward-compatible demo behavior as before).
+
+To run **`tool_call` nodes against real MCP stdio servers**, enable engine-direct configuration:
+
+- **Environment:** set `WORKFLOW_ENGINE_MCP_CONFIG` to the absolute or relative path of an operator MCP manifest JSON file.
+- **CLI:** pass `--mcp-config <path>` after the bin name (overrides `WORKFLOW_ENGINE_MCP_CONFIG` when both are set).
+
+The manifest matches the schema validated by `workflows-engine mcp-manifest validate` (Cursor-style `mcpServers` with stdio `command` / `args` / `env`). Workflow nodes use `tool_call` with `config.server` (manifest key) and `config.tool` (MCP tool name). If the file is missing or invalid JSON/schema, the process **exits with code 1** before accepting MCP traffic; errors are written to **stderr**.
+
+Security, credentials, and trust boundaries for this profile are documented in [ADR-0003: Engine-direct MCP activity execution](../../docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md). Host-mediated completion via `workflow_submit_activity` is unchanged when you use `activity_execution_mode: host_mediated`; after a submit, continuations still use the same port-level executor when engine-direct is enabled.
 
 ### Host compatibility constraints for no-install use
 
@@ -69,23 +90,31 @@ Operator smoke runbook (Story-4-3): `docs/architecture/mcp-stdio-host-smoke.md`.
 ### MCP tool contracts (minimum set)
 
 - `workflow_start`
-  - args: `{ execution_id?: string, definition: object, input: object }`
-  - returns: `{ execution_id, status, final_state?, result?, error?, node_id? }`
-  - notes: if `execution_id` is omitted, the engine generates a stable UUID and returns it for follow-up calls.
+  - args: `{ execution_id?: string, definition: object, input: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - returns: `{ execution_id, status, final_state?, result?, error?, node_id?, state?, parallel_span? }`
+  - notes: if `execution_id` is omitted, the engine generates a stable UUID and returns it for follow-up calls. With **`activity_execution_mode: "host_mediated"`**, the engine returns `status: "awaiting_activity"` after recording `ActivityRequested` for the next activity node; the host completes it via `workflow_submit_activity`.
 - `workflow_status`
   - args: `{ execution_id: string }`
   - returns: `{ execution_id, phase, current_node_id?, last_error? }`
-  - notes: `phase/current_node_id/last_error` are projected deterministically from persisted execution history (including resume/checkpoint-driven progress), not adapter-local mutable state.
+  - notes: `phase/current_node_id/last_error` are projected deterministically from persisted execution history (including resume/checkpoint-driven progress), not adapter-local mutable state. Phase **`awaiting_activity`** indicates the last non-checkpoint event is `ActivityRequested` (host-mediated pending).
 - `workflow_resume`
-  - args: `{ execution_id: string, definition: object, resume_payload: object }`
-  - returns: `{ execution_id, status, final_state?, result?, error?, node_id? }`
+  - args: `{ execution_id: string, definition: object, resume_payload: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - returns: `{ execution_id, status, final_state?, result?, error?, node_id?, state?, parallel_span? }`
   - notes: resume payloads are validated against the interrupt node `resume_schema`; invalid or stale resume attempts return structured tool errors.
+- `workflow_submit_activity`
+  - args: `{ execution_id: string, definition: object, input: object, node_id: string, outcome: { ok: true, result?: object } | { ok: false, error: string, code?: string }, parallel_span?: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - returns: same shape as `workflow_resume` results, plus optional `code` when `status` is `failed` from submit validation (usually surfaced as a tool error instead).
+  - notes: append activity success/failure after a host-mediated yield; **`definition` and `input` must match** the original `workflow_start` (replay). For activities under a `parallel` branch, pass **`parallel_span`** matching the `parallel_span` returned from `workflow_start` / prior submit.
 
 Structured adapter error codes:
 
 - `VALIDATION_ERROR` — MCP request payload fails contract validation.
-- `EXECUTION_NOT_FOUND` — requested execution id has no persisted history.
+- `EXECUTION_NOT_FOUND` — requested execution id has no persisted history (`workflow_status` / store lookups).
 - `INVALID_RESUME_PAYLOAD` — resume payload fails schema or resume is stale/not allowed.
+- `ACTIVITY_SUBMIT_NOT_AWAITING` — cannot submit: execution missing or last event is not `ActivityRequested`.
+- `ACTIVITY_SUBMIT_NODE_MISMATCH` — `node_id` does not match the pending activity.
+- `ACTIVITY_SUBMIT_PARALLEL_MISMATCH` — `parallel_span` missing or does not match the pending `ActivityRequested`.
+- `SUBMIT_VALIDATION_ERROR` — submit request failed definition/store validation before append.
 - `ENGINE_FAILURE` — engine reported workflow failure that is not an adapter contract issue.
 - `INTERNAL_ERROR` — unexpected adapter failure.
 
@@ -135,9 +164,9 @@ Phases: **validate** (POC schema + reject `state_schema.properties.*.reducer ===
 
 ### General POC orchestration (STORY-2-5)
 
-**API:** `runPocWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor? })` and `resumePocWorkflow({ definition, executionId, store, resumePayload, stubActivityOutputs?, activityExecutor? })`.
+**API:** `runPocWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })` and `resumePocWorkflow({ definition, executionId, store, resumePayload, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })`. **`activityExecutionMode`** defaults to `"in_process"` (run `ActivityExecutor` immediately). With **`"host_mediated"`**, the walker returns `{ status: 'awaiting_activity', nodeId, state, parallelSpan? }` after `ActivityRequested` (see ADR-0002). Continue by appending the outcome and calling `runPocWorkflow` again, or use **`submitActivityOutcome({ definition, executionId, store, input, nodeId, outcome, expectedParallelSpan?, ... })`** (also exported) which validates the pending request and re-enters the walker. Parallel branches attach **`parallelSpan`** to `ActivityRequested`; submits for those nodes must pass the same **`expectedParallelSpan`**.
 
-`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, and `interrupt`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
+`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, and R2 `parallel`, `wait`, `set_state`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
 
 **`switch` routing:** Successors come **only** from `config.cases` (first jq match wins; jq input root is the **current workflow state object**, same as STORY-2-3) and `config.default` when no case matches. If any `cases` exist and none match and `default` is omitted, the run fails with a clear error. **Static `edges` whose `source` is the switch node id are ignored for routing** (they may exist in documents; the engine does not follow them). This matches the POC recommendation in `docs/poc-scope.md` (avoid duplicate routing channels).
 
@@ -176,8 +205,11 @@ Each checkpoint payload includes `executionId`, `workflowVersion`, `definitionHa
 | `name`         | TEXT    | Command/event name (maps to POC taxonomies) |
 | `payload_json` | TEXT    | JSON-serialized payload object |
 | `created_at`   | TEXT    | ISO 8601 timestamp when the row was appended |
+| `record_schema_version` | INTEGER | Persisted **row envelope** version (not `document.schema`); see below |
 
 Primary key: `(execution_id, seq)`. Historical rows are not updated or deleted by the adapter API.
+
+**Envelope versioning:** Each row is stamped with `record_schema_version` (currently `1`). Opening an existing database without this column runs `ALTER TABLE … ADD COLUMN … DEFAULT 1`. Replay, resume, and status paths call `assertHistoryReadableByEngine`: rows newer than this engine build fail fast so hosts upgrade `@agent-workflow/engine` instead of corrupting replay. Policy and read rules: [`docs/persistence-history-record-versioning.md`](../../docs/persistence-history-record-versioning.md).
 
 **Concurrency:** Treat the store as **single-writer per process** for a given execution (and avoid multiple processes appending to the same file for the same execution id). SQLite assigns `seq` inside a **transaction** (`BEGIN IMMEDIATE` … `COMMIT`) that reads `MAX(seq)` for the execution and then inserts the next row, so ordering stays monotonic for that writer.
 

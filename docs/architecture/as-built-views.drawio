@@ -37,8 +37,11 @@
                 <mxCell id="33" value="Linear Runner" style="rounded=1;whiteSpace=wrap;fillColor=#fffde7;strokeColor=#d6b656;fontSize=11;" parent="30" vertex="1">
                     <mxGeometry x="717" y="179" width="200" height="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="34" value="Activity Executor&#10;Boundary" style="rounded=1;whiteSpace=wrap;fillColor=#fffde7;strokeColor=#d6b656;dashed=1;strokeWidth=2;fontSize=11;" parent="30" vertex="1">
-                    <mxGeometry x="924" y="84" width="220" height="60" as="geometry"/>
+                <mxCell id="34" value="Activity Executor&#10;Boundary&#10;(stub default; host-mediated target)" style="rounded=1;whiteSpace=wrap;fillColor=#fffde7;strokeColor=#d6b656;dashed=1;strokeWidth=2;fontSize=11;" parent="30" vertex="1">
+                    <mxGeometry x="900" y="65" width="220" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="35" value="Replay Loader" style="rounded=1;whiteSpace=wrap;fillColor=#fffde7;strokeColor=#d6b656;fontSize=11;" parent="30" vertex="1">
+                    <mxGeometry x="340" y="190" width="220" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="105" value="orchestrates" style="edgeStyle=orthogonalEdgeStyle;rounded=0;fontSize=10;" parent="30" source="31" target="32" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
@@ -160,8 +163,8 @@
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-5" value="workflows-engine-mcp&#10;(npx-spawned process)&#10;MCP stdio adapter" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-1" vertex="1">
                     <mxGeometry x="310" y="248" width="230" height="100" as="geometry"/>
                 </mxCell>
-                <mxCell id="OuT24w1vpQ-nGS25mSiP-6" value="Application Port + POC Runner&#10;createWorkflowApplicationPort()&#10;linear runner + switch + interrupt" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-1" vertex="1">
-                    <mxGeometry x="310" y="410.5" width="230" height="100" as="geometry"/>
+                <mxCell id="OuT24w1vpQ-nGS25mSiP-6" value="Application Port + POC Runner&#10;createWorkflowApplicationPort()&#10;graph walk + R2 nodes + interrupt&#10;(activity stub via MCP; ADR-0002)" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;whiteSpace=wrap;" vertex="1" parent="OuT24w1vpQ-nGS25mSiP-1">
+                    <mxGeometry x="310" y="425" width="230" height="100" as="geometry"/>
                 </mxCell>
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-7" value="In-Memory&#10;History Store&#10;(default, append-only)" style="shape=cylinder3;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" parent="OuT24w1vpQ-nGS25mSiP-1" vertex="1">
                     <mxGeometry x="648" y="408" width="165" height="105" as="geometry"/>
@@ -210,7 +213,7 @@
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-20" value="mcp-stdio-server.mjs&#10;(node process)&#10;MCP stdio adapter" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-17" vertex="1">
                     <mxGeometry x="300" y="248" width="230" height="100" as="geometry"/>
                 </mxCell>
-                <mxCell id="OuT24w1vpQ-nGS25mSiP-21" value="Application Port + POC Runner&#10;createWorkflowApplicationPort()&#10;linear runner + switch + interrupt" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-17" vertex="1">
+                <mxCell id="OuT24w1vpQ-nGS25mSiP-21" value="Application Port + POC Runner&#10;createWorkflowApplicationPort()&#10;graph walk + R2 nodes + interrupt&#10;(activity stub via MCP; ADR-0002)" style="rounded=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;whiteSpace=wrap;" vertex="1" parent="OuT24w1vpQ-nGS25mSiP-17">
                     <mxGeometry x="300" y="425" width="230" height="100" as="geometry"/>
                 </mxCell>
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-22" value="In-Memory&#10;History Store&#10;(default, append-only)" style="shape=cylinder3;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" parent="OuT24w1vpQ-nGS25mSiP-17" vertex="1">
@@ -261,8 +264,8 @@
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-37" value="schemas/&#10;workflow-definition-poc.json&#10;(JSON Schema Draft 2020-12)" style="shape=note;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-31" vertex="1">
                     <mxGeometry x="650" y="270" width="215" height="100" as="geometry"/>
                 </mxCell>
-                <mxCell id="OuT24w1vpQ-nGS25mSiP-38" value="Deferred / Not in AS-IS Runtime:&#10;parallel  |  wait  |  set_state&#10;agent_delegate  |  subworkflow" style="text;strokeColor=#cc0000;fillColor=#ffcccc;align=left;verticalAlign=middle;spacingLeft=10;overflow=hidden;fontSize=11;fontStyle=2;" parent="OuT24w1vpQ-nGS25mSiP-31" vertex="1">
-                    <mxGeometry x="1180" y="62.5" width="220" height="105" as="geometry"/>
+                <mxCell id="OuT24w1vpQ-nGS25mSiP-38" value="Out of scope for current engine profile&#10;(see docs/poc-scope.md §2.1):&#10;agent_delegate  |  subworkflow&#10;(R3+). R2 nodes run in reference engine." style="text;strokeColor=#cc0000;fillColor=#ffcccc;align=left;verticalAlign=middle;spacingLeft=10;overflow=hidden;fontSize=11;fontStyle=2;" vertex="1" parent="OuT24w1vpQ-nGS25mSiP-31">
+                    <mxGeometry x="1540" y="65" width="545" height="105" as="geometry"/>
                 </mxCell>
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-39" value="runs" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d6b656;fontSize=9;" parent="OuT24w1vpQ-nGS25mSiP-31" source="OuT24w1vpQ-nGS25mSiP-32" target="OuT24w1vpQ-nGS25mSiP-33" edge="1">
                     <mxGeometry relative="1" as="geometry"/>

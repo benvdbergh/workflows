@@ -1,6 +1,8 @@
 # Alpha Release Notes (Pre-1.0)
 
-**Last reviewed:** 2026-04-13 
+**Last reviewed:** 2026-05-04
+
+**Current published engine:** `@agent-workflow/engine@0.1.0-alpha.4` on the npm `alpha` dist-tag (see also [ROADMAP.md](../../ROADMAP.md) — R2 core orchestration for the reference engine is **delivered**; next major slice is R3).
 
 Release policy and checklist reference: [alpha-versioning-and-release-commit-flow.md](alpha-versioning-and-release-commit-flow.md)
 
@@ -11,17 +13,19 @@ These notes are for external evaluators and early adopters validating the curren
 ## Highlights for this alpha phase
 
 - Protocol-first repository with a structured RFC set under `docs/RFC/`.
-- POC JSON Schema contract in `schemas/workflow-definition-poc.json`.
-- Golden workflow fixtures and trace companions in `examples/`.
-- Deterministic conformance harness entrypoint via `npm run conformance`.
-- Node.js engine package with validation, append-only execution history, `switch`, and `interrupt`/resume support.
+- JSON Schema contract in `schemas/workflow-definition-poc.json` for the **POC + R2** profile in [`docs/poc-scope.md`](../poc-scope.md) (including `parallel`, `wait`, `set_state`).
+- Golden workflow fixtures and trace companions in `examples/`, including R2 parallel and research-style fixtures.
+- Deterministic conformance harness entrypoint via `npm run conformance` (schema, replay, host-activity, and engine-direct replay invariants).
+- Node.js engine package with validation, append-only execution history, `switch`, `interrupt`/resume, **R2** graph nodes (`parallel` join policies, `wait` duration/until, `set_state`), checkpoint policy hooks, **host-mediated** and **engine-direct** `tool_call` activity execution (see [ADR-0003](../architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md)), and MCP stdio adapter.
 
 ## Known limitations
 
-- POC node support is intentionally limited. Deferred types include `parallel`, `agent_delegate`, `subworkflow`, `wait`, and `set_state`.
-- Some RFC sections describe long-term direction that extends beyond the current POC engine implementation.
+- **Out of scope** for the active engine profile: `agent_delegate` and `subworkflow` (planned for R3; see `docs/poc-scope.md` and `ROADMAP.md`).
+- **Wait `signal`:** requires a host; the bare engine fails this path at runtime (see `docs/poc-scope.md`).
+- Some RFC sections describe long-term direction (e.g. REST/SDK parity, core binary) that extends beyond this Node.js reference package.
 - Trace companion files are illustrative execution narratives and are not schema-validated executable workflow inputs.
 - Contracts and naming are still pre-1.0 and may change with limited backward compatibility guarantees.
+- Conformance **deferrals** (e.g. full reducer matrix, full parallel join policy matrix, MCP tool mock roundtrip) are listed in `conformance/README.md` — behavior is still covered in part by engine tests and fixtures.
 
 ## Usage caveats
 
@@ -51,7 +55,7 @@ npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 ### Reproducible install (exact pinned version)
 
 ```bash
-npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp
 ```
 
 ### Provider-neutral MCP client configuration examples
@@ -84,7 +88,7 @@ Pinned, immutable client configuration:
       "args": [
         "-y",
         "-p",
-        "@agent-workflow/engine@0.0.2",
+        "@agent-workflow/engine@0.1.0-alpha.4",
         "workflows-engine-mcp"
       ]
     }
@@ -106,10 +110,10 @@ Run this sequence for every alpha publish event.
    - Inputs:
      - `release_ref`: release tag, branch, or SHA.
      - `dist_tag`: `alpha` for pre-release channel (use `latest` only if you want the publish step itself to target `latest`).
-     - `also_point_latest_dist_tag`: `true` (default) runs `npm dist-tag add @agent-workflow/engine@<version> latest` after publish so **`alpha` and `latest` both resolve to the same tarball** (typical for a promoted patch like `0.0.2`). Set `false` if you intentionally want `latest` left on an older build.
+     - `also_point_latest_dist_tag`: `true` (default) runs `npm dist-tag add @agent-workflow/engine@<version> latest` after publish so **`alpha` and `latest` both resolve to the same tarball** (typical when promoting a pre-release to the default channel). Set `false` if you intentionally want `latest` left on an older build.
 3. Post-publish smoke test:
    - `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp --help`
-   - `npx -y -p @agent-workflow/engine@0.0.2 workflows-engine-mcp --help`
+   - `npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp --help`
 4. Announcement update:
    - Update launch templates and release notes with the published version.
    - Publish channel posts from `docs/community-launch-playbook.md`.

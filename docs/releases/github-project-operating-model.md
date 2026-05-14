@@ -23,19 +23,10 @@ This document describes how roadmap execution is managed in:
   - `.github/ISSUE_TEMPLATE/*`
   - `.github/pull_request_template.md`
   - `.github/CODEOWNERS`
-- Automation workflow:
-  - `.github/workflows/project-roadmap-automation.yml`
 
-## Project automation status
+## Project membership
 
-Project #4 is configured and linked to this repository.
-
-Create or rotate the repo secret for project automation when needed:
-
-- Secret name: `PROJECTV2_TOKEN`
-- Token scopes: `repo`, `project`
-
-Without this secret, the automation workflow is intentionally skipped.
+Project #4 is configured and linked to this repository. **New issues and PRs are not auto-added by CI.** Add or move cards in the GitHub Project UI (or use `gh project` with appropriate scopes) during triage.
 
 ## Manual project views to configure
 
@@ -71,11 +62,15 @@ GitHub does not currently expose full project-view management in `gh`, so create
 
 Use native GitHub issue relationships as the canonical structure.
 
+### Planning narrative (issue bodies)
+
+- **Canonical epic/story content** (description, acceptance criteria, technical notes, links to `docs/RFC/`, `docs/poc-scope.md`, ADRs) lives in the **issue body** (and issue thread as needed). This replaces former per-epic and per-story markdown under `docs` for new work.
+- Keep hierarchy **metadata** in GitHub relationships, not only in prose: parent/child links are authoritative for structure.
+
 ### Hierarchy
 
 - Use **Parent/Sub-issue** relationships for epic-to-child decomposition.
-- Keep issue body hierarchy notes as short human-readable summaries only.
-- Do not treat markdown checklists as authoritative hierarchy state.
+- Do not treat markdown checklists in the body as authoritative hierarchy state when they conflict with parent/child metadata.
 
 ### Dependencies
 

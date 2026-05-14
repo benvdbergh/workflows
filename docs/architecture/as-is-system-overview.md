@@ -1,7 +1,7 @@
 # As-Is System Overview (POC Alpha Baseline)
 
-Last updated: 2026-04-14
-Status: Current implementation baseline (not a target architecture)
+Last updated: 2026-05-04
+Status: Current implementation baseline (not a target architecture). The Node.js reference engine at **`@agent-workflow/engine@0.1.0-alpha.4`** implements the **POC + R2** profile ([`docs/poc-scope.md`](../poc-scope.md)), including **host-mediated** and **engine-direct** `tool_call` execution per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md) and [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md). **Assistant-class** deployments still favor host-mediated activities; engine-direct is for operator/automation profiles. See `ROADMAP.md` for R3+ targets (`agent_delegate`, `subworkflow`, REST/SDK parity).
 
 ## Purpose
 
@@ -9,7 +9,7 @@ Document the current implementation state of the Agent Workflow Protocol reposit
 
 - Future design-first increments.
 - Structured ADR authoring.
-- Release planning and architecture runway decisions (`R2` onward).
+- Release planning and architecture runway decisions (R3 onward).
 
 This is an as-is snapshot. RFC documents remain the normative target contract.
 
@@ -52,14 +52,14 @@ Supported node types in active engine path:
 - `tool_call`
 - `switch`
 - `interrupt`
-
-Deferred in current POC runtime profile:
-
 - `parallel`
-- `agent_delegate`
-- `subworkflow`
 - `wait`
 - `set_state`
+
+Explicitly **out of scope** for the current engine profile (see `docs/poc-scope.md` §2.1):
+
+- `agent_delegate`
+- `subworkflow`
 
 Source of truth for this boundary: `docs/poc-scope.md`.
 
@@ -72,6 +72,13 @@ Source of truth for this boundary: `docs/poc-scope.md`.
 - Orchestration follows deterministic replay-oriented command/event progression.
 - Checkpoint events are emitted in the POC walker at deterministic boundaries.
 
+### Activity execution boundary (as-implemented vs target)
+
+- **As-implemented (reference package):** `step`, `llm_call`, and `tool_call` are driven through an injectable **`ActivityExecutor`** port. Default **`activityExecutionMode: "in_process"`** runs the executor immediately after `ActivityRequested`. With **`activityExecutionMode: "host_mediated"`**, the POC walker **returns** after persisting `ActivityRequested` (`status: "awaiting_activity"`); the host calls **`submitActivityOutcome`** (application port **`submitWorkflowActivity`**) to append `ActivityCompleted` / `ActivityFailed` and continue via the same deterministic replay path used for crash recovery. Parallel branches include **`parallelSpan`** on the request and yield payload for correlation. The shipped MCP stdio binary still defaults to in-process stub execution; a control-plane submit tool is tracked separately (see RFC-05 / ADR-0002 follow-ups).
+- **Target (assistant-class):** **Host-mediated execution** per [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md): the engine records `ActivityRequested` and yields; the **MCP host** runs tools or model calls, then submits results on a control-plane callback (see `docs/RFC/rfc-05-integration-interfaces.md`, section 5.2). **Hybrid** in-process executors remain valid for tests or embedded profiles, not the default assumption for IDE/assistant hosts.
+- **Target (reference engine — automation):** The engine **invokes** configured MCP **tools/call** (and **MAY** invoke bounded local command handlers where the deployment profile allows) inside the runtime during `in_process` activity execution, without requiring the conversational host to submit each outcome. Credential and server definitions **SHOULD** be alignable with host-side manifest formats (for example IDE `mcp.json`-style descriptors) so operators can avoid parallel, unrelated secret graphs where policy permits.
+- **Positioning:** Host-mediated paths mirror Cursor-class clients (host owns tools and credentials for that profile). Engine-direct paths target unattended and automation scenarios while preserving **deterministic** next-step selection from the graph and state, not a free-form agent loop inside the engine.
+
 ### Interfaces and surfaces
 
 - CLI validation entrypoint (`workflows-engine`).
@@ -79,6 +86,7 @@ Source of truth for this boundary: `docs/poc-scope.md`.
   - `workflow_start`
   - `workflow_status`
   - `workflow_resume`
+  - `workflow_submit_activity` (host-mediated continuation; see RFC-05 section 5.2 and ADR-0002)
 
 The MCP adapter maps tool DTOs to the internal application port and returns structured tool errors with stable codes.
 
@@ -175,6 +183,14 @@ Physical/runtime perspectives shown:
 3. Host polls `workflow_status`.
 4. Host uses `workflow_resume` for interrupt continuation.
 
+### Flow D: Host-mediated activity (ADR-0002; engine path implemented)
+
+1. Engine reaches an activity node with `activityExecutionMode: "host_mediated"`, appends `ActivityRequested` (including optional **`parallelSpan`** inside a `parallel` branch), and returns **`awaiting_activity`** with `nodeId`, workflow **`state`**, and matching **`parallelSpan`** when applicable.
+2. Engine does **not** call `ActivityExecutor` for that node until history already contains a completion (replay) or the host has submitted an outcome.
+3. Host performs MCP/LLM/`step` work out of band, then calls **`submitActivityOutcome`** / **`submitWorkflowActivity`** with the same **`input`** as the original start (for replay reconstruction), **`nodeId`**, optional **`expectedParallelSpan`**, and success or failure payload.
+4. Engine appends **`ActivityCompleted`** or **`ActivityFailed`**; on success it continues the graph via **`runPocWorkflow`** replay (same mechanism as mid-run recovery). **`workflow_status`** reports phase **`awaiting_activity`** when the latest non-checkpoint event is **`ActivityRequested`**.
+5. On **replay**, completed activities are satisfied from persisted history (no second host round-trip for the same node).
+
 ## Architecture strengths in current state
 
 - Clear protocol-to-POC boundary through `docs/poc-scope.md`.
@@ -182,10 +198,12 @@ Physical/runtime perspectives shown:
 - Stable adapter boundary (`createWorkflowApplicationPort`) reducing coupling.
 - Explicit conformance harness as part of the delivery contract.
 - Practical local/operator split for MCP deployment model.
+- Checkpoints after R2 parallel branch steps carry a **`parallelSpan`** correlation object (parallel node id, join target, branch name, branch entry) alongside inline state snapshots.
 
 ## Known gaps and intentional limitations
 
-- Active runtime does not yet implement deferred node families (`parallel`, `wait`, `set_state`, delegation/subworkflow).
+- `agent_delegate` and `subworkflow` remain deferred for this profile (R3+).
+- Host-mediated **submit** is exposed on the reference MCP stdio adapter (`workflow_submit_activity`). **Engine-direct** MCP or command execution with manifest-aligned configuration in that adapter remains **roadmap** work; activity nodes still use the in-process stub unless a custom `ActivityExecutor` is injected at the application port.
 - Conformance coverage is not yet full RFC-08 breadth.
 - Security hardening posture is intentionally POC-level for local stdio scenarios.
 - Multi-surface parity (REST/SDK breadth) is roadmap scope, not as-is baseline.
@@ -203,7 +221,8 @@ Use this as-is baseline to derive versioned viewpoints:
 
 Start ADRs from real tension points observed in this baseline:
 
-- Node coverage expansion strategy (`parallel`/`wait`/`set_state`) without replay regressions.
+- Host-mediated vs in-process activity execution (see [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md)).
+- Node coverage expansion strategy (R3 delegation/subworkflow, richer join/timer matrices) without replay regressions.
 - Checkpointing and replay guarantees versus performance/cost.
 - Adapter surface parity strategy (MCP first, REST/SDK sequencing).
 - Contract versioning and compatibility gates for GA stabilization.
@@ -216,6 +235,7 @@ Each ADR should link:
 
 ## Evidence references
 
+- `docs/architecture/adr/ADR-0002-host-mediated-activity-execution.md`
 - `packages/engine/README.md`
 - `conformance/README.md`
 - `docs/poc-scope.md`

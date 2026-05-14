@@ -1,19 +1,53 @@
-# Copy to your project root as `.project-planning.yaml` and adjust.
-# See references/frontmatter-schema.md for work-item YAML in epic/story files.
+# Workflows repository — planning manifest
+#
+# Override: canonical epics/stories live in GitHub issues + Project #4, not local
+# markdown. Generic project-planning defaults (epics_dir/stories_dir as the write
+# target) do NOT apply here.
+#
+# Full policy: .claude/skills/wf-plan/references/workflows-github-backlog-override.md
 
 version: 1
 
-defaults:
-  epics_dir: docs/epics
-  stories_dir: docs/stories
-  # tasks_dir: planning/tasks   # optional
+planning_canonical_store: github
 
-source_globs:
-  - PRD.md
-  - "docs/**/*.md"
-  - "**/adr/**/*.md"
+github:
+  repo: benvdbergh/workflows
+  project_number: 4
+  project_url: https://github.com/users/benvdbergh/projects/4
 
-naming:
-  epic_prefix: Epic-
-  story_prefix: Story-
-  task_prefix: Task-
+# Example GitHub CLI usage (from repo root; requires `gh auth login`).
+# Adjust flags to match your labels and milestones.
+#
+# Avoid scratch/issue bodies as --body-file under the repo root (untracked junk / commit risk).
+# Prefer stdin (gh … --body-file -), bash/PowerShell here-doc or here-string, or a temp path
+# outside the clone. See .claude/skills/wf-plan/references/github-tooling-guide.md.
+#
+# Open issues:
+#   gh issue list --repo benvdbergh/workflows --state open
+#
+# View one issue (title, body, labels — body is the story/epic narrative):
+#   gh issue view 123 --repo benvdbergh/workflows
+#   gh issue view 123 --repo benvdbergh/workflows --json title,body,labels,state,number
+#
+# Search by label (examples — use repo’s actual label names):
+#   gh issue list --repo benvdbergh/workflows --label "type:epic"
+#
+# Create or update issues (planning output lands here; use stdin or body-file outside repo):
+#   gh issue create --repo benvdbergh/workflows --title "..." --body-file -
+#   gh issue edit 123 --repo benvdbergh/workflows --body-file -
+#   gh issue edit N1 N2 --repo benvdbergh/workflows --milestone "R2 Beta - Full Core Orchestration"
+# Before any gh project … examples, refresh project token scopes (read + write project items):
+#   gh auth refresh -s read:project -s project
+# Project #4 fields (Type, Release, Horizon, Commitment, Runway, Area, Blocked) need those scopes:
+#   gh project item-add 4 --owner benvdbergh --url https://github.com/benvdbergh/workflows/issues/N
+#   gh project field-list 4 --owner benvdbergh   # then gh project item-edit ...
+#
+# Project (classic user project; field IDs may vary — use `gh project field-list`):
+#   gh project item-list 4 --owner benvdbergh --format json
+#   gh project view 4 --owner benvdbergh
+#
+# Parent/child (sub-issue) links: GitHub UI, or GraphQL addSubIssue / REST patterns in .claude/skills/wf-plan/references/github-tooling-guide.md (Appendix A).
+#
+# Historical per-epic/per-story markdown under docs/ was removed after GitHub backlog migration.
+legacy_markdown_mirror:
+  removed: true

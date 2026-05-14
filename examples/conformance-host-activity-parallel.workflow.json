@@ -1,0 +1,46 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "name": "conformance-host-par",
+    "version": "1.0.0"
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "y": { "type": "string" }
+    }
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "fork",
+      "type": "parallel",
+      "config": {
+        "join": "all",
+        "branches": [{ "name": "only", "entry": "a1" }]
+      }
+    },
+    {
+      "id": "a1",
+      "type": "tool_call",
+      "config": { "server": "demo-mcp", "tool": "stub", "arguments": {} }
+    },
+    {
+      "id": "join",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "y": { "literal": "after_join" }
+        }
+      }
+    },
+    { "id": "end", "type": "end", "config": { "output_mapping": ".y" } }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "start" },
+    { "source": "start", "target": "fork" },
+    { "source": "fork", "target": "join" },
+    { "source": "a1", "target": "join" },
+    { "source": "join", "target": "end" }
+  ]
+}

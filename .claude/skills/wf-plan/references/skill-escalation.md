@@ -6,11 +6,14 @@
 - Routing intake to the correct specialist planning/architecture/versioning skills.
 - Commitment-vs-forecast labeling and consolidation across roadmap/release/cadence views.
 - Cadence-ready reporting format (status, risk, confidence trend, next decisions).
+- **GitHub planning hygiene** for this repo: issue titles/labels/milestones, Project #4 planning fields, parent/sub-issue and blocked-by relationships when creating or updating backlog items (see `github-tooling-guide.md`).
 
 ## Does Not Own
 
 - Product strategy frameworks, prioritization formulas, and roadmap design mechanics.
-- Detailed epic/story/task decomposition and planning file lifecycle operations.
+- INVEST-style decomposition mechanics and readiness **process** (escalate to **`project-planning`**); `wf-plan` adds **where** artifacts go in GitHub and **how** to touch the API safely.
+- Branch/PR linkage, execution status, merge hygiene, and release-close carryover (escalate to **`wf-execute`**).
+- Parallel planning markdown trees under `docs` (canonical narrative is GitHub issues per override).
 - Deep architecture design, trade-off analysis, and technical topology selection.
 - SemVer policy, changelog rules, version bump governance, and release automation policy.
 
@@ -22,7 +25,7 @@
 | Release content must be sliced and confidence-ranked | `product-roadmap` | Committed vs forecast slices with rationale |
 | Release/version policy, bump semantics, or governance is needed | `release-versioning` | Version/release policy decision and release governance artifacts |
 | Architecture enablers or runway constraints affect plan timing | `software-architecture` | Runway dependencies, risks, and architecture constraints |
-| Roadmap items must map into executable epics/stories/dependencies | `project-planning` | Decomposed work items with traceability and dependency ordering |
+| Roadmap items must map into executable epics/stories/dependencies | `project-planning` | Decomposed work as **GitHub issues** (bodies + relationships) with traceability and dependency ordering; see `workflows-github-backlog-override.md` |
 
 ## Routing Rules
 
