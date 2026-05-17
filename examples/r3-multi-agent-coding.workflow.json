@@ -19,9 +19,13 @@
     { "id": "start", "type": "start" },
     {
       "id": "implement",
-      "type": "step",
+      "type": "agent_delegate",
       "config": {
-        "handler": "implementTask"
+        "agent_id": "coder",
+        "protocol": "a2a",
+        "input_mapping": {
+          "task": "${ .task }"
+        }
       }
     },
     {

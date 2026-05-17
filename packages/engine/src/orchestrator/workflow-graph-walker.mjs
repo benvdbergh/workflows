@@ -1,6 +1,6 @@
 /**
  * General workflow graph walker: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`,
- * `parallel`, `wait`, `set_state`, and `subworkflow`.
+ * `parallel`, `wait`, `set_state`, `subworkflow`, and `agent_delegate`.
  * Switch routing uses only `config.cases` / `config.default` (static edges from the switch id are ignored).
  */
 import Ajv2020 from "ajv/dist/2020.js";
@@ -15,6 +15,8 @@ import {
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 import { hydrateReplayContext } from "./replay-loader.mjs";
 import { createParallelJoinRuntime } from "./parallel-join-runtime.mjs";
+import { MockA2ADelegateExecutor } from "./delegate-executor.mjs";
+import { executeDelegateNode } from "./delegate-runtime.mjs";
 import { executeSubworkflowNode } from "./subworkflow-runtime.mjs";
 import { assertWorkflowGraphInvariants, buildOutgoing } from "./workflow-graph-invariants.mjs";
 import {
@@ -61,6 +63,8 @@ const PLACEHOLDER_TYPES = new Set(["step", "llm_call", "tool_call"]);
  * @property {number} [subworkflowDepth] nested subworkflow depth (default 0).
  * @property {number} [maxSubworkflowDepth] max nested depth (default 4).
  * @property {boolean} [assertNoSubworkflowInvocation] when true, nested child runs throw (conformance replay).
+ * @property {import("./delegate-executor.mjs").DelegateExecutor} [delegateExecutor]
+ * @property {boolean} [assertNoDelegateExecutorInvocation] when true, delegate port must not run (conformance replay).
  */
 
 /**
@@ -84,8 +88,11 @@ export async function runGraphWorkflow(options) {
     subworkflowDepth = 0,
     maxSubworkflowDepth = 4,
     assertNoSubworkflowInvocation = false,
+    delegateExecutor,
+    assertNoDelegateExecutorInvocation = false,
   } = options;
   const executor = activityExecutor ?? new StubActivityExecutor(stubActivityOutputs);
+  const delegatePort = delegateExecutor ?? new MockA2ADelegateExecutor();
 
   if (!definition || typeof definition !== "object") {
     return { status: "failed", error: "definition must be a non-null object" };
@@ -436,6 +443,8 @@ export async function runGraphWorkflow(options) {
           activityExecutor: executor,
           activityExecutionMode,
           assertNoSubworkflowInvocation,
+          delegateExecutor: delegatePort,
+          assertNoDelegateExecutorInvocation,
           runGraphWorkflow,
           jq,
         });
@@ -458,6 +467,48 @@ export async function runGraphWorkflow(options) {
           );
         }
         current = swNext[0];
+        continue;
+      }
+
+      if (node.type === "agent_delegate") {
+        const del = await executeDelegateNode({
+          node: /** @type {{ id: string; config?: object }} */ (node),
+          state,
+          executionId,
+          scheduled,
+          replay,
+          delegateExecutor: delegatePort,
+          assertNoDelegateExecutorInvocation,
+          appendEvt,
+          jq,
+        });
+        if (del.kind === "failed") {
+          appendCmd("FailNode", {
+            nodeId: current,
+            reason: "delegate_failed",
+            message: del.error,
+            ...(del.code !== undefined ? { code: del.code } : {}),
+          });
+          appendEvt("ExecutionFailed", { error: del.error });
+          return { status: "failed", error: del.error, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: del.output });
+        state = /** @type {Record<string, unknown>} */ (
+          applyOutputWithReducers(state, del.output, definition.state_schema)
+        );
+        const delStateSeq = appendEvt("StateUpdated", {
+          nodeId: current,
+          state: JSON.parse(JSON.stringify(state)),
+        });
+        appendCheckpoint(current, state, delStateSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after agent_delegate "${current}"`);
+        const delNext = outgoing.get(current) ?? [];
+        if (delNext.length !== 1) {
+          throw new Error(
+            `Node "${current}" (agent_delegate) must have exactly one outgoing edge; found ${delNext.length}.`
+          );
+        }
+        current = delNext[0];
         continue;
       }
 
@@ -593,8 +644,11 @@ export async function resumeGraphWorkflow(options) {
     subworkflowDepth = 0,
     maxSubworkflowDepth = 4,
     assertNoSubworkflowInvocation = false,
+    delegateExecutor,
+    assertNoDelegateExecutorInvocation = false,
   } = options;
   const executor = activityExecutor ?? new StubActivityExecutor(stubActivityOutputs);
+  const delegatePort = delegateExecutor ?? new MockA2ADelegateExecutor();
 
   if (!definition || typeof definition !== "object") {
     return { status: "failed", error: "definition must be a non-null object" };
@@ -1027,6 +1081,8 @@ export async function resumeGraphWorkflow(options) {
           activityExecutor: executor,
           activityExecutionMode,
           assertNoSubworkflowInvocation,
+          delegateExecutor: delegatePort,
+          assertNoDelegateExecutorInvocation,
           runGraphWorkflow,
           jq,
         });
@@ -1049,6 +1105,48 @@ export async function resumeGraphWorkflow(options) {
           );
         }
         current = swNext[0];
+        continue;
+      }
+
+      if (node.type === "agent_delegate") {
+        const del = await executeDelegateNode({
+          node: /** @type {{ id: string; config?: object }} */ (node),
+          state,
+          executionId,
+          scheduled: { replayed: false },
+          replay: /** @type {import("./replay-loader.mjs").ReplayHydrationResult} */ (emptyReplay),
+          delegateExecutor: delegatePort,
+          assertNoDelegateExecutorInvocation,
+          appendEvt,
+          jq,
+        });
+        if (del.kind === "failed") {
+          appendCmd("FailNode", {
+            nodeId: current,
+            reason: "delegate_failed",
+            message: del.error,
+            ...(del.code !== undefined ? { code: del.code } : {}),
+          });
+          appendEvt("ExecutionFailed", { error: del.error });
+          return { status: "failed", error: del.error, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: del.output });
+        state = /** @type {Record<string, unknown>} */ (
+          applyOutputWithReducers(state, del.output, definition.state_schema)
+        );
+        const delStateSeq = appendEvt("StateUpdated", {
+          nodeId: current,
+          state: JSON.parse(JSON.stringify(state)),
+        });
+        appendCheckpoint(current, state, delStateSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after agent_delegate "${current}"`);
+        const delNext = outgoing.get(current) ?? [];
+        if (delNext.length !== 1) {
+          throw new Error(
+            `Node "${current}" (agent_delegate) must have exactly one outgoing edge; found ${delNext.length}.`
+          );
+        }
+        current = delNext[0];
         continue;
       }
 
@@ -1178,6 +1276,8 @@ export async function submitActivityOutcome(options) {
     activityExecutionMode = "host_mediated",
     stubActivityOutputs = {},
     activityExecutor,
+    delegateExecutor,
+    assertNoDelegateExecutorInvocation = false,
   } = options;
 
   if (!definition || typeof definition !== "object") {
@@ -1303,5 +1403,7 @@ export async function submitActivityOutcome(options) {
     stubActivityOutputs,
     activityExecutor,
     activityExecutionMode,
+    ...(delegateExecutor ? { delegateExecutor } : {}),
+    ...(assertNoDelegateExecutorInvocation ? { assertNoDelegateExecutorInvocation: true } : {}),
   });
 }

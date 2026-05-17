@@ -118,7 +118,8 @@
         { "$ref": "#/$defs/node_parallel" },
         { "$ref": "#/$defs/node_wait" },
         { "$ref": "#/$defs/node_set_state" },
-        { "$ref": "#/$defs/node_subworkflow" }
+        { "$ref": "#/$defs/node_subworkflow" },
+        { "$ref": "#/$defs/node_agent_delegate" }
       ]
     },
     "node_start": {
@@ -457,6 +458,35 @@
               "additionalProperties": true
             },
             "version_pin": { "type": "string", "minLength": 1 }
+          }
+        },
+        "retry": { "$ref": "#/$defs/retry_policy" },
+        "timeout": { "$ref": "#/$defs/node_level_timeout" },
+        "metadata": { "$ref": "#/$defs/node_level_metadata" }
+      }
+    },
+    "node_agent_delegate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "config"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "agent_delegate" },
+        "config": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["agent_id", "protocol", "input_mapping"],
+          "properties": {
+            "agent_id": { "type": "string", "minLength": 1 },
+            "protocol": {
+              "type": "string",
+              "enum": ["a2a", "mcp", "sdk"]
+            },
+            "input_mapping": {
+              "type": "object",
+              "minProperties": 0,
+              "additionalProperties": true
+            }
           }
         },
         "retry": { "$ref": "#/$defs/retry_policy" },

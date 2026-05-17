@@ -32,6 +32,8 @@ export function mintChildExecutionId(parentExecutionId, nodeId) {
  * @param {import("./activity-executor.mjs").ActivityExecutor} [args.activityExecutor]
  * @param {"in_process" | "host_mediated"} [args.activityExecutionMode]
  * @param {boolean} [args.assertNoSubworkflowInvocation]
+ * @param {import("./delegate-executor.mjs").DelegateExecutor} [args.delegateExecutor]
+ * @param {boolean} [args.assertNoDelegateExecutorInvocation]
  * @param {(options: import("./workflow-graph-walker.mjs").RunGraphWorkflowOptions) => Promise<import("./workflow-graph-walker.mjs").RunGraphWorkflowResult>} args.runGraphWorkflow
  * @param {{ json: (data: unknown, query: string) => Promise<unknown> }} args.jq
  * @returns {Promise<{ kind: "ok" } | { kind: "failed"; error: string }>}
@@ -53,6 +55,8 @@ export async function executeSubworkflowNode(args) {
     activityExecutor,
     activityExecutionMode,
     assertNoSubworkflowInvocation = false,
+    delegateExecutor,
+    assertNoDelegateExecutorInvocation = false,
     runGraphWorkflow,
     jq,
   } = args;
@@ -153,6 +157,8 @@ export async function executeSubworkflowNode(args) {
     subworkflowDepth: subworkflowDepth + 1,
     maxSubworkflowDepth,
     assertNoSubworkflowInvocation,
+    ...(delegateExecutor ? { delegateExecutor } : {}),
+    ...(assertNoDelegateExecutorInvocation ? { assertNoDelegateExecutorInvocation: true } : {}),
   });
 
   if (childRun.status === "interrupted" || childRun.status === "awaiting_activity") {
