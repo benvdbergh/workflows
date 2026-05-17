@@ -1,0 +1,35 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "name": "conformance-agent-delegate-linear",
+    "version": "1.0.0",
+    "description": "Linear graph: start → agent_delegate → end (conformance / replay)."
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "task": { "type": "string" },
+      "patch": { "type": "string" }
+    }
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "implement",
+      "type": "agent_delegate",
+      "config": {
+        "agent_id": "coder",
+        "protocol": "a2a",
+        "input_mapping": {
+          "task": "${ .task }"
+        }
+      }
+    },
+    { "id": "end", "type": "end" }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "start" },
+    { "source": "start", "target": "implement" },
+    { "source": "implement", "target": "end" }
+  ]
+}

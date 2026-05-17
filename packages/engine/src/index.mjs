@@ -8,6 +8,11 @@
 export * from "./validate.mjs";
 export { RejectingActivityExecutor, StubActivityExecutor } from "./orchestrator/activity-executor.mjs";
 export {
+  MockA2ADelegateExecutor,
+  RejectingDelegateExecutor,
+  mintDelegateCorrelationId,
+} from "./orchestrator/delegate-executor.mjs";
+export {
   callMcpToolStdio,
   DEFAULT_MCP_ACTIVITY_TOOL_TIMEOUT_MS,
   mapMcpCallToolResultToActivityResult,
