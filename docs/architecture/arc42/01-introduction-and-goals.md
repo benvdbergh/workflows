@@ -34,7 +34,7 @@ Current architecture favors **deterministic replay** and a **narrow POC profile*
 
 ## 1.3 Out of scope for this baseline (documented explicitly elsewhere)
 
-Deferred or non-goals **for current profile**: `agent_delegate` (R3 #6); full multi-surface SDK/REST parity; full RFC-08 breadth in conformance. **`subworkflow`** is in profile (R3 #7). Details: `docs/poc-scope.md`, `ROADMAP.md`.
+Deferred or non-goals **for current profile**: full multi-surface SDK/REST parity; full RFC-08 breadth in conformance. **R3** adds `subworkflow` and `agent_delegate` per [ADR-0004](../adr/ADR-0004-r3-delegation-and-subworkflow.md). Details: `docs/poc-scope.md`, `ROADMAP.md`.
 
 ## 1.4 Next-phase documentation viewpoints (evolution)
 

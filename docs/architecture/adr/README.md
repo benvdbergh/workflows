@@ -54,3 +54,4 @@ Each ADR should include:
 - `ADR-0001-poc-foundation-decisions.md` — amended 2026-05-05; runtime scope truth is always [`docs/poc-scope.md`](../../poc-scope.md) (see ADR amendment section).
 - `ADR-0002-host-mediated-activity-execution.md`
 - `ADR-0003-engine-direct-mcp-activity-execution.md`
+- `ADR-0004-r3-delegation-and-subworkflow.md`

@@ -102,7 +102,7 @@ At that point, design-first governance and structured ADR sequencing become the 
 
 ## Follow-up ADR candidates
 
-- ADR for native `agent_delegate` / `subworkflow` when promoted beyond the current engine profile.
+- ~~ADR for native `agent_delegate` / `subworkflow`~~ — **Accepted** as [ADR-0004](ADR-0004-r3-delegation-and-subworkflow.md) (R3).
 - ADR for replay/checkpoint guarantees and performance boundaries.
 - ADR for adapter parity strategy (MCP, REST, SDK evolution).
 - ADR for compatibility and versioning policy toward GA stabilization.

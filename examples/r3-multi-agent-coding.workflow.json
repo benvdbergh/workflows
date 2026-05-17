@@ -3,7 +3,7 @@
     "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
     "name": "coding-task",
     "version": "1.0.0",
-    "description": "RFC-03 Example C shape: implement (stub step) + verify subworkflow + review interrupt."
+    "description": "RFC-03 Example C shape: implement (agent_delegate) + verify (subworkflow) + review (interrupt)."
   },
   "state_schema": {
     "type": "object",
