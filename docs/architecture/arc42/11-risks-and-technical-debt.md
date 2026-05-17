@@ -9,7 +9,8 @@
 | **Documentation drift** *(meta)* | Narrative contradicts walker code | Maintain arc42 + draw.io cross-links each release |
 | **Engine-direct ergonomics mismatch** | Integrators omit manifest wiring | MCP stdio binary defaults **`in_process` stub executor** unless operators supply **`WORKFLOW_ENGINE_MCP_CONFIG` / `--mcp-config`** or inject a bespoke **`ActivityExecutor`**—easily mistaken for broken tool execution (**ADR-0003**) |
 | **Security posture POC-level** | Local stdio MCP trust assumptions bleed into unattended automation | Elevate manifests + scopes before scaling engine-direct footprints (**ADR-0002**, **ADR-0003**) |
-| **`agent_delegate` / `subworkflow` absent** | Power users blocked on composition primitives | Planned roadmap scope—keep schema + poc-scope deltas synchronized when tackling |
+| **`subworkflow` status correlation not on MCP status** | Operators cannot see child `executionId` without reading history | [#8](https://github.com/benvdbergh/workflows/issues/8) parity + status projection |
+| **`agent_delegate` absent** | Delegation still via `tool_call` bridge | R3 [#6](https://github.com/benvdbergh/workflows/issues/6) |
 
 ## Debt register snippets (engineering)
 

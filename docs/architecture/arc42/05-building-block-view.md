@@ -59,7 +59,9 @@ Implemented node categories (representative—not duplicating schema tables here
 
 **Activities:** `step`, `llm_call`, `tool_call`, `interrupt`
 
-**Out of profile:** `agent_delegate`, `subworkflow` (blocked by schema + scope note).
+**Composition (R3):** `subworkflow` (nested child `executionId`, `subworkflow-runtime.mjs`, `workflow-ref-resolver.mjs`)
+
+**Out of profile (until #6):** `agent_delegate`
 
 ---
 

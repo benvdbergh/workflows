@@ -1,0 +1,26 @@
+{
+  "id": "parity.r2.interrupt_resume",
+  "description": "Lighthouse low-confidence path interrupts; resume completes with billing intent.",
+  "kind": "parity",
+  "definition": "examples/lighthouse-customer-routing.workflow.json",
+  "executionId": "parity-interrupt-resume-1",
+  "steps": [
+    {
+      "op": "start",
+      "input": { "ticket_text": "unclear" },
+      "expect": { "status": "interrupted", "node_id": "human_review" }
+    },
+    {
+      "op": "status",
+      "expect": { "phase": "interrupted", "current_node_id": "human_review" }
+    },
+    {
+      "op": "resume",
+      "resumePayload": { "intent": "billing" },
+      "expect": {
+        "status": "completed",
+        "result": { "intent": "billing", "confidence": null }
+      }
+    }
+  ]
+}

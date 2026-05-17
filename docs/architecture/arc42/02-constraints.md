@@ -19,7 +19,7 @@
 ## 2.3 Conventions enforcing the profile (`docs/poc-scope.md`)
 
 - **Workflow document shape**: `document`, `state_schema`, `nodes`, `edges`; optional `checkpointing`; **no top-level `extensions`** in POC.
-- **Node type set**: in-scope POC types include `parallel`, `wait`, `set_state`; **out**: `agent_delegate`, `subworkflow`.
+- **Node type set**: in-scope POC types include `parallel`, `wait`, `set_state`, `subworkflow` (R3); **`agent_delegate`** lands with [#6](https://github.com/benvdbergh/workflows/issues/6).
 - **Edge / routing rules**: e.g. `switch` resolves via `config.cases` / `config.default`; `parallel` joins as documented in profile—not every RFC edge shape is interchangeable.
 - **jq and reducers**: `switch.when` / `end.output_mapping` jq strings; reducers `overwrite`/`append`/`merge` only (**`custom` rejected** in POC).
 - **Interrupt placement**: profile calls out **`interrupt` inside `parallel`** as not resume-safe.

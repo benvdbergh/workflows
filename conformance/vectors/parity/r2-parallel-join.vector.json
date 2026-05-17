@@ -1,0 +1,37 @@
+{
+  "id": "parity.r2.parallel_join",
+  "description": "Parallel branch host-mediated activity includes parallel_span; submit joins and completes.",
+  "kind": "parity",
+  "definition": "examples/conformance-host-activity-parallel.workflow.json",
+  "executionId": "parity-parallel-join-1",
+  "steps": [
+    {
+      "op": "start",
+      "input": {},
+      "activityExecutionMode": "host_mediated",
+      "expect": {
+        "status": "awaiting_activity",
+        "node_id": "a1",
+        "parallel_span": {
+          "parallel_node_id": "fork",
+          "join_target_id": "join",
+          "branch_name": "only",
+          "branch_entry_node_id": "a1"
+        }
+      }
+    },
+    {
+      "op": "submit_activity",
+      "nodeId": "a1",
+      "outcome": { "ok": true, "result": { "y": "branch" } },
+      "activityExecutionMode": "host_mediated",
+      "expectedParallelSpan": {
+        "parallelNodeId": "fork",
+        "joinTargetId": "join",
+        "branchName": "only",
+        "branchEntryNodeId": "a1"
+      },
+      "expect": { "status": "completed", "result": "after_join" }
+    }
+  ]
+}

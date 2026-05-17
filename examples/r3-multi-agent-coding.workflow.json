@@ -1,0 +1,60 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "name": "coding-task",
+    "version": "1.0.0",
+    "description": "RFC-03 Example C shape: implement (stub step) + verify subworkflow + review interrupt."
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "task": { "type": "string" },
+      "repo": { "type": "string" },
+      "patch": { "type": "string" },
+      "tests_passed": { "type": "boolean" },
+      "review_ok": { "type": "boolean" }
+    }
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "implement",
+      "type": "step",
+      "config": {
+        "handler": "implementTask"
+      }
+    },
+    {
+      "id": "verify",
+      "type": "subworkflow",
+      "config": {
+        "workflow_ref": "urn:awp:wf:unit-tests",
+        "input_mapping": {
+          "repo": "${ .repo }"
+        }
+      }
+    },
+    {
+      "id": "review",
+      "type": "interrupt",
+      "config": {
+        "prompt": "Approve patch for merge?",
+        "resume_schema": {
+          "type": "object",
+          "properties": {
+            "approve": { "type": "boolean" }
+          },
+          "required": ["approve"]
+        }
+      }
+    },
+    { "id": "end", "type": "end" }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "start" },
+    { "source": "start", "target": "implement" },
+    { "source": "implement", "target": "verify" },
+    { "source": "verify", "target": "review" },
+    { "source": "review", "target": "end" }
+  ]
+}

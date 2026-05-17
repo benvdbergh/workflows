@@ -46,6 +46,7 @@ These discriminators **MUST** be supported by the POC schema bundle and honored 
 | `parallel` | Fork/join per RFC-03: `config.join` is `all` \| `any` \| `n_of_m` (with `n`), `config.branches` is `{ name, entry }[]` where `entry` is the first node id of a branch. Exactly **one** static edge leaves the parallel node to the **join target**; each branch must reach that target via its own linear chain (see golden `examples/r2-research-parallel.workflow.json`). |
 | `wait` | `config.kind`: `duration` (requires `duration_ms` or parseable `duration` string), `until` (ISO-8601 `until` timestamp), or `signal` (**requires host**; unsupported in bare engine — fails at runtime). |
 | `set_state` | `config.assignments`: map of state keys to `{ "jq": "<expr>" }` or `{ "literal": <value> }`; merged with `state_schema` reducers. |
+| `subworkflow` | **R3:** nested workflow per RFC-03: `config.workflow_ref` (URI/registry id), required `config.input_mapping`; optional `version_pin`. Child runs use a distinct `executionId`; parent merges child `finalState` into parent state. Max nested depth default 4. |
 
 Common node fields [RFC-03 §3.5](rfc-03-workflow-definition-schema.md#35-node-object-common-fields): `id`, `type`, optional `config`, `retry`, `timeout`, `metadata` — all **in scope** where applicable.
 
@@ -54,7 +55,6 @@ Common node fields [RFC-03 §3.5](rfc-03-workflow-definition-schema.md#35-node-o
 Implementers **MUST NOT** infer support from the full RFC for:
 
 - `agent_delegate`
-- `subworkflow`
 
 Validators **MUST** reject unknown `type` values (including the above until promoted).
 
@@ -121,11 +121,11 @@ The full taxonomies are [RFC-04 §4.4](rfc-04-execution-model.md#44-command-taxo
 - `ScheduleNode`, `CompleteNode`, `FailNode`
 - `RaiseInterrupt`, `ResumeInterrupt`
 - **R2:** `StartParallel`, `JoinParallel`, `CancelParallelBranch`, `StartTimer`
+- **R3:** `StartSubworkflow`, `CompleteSubworkflow`
 
 **Commands — out of scope**
 
 - `CancelTimer` (reserved; not emitted by current reference `wait` paths)
-- `StartSubworkflow`, `CompleteSubworkflow`
 - `EmitSignal`
 
 **Events — in scope (minimum observable history)**
@@ -137,14 +137,11 @@ The full taxonomies are [RFC-04 §4.4](rfc-04-execution-model.md#44-command-taxo
 - `InterruptRaised`, `InterruptResumed`
 - `ExecutionCompleted`, `ExecutionFailed`
 - **R2:** `ParallelForked`, `ParallelJoined`, `ParallelBranchCancelled`, `TimerStarted`, `TimerFired`
+- **R3:** `SubworkflowStarted`, `SubworkflowCompleted` (payloads include `childExecutionId`, `parentExecutionId`, `workflowRef`, `nodeId`)
 
 **Events — optional / phased**
 
 - `CheckpointWritten` — emitted when checkpointing is not `disabled`; payload `policy` is `after_each_node` or `every_n_nodes` (with `intervalNodes` when interval policy is used). Checkpoints taken **inside a parallel branch** (per-branch walk before the join target) include **`parallelSpan`**: `{ parallelNodeId, joinTargetId, branchName, branchEntryNodeId }` so readers can correlate inline `stateRef` with fork/join context ([RFC-04 §4.10](rfc-04-execution-model.md#410-checkpointing)).
-
-**Out of scope (deferred)**
-
-- `SubworkflowStarted`, `SubworkflowCompleted`
 
 Lifecycle phases [RFC-04 §4.2](rfc-04-execution-model.md#42-phases) **MUST** be respected at a high level: validate → start → walk graph → complete or fail; interrupt transitions per [§4.8](rfc-04-execution-model.md#48-interrupt-and-resume-protocol). Deterministic replay [§4.3](rfc-04-execution-model.md#43-deterministic-replay) is **normative for the protocol** but **MAY** land in a later milestone than the first runnable scheduler; this document still lists the command/event shapes the POC definition is intended to align with.
 

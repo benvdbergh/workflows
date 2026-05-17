@@ -8,6 +8,7 @@ import {
   submitActivityOutcome,
   validateWorkflowDefinition,
 } from "../packages/engine/src/index.mjs";
+import { runParityVector } from "./parity-runner.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -17,7 +18,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  * @typedef {{
  *   id: string;
  *   description?: string;
- *   kind: "schema" | "replay";
+ *   kind: "schema" | "replay" | "parity";
  *   definition: string;
  *   input?: Record<string, unknown>;
  *   historyPrefix?: Array<{
@@ -27,6 +28,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *   }>;
  *   activityExecutionMode?: "in_process" | "host_mediated";
  *   assertNoActivityExecutorInvocation?: boolean;
+ *   assertNoSubworkflowInvocation?: boolean;
  *   activitySubmissions?: Array<{
  *     nodeId: string;
  *     outcome:
@@ -172,6 +174,7 @@ async function runReplayVector(vector) {
   const activityExecutionMode = vector.activityExecutionMode ?? "in_process";
   const activitySubmissions = Array.isArray(vector.activitySubmissions) ? vector.activitySubmissions : [];
   const assertNoActivityExecutorInvocation = vector.assertNoActivityExecutorInvocation === true;
+  const assertNoSubworkflowInvocation = vector.assertNoSubworkflowInvocation === true;
   const activityExecutor = assertNoActivityExecutorInvocation ? new RejectingActivityExecutor() : undefined;
 
   let run = await runGraphWorkflow({
@@ -181,6 +184,7 @@ async function runReplayVector(vector) {
     store,
     activityExecutionMode,
     ...(activityExecutor ? { activityExecutor } : {}),
+    ...(assertNoSubworkflowInvocation ? { assertNoSubworkflowInvocation: true } : {}),
   });
 
   for (const step of activitySubmissions) {
@@ -386,7 +390,7 @@ function evaluateDiagnosticSignals(errors, signals) {
  */
 export async function runVector(discovered) {
   const { file, vector } = discovered;
-  if (vector.kind !== "schema" && vector.kind !== "replay") {
+  if (vector.kind !== "schema" && vector.kind !== "replay" && vector.kind !== "parity") {
     return {
       id: vector.id,
       file: path.relative(repoRoot, file),
@@ -396,6 +400,22 @@ export async function runVector(discovered) {
   }
 
   try {
+    if (vector.kind === "parity") {
+      const execution = await runParityVector(
+        /** @type {import("./parity-runner.mjs").ParityVector} */ (vector),
+        repoRoot
+      );
+      const category = execution.category ?? (execution.passed ? "parity-pass" : "parity-fail");
+      return {
+        id: vector.id,
+        file: path.relative(repoRoot, file),
+        category,
+        passed: execution.passed,
+        ...(execution.reason ? { reason: execution.reason } : {}),
+        ...(execution.context ? { context: execution.context } : {}),
+      };
+    }
+
     if (vector.kind === "schema") {
       const execution = runSchemaVector(vector);
       const schemaExpect =

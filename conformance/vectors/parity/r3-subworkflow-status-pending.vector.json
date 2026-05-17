@@ -1,0 +1,10 @@
+{
+  "id": "parity.r3.subworkflow_status_correlation",
+  "description": "subworkflow childExecutionId / parentExecutionId on status — pending #7.",
+  "kind": "parity",
+  "pending": true,
+  "pendingReason": "Requires native subworkflow (#7) and child execution history.",
+  "definition": "examples/lighthouse-customer-routing.workflow.json",
+  "executionId": "parity-r3-subworkflow-pending",
+  "steps": []
+}

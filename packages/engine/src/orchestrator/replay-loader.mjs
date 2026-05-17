@@ -156,14 +156,40 @@ function collectReplayResults(rows) {
   /** @type {Map<string, Record<string, unknown>>} */
   const replayResults = new Map();
   for (const row of rows) {
-    if (row.kind !== "event" || row.name !== "ActivityCompleted") continue;
+    if (row.kind !== "event") continue;
     const nodeId = typeof row.payload?.nodeId === "string" ? row.payload.nodeId : undefined;
-    const result =
-      row.payload?.result && typeof row.payload.result === "object"
-        ? /** @type {Record<string, unknown>} */ (row.payload.result)
-        : undefined;
-    if (!nodeId || !result) continue;
-    replayResults.set(nodeId, JSON.parse(JSON.stringify(result)));
+    if (!nodeId) continue;
+
+    if (row.name === "ActivityCompleted") {
+      const result =
+        row.payload?.result && typeof row.payload.result === "object"
+          ? /** @type {Record<string, unknown>} */ (row.payload.result)
+          : undefined;
+      if (!result) continue;
+      replayResults.set(nodeId, JSON.parse(JSON.stringify(result)));
+      continue;
+    }
+
+    if (row.name === "SubworkflowCompleted") {
+      const mergedOutput =
+        row.payload?.mergedOutput && typeof row.payload.mergedOutput === "object"
+          ? /** @type {Record<string, unknown>} */ (row.payload.mergedOutput)
+          : row.payload?.childFinalState && typeof row.payload.childFinalState === "object"
+            ? /** @type {Record<string, unknown>} */ (row.payload.childFinalState)
+            : undefined;
+      if (!mergedOutput) continue;
+      replayResults.set(
+        nodeId,
+        JSON.parse(
+          JSON.stringify({
+            childExecutionId: row.payload?.childExecutionId,
+            childFinalState: row.payload?.childFinalState,
+            childResult: row.payload?.childResult,
+            mergedOutput,
+          })
+        )
+      );
+    }
   }
   return replayResults;
 }

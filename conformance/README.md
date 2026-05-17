@@ -35,6 +35,7 @@ Current domain coverage:
 - `vectors/schema/valid/*.vector.json`
 - `vectors/schema/invalid/*.vector.json`
 - `vectors/replay/**/*.vector.json` (includes `replay/host-activity/` for host-mediated activity replay and submit error codes; `replay/engine-direct-activity/` for in-process / engine-direct replay invariants)
+- `vectors/parity/*.vector.json` — cross-surface contract parity (application port vs MCP tool handlers, in-process)
 
 Additional domains (expanded reducer matrices, dedicated interrupt-resume cases, MCP mock roundtrip, and similar) should follow the same layout and runner contract.
 
@@ -52,7 +53,7 @@ Each vector file is JSON. Schema vector example:
 ```
 
 - `id`: stable identifier used in logs and CI output.
-- `kind`: vector executor (`schema` currently supported).
+- `kind`: vector executor (`schema`, `replay`, or `parity`).
 - `definition`: path relative to repository root.
 - `expect.ok`: expected validation outcome.
 - `expect.diagnostics` (optional): stable failure signals for expected-invalid vectors.
@@ -134,6 +135,7 @@ The matrix below maps RFC-08 section `8.2 Conformance tests` areas to the curren
 | Parallel joins (`all`, `any`, `n_of_m`) | Partial | R2 reference engine implements join policies; harness covers deterministic replay through a parallel fork/join tail (`r2-research-prefix-after-plan`); dedicated join-policy matrix vectors still deferred |
 | Interrupt resume (validation failure vs success) | Partial | Replay vectors exercise resume cursor behavior; lighthouse happy-path coverage is active, while dedicated interrupt resume conformance vectors are still deferred |
 | MCP tool mapping roundtrip (mock server) | Deferred | MCP adapter conformance vectors not yet implemented in harness |
+| Cross-surface adapter parity (port vs MCP, in-process) | Implemented | `conformance/vectors/parity/*.vector.json`; matrix in `docs/architecture/arc42-assets/contracts/integration-parity-matrix.md` |
 | Host-mediated activity replay / submit | Implemented | `vectors/replay/host-activity/` (linear + parallel branch correlation, replay-safe `ActivityCompleted` in prefix, duplicate and mismatch submits) |
 | Engine-direct (in-process) activity replay — no duplicate activity port calls | Implemented | `vectors/replay/engine-direct-activity/` (`assertNoActivityExecutorInvocation` + `ActivityCompleted` in prefix; linear + parallel `tool_call`) |
 
@@ -145,6 +147,38 @@ The matrix below maps RFC-08 section `8.2 Conformance tests` areas to the curren
 | Parallel join conformance (full matrix) | Deferred | Join policies are implemented in-engine; harness lacks explicit `all` / `any` / `n_of_m` matrix vectors | Story adds replay/schema vectors per join policy and failure modes |
 | Interrupt resume conformance (dedicated vectors) | Deferred (currently partial) | Existing replay vectors validate deterministic continuation mechanics and protect lighthouse happy path, but not explicit interrupt-resume success/failure matrix cases | Story adds interrupt pause/resume fixture set with both schema-valid and schema-invalid resume payload cases |
 | MCP tool mapping roundtrip conformance | Deferred | Harness currently runs in-process vectors and does not yet include MCP mock-server roundtrip assertions | EPIC-4 MCP stdio integration reaches testable parity and adds stable mock-server test harness |
+
+## Parity vectors (`kind: "parity"`)
+
+Cross-surface parity runs the same scenario script twice (application port methods and MCP tool handlers on separate in-memory stores) and compares **normalized JSON snapshots** per step. Optional vector-level `stubActivityOutputs` wires a shared `StubActivityExecutor` for both surfaces.
+
+```json
+{
+  "id": "parity.r2.host_mediated_submit",
+  "kind": "parity",
+  "definition": "examples/conformance-host-activity-linear.workflow.json",
+  "executionId": "parity-host-submit-1",
+  "steps": [
+    {
+      "op": "start",
+      "activityExecutionMode": "host_mediated",
+      "expect": { "status": "awaiting_activity", "node_id": "work" }
+    },
+    {
+      "op": "submit_activity",
+      "nodeId": "work",
+      "outcome": { "ok": true, "result": { "out": "host-done" } },
+      "expect": { "status": "completed", "result": "host-done" }
+    }
+  ]
+}
+```
+
+- `pending: true` — skipped with category `parity-pending` (R3 delegate/subworkflow placeholders; must not false-green).
+- `expect` — partial match on the normalized snapshot after port/MCP equivalence is established.
+- `expectError` / `expectErrorCode` — negative paths using MCP adapter error codes.
+
+Contract matrix: `docs/architecture/arc42-assets/contracts/integration-parity-matrix.md`.
 
 ## Adding a new vector
 

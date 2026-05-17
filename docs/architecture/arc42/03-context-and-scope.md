@@ -30,7 +30,7 @@ The system provides a **vendor-neutral declarative workflow** contract for AI ag
 
 ### Explicitly deferred
 
-- **`agent_delegate` / `subworkflow`** in engine walker (profile out of scope).
+- **`agent_delegate`** in engine walker (R3 #6; `subworkflow` shipped in #7).
 - **Broad REST/SDK parity** (`ROADMAP.md` sequencing).
 - **Full RFC-08 coverage** via conformance *(partial intentionally)*.
 
