@@ -13,11 +13,14 @@
       "type": "start"
     },
     {
-      "id": "nested",
-      "type": "subworkflow",
+      "id": "delegate",
+      "type": "agent_delegate",
       "config": {
-        "workflow_ref": "urn:example:wf:child",
-        "input_mapping": {}
+        "agent_id": "coder",
+        "protocol": "a2a",
+        "input_mapping": {
+          "task": "${ .task }"
+        }
       }
     }
   ],
@@ -28,7 +31,7 @@
     },
     {
       "source": "start",
-      "target": "nested"
+      "target": "delegate"
     }
   ]
 }

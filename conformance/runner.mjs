@@ -28,6 +28,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *   }>;
  *   activityExecutionMode?: "in_process" | "host_mediated";
  *   assertNoActivityExecutorInvocation?: boolean;
+ *   assertNoSubworkflowInvocation?: boolean;
  *   activitySubmissions?: Array<{
  *     nodeId: string;
  *     outcome:
@@ -173,6 +174,7 @@ async function runReplayVector(vector) {
   const activityExecutionMode = vector.activityExecutionMode ?? "in_process";
   const activitySubmissions = Array.isArray(vector.activitySubmissions) ? vector.activitySubmissions : [];
   const assertNoActivityExecutorInvocation = vector.assertNoActivityExecutorInvocation === true;
+  const assertNoSubworkflowInvocation = vector.assertNoSubworkflowInvocation === true;
   const activityExecutor = assertNoActivityExecutorInvocation ? new RejectingActivityExecutor() : undefined;
 
   let run = await runGraphWorkflow({
@@ -182,6 +184,7 @@ async function runReplayVector(vector) {
     store,
     activityExecutionMode,
     ...(activityExecutor ? { activityExecutor } : {}),
+    ...(assertNoSubworkflowInvocation ? { assertNoSubworkflowInvocation: true } : {}),
   });
 
   for (const step of activitySubmissions) {

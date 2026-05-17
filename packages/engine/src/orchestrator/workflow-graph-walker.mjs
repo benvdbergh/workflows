@@ -1,6 +1,6 @@
 /**
  * General workflow graph walker: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`,
- * `parallel`, `wait`, and `set_state`.
+ * `parallel`, `wait`, `set_state`, and `subworkflow`.
  * Switch routing uses only `config.cases` / `config.default` (static edges from the switch id are ignored).
  */
 import Ajv2020 from "ajv/dist/2020.js";
@@ -15,6 +15,7 @@ import {
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 import { hydrateReplayContext } from "./replay-loader.mjs";
 import { createParallelJoinRuntime } from "./parallel-join-runtime.mjs";
+import { executeSubworkflowNode } from "./subworkflow-runtime.mjs";
 import { assertWorkflowGraphInvariants, buildOutgoing } from "./workflow-graph-invariants.mjs";
 import {
   buildSetStateOutput,
@@ -57,6 +58,9 @@ const PLACEHOLDER_TYPES = new Set(["step", "llm_call", "tool_call"]);
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
  * @property {import("./activity-executor.mjs").ActivityExecutor} [activityExecutor]
  * @property {"in_process" | "host_mediated"} [activityExecutionMode] default in-process stub/executor; `host_mediated` yields after `ActivityRequested` until `submitActivityOutcome`.
+ * @property {number} [subworkflowDepth] nested subworkflow depth (default 0).
+ * @property {number} [maxSubworkflowDepth] max nested depth (default 4).
+ * @property {boolean} [assertNoSubworkflowInvocation] when true, nested child runs throw (conformance replay).
  */
 
 /**
@@ -77,11 +81,17 @@ export async function runGraphWorkflow(options) {
     stubActivityOutputs = {},
     activityExecutor,
     activityExecutionMode = "in_process",
+    subworkflowDepth = 0,
+    maxSubworkflowDepth = 4,
+    assertNoSubworkflowInvocation = false,
   } = options;
   const executor = activityExecutor ?? new StubActivityExecutor(stubActivityOutputs);
 
   if (!definition || typeof definition !== "object") {
     return { status: "failed", error: "definition must be a non-null object" };
+  }
+  if (!Number.isInteger(subworkflowDepth) || subworkflowDepth < 0) {
+    return { status: "failed", error: "subworkflowDepth must be a non-negative integer" };
   }
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return { status: "failed", error: "input must be a plain object" };
@@ -409,6 +419,48 @@ export async function runGraphWorkflow(options) {
         continue;
       }
 
+      if (node.type === "subworkflow") {
+        const sw = await executeSubworkflowNode({
+          node: /** @type {{ id: string; config?: object }} */ (node),
+          state,
+          executionId,
+          parentDefinition: definition,
+          store,
+          appendCmd,
+          appendEvt,
+          scheduled,
+          replay,
+          subworkflowDepth,
+          maxSubworkflowDepth,
+          stubActivityOutputs,
+          activityExecutor: executor,
+          activityExecutionMode,
+          assertNoSubworkflowInvocation,
+          runGraphWorkflow,
+          jq,
+        });
+        if (sw.kind === "failed") {
+          appendCmd("FailNode", { nodeId: current, reason: "subworkflow_failed", message: sw.error });
+          appendEvt("ExecutionFailed", { error: sw.error });
+          return { status: "failed", error: sw.error, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: {} });
+        const swStateSeq = appendEvt("StateUpdated", {
+          nodeId: current,
+          state: JSON.parse(JSON.stringify(state)),
+        });
+        appendCheckpoint(current, state, swStateSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after subworkflow "${current}"`);
+        const swNext = outgoing.get(current) ?? [];
+        if (swNext.length !== 1) {
+          throw new Error(
+            `Node "${current}" (subworkflow) must have exactly one outgoing edge; found ${swNext.length}.`
+          );
+        }
+        current = swNext[0];
+        continue;
+      }
+
       /** @type {Record<string, unknown>} */
       let output = {};
 
@@ -538,6 +590,9 @@ export async function resumeGraphWorkflow(options) {
     stubActivityOutputs = {},
     activityExecutor,
     activityExecutionMode = "in_process",
+    subworkflowDepth = 0,
+    maxSubworkflowDepth = 4,
+    assertNoSubworkflowInvocation = false,
   } = options;
   const executor = activityExecutor ?? new StubActivityExecutor(stubActivityOutputs);
 
@@ -952,6 +1007,48 @@ export async function resumeGraphWorkflow(options) {
           throw new Error(`Node "${current}" (set_state) must have exactly one outgoing edge; found ${ssNext.length}.`);
         }
         current = ssNext[0];
+        continue;
+      }
+
+      if (node.type === "subworkflow") {
+        const sw = await executeSubworkflowNode({
+          node: /** @type {{ id: string; config?: object }} */ (node),
+          state,
+          executionId,
+          parentDefinition: definition,
+          store,
+          appendCmd: resumeAppendCmd,
+          appendEvt,
+          scheduled: { replayed: false },
+          replay: /** @type {import("./replay-loader.mjs").ReplayHydrationResult} */ (emptyReplay),
+          subworkflowDepth,
+          maxSubworkflowDepth,
+          stubActivityOutputs,
+          activityExecutor: executor,
+          activityExecutionMode,
+          assertNoSubworkflowInvocation,
+          runGraphWorkflow,
+          jq,
+        });
+        if (sw.kind === "failed") {
+          appendCmd("FailNode", { nodeId: current, reason: "subworkflow_failed", message: sw.error });
+          appendEvt("ExecutionFailed", { error: sw.error });
+          return { status: "failed", error: sw.error, finalState: state };
+        }
+        appendCmd("CompleteNode", { nodeId: current, output: {} });
+        const swStateSeq = appendEvt("StateUpdated", {
+          nodeId: current,
+          state: JSON.parse(JSON.stringify(state)),
+        });
+        appendCheckpoint(current, state, swStateSeq);
+        throwIfStateInvalid(validateState, state, `State invalid after subworkflow "${current}"`);
+        const swNext = outgoing.get(current) ?? [];
+        if (swNext.length !== 1) {
+          throw new Error(
+            `Node "${current}" (subworkflow) must have exactly one outgoing edge; found ${swNext.length}.`
+          );
+        }
+        current = swNext[0];
         continue;
       }
 

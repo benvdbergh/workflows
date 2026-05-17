@@ -1,0 +1,91 @@
+{
+  "id": "replay.subworkflow.parent_prefix_no_child_reinvoke",
+  "description": "Parent history prefix includes SubworkflowCompleted for verify; tail replay must not invoke nested child runGraphWorkflow.",
+  "kind": "replay",
+  "definition": "examples/conformance-subworkflow-parent.workflow.json",
+  "input": { "repo": "acme/widget" },
+  "assertNoSubworkflowInvocation": true,
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "conformance-subworkflow-parent",
+        "workflowVersion": "1.0.0",
+        "inputKeys": ["repo"]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "start", "state": { "repo": "acme/widget" } }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "verify" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "verify" }
+    },
+    {
+      "kind": "command",
+      "name": "StartSubworkflow",
+      "payload": {
+        "nodeId": "verify",
+        "workflowRef": "urn:awp:wf:unit-tests",
+        "childExecutionId": "replay.subworkflow.parent_prefix_no_child_reinvoke::exec:sub:verify"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "SubworkflowStarted",
+      "payload": {
+        "nodeId": "verify",
+        "workflowRef": "urn:awp:wf:unit-tests",
+        "parentExecutionId": "replay.subworkflow.parent_prefix_no_child_reinvoke::exec",
+        "childExecutionId": "replay.subworkflow.parent_prefix_no_child_reinvoke::exec:sub:verify"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "SubworkflowCompleted",
+      "payload": {
+        "nodeId": "verify",
+        "workflowRef": "urn:awp:wf:unit-tests",
+        "parentExecutionId": "replay.subworkflow.parent_prefix_no_child_reinvoke::exec",
+        "childExecutionId": "replay.subworkflow.parent_prefix_no_child_reinvoke::exec:sub:verify",
+        "childFinalState": { "repo": "acme/widget", "tests_passed": true },
+        "mergedOutput": { "repo": "acme/widget", "tests_passed": true }
+      }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "CompleteSubworkflow", "nodeId": "verify" },
+      { "name": "CompleteNode", "nodeId": "verify" },
+      { "name": "ScheduleNode", "nodeId": "mark_done" },
+      { "name": "CompleteNode", "nodeId": "mark_done" },
+      { "name": "ScheduleNode", "nodeId": "end" },
+      { "name": "CompleteNode", "nodeId": "end" }
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "name": "r3-unit-tests-child",
+    "version": "1.0.0",
+    "description": "Minimal child workflow for R3 subworkflow (urn:awp:wf:unit-tests)."
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "repo": { "type": "string" },
+      "tests_passed": { "type": "boolean" }
+    }
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "run_tests",
+      "type": "tool_call",
+      "config": {
+        "server": "test-runner",
+        "tool": "run_unit_tests",
+        "arguments": { "repo": "${ .repo }" }
+      }
+    },
+    { "id": "end", "type": "end" }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "start" },
+    { "source": "start", "target": "run_tests" },
+    { "source": "run_tests", "target": "end" }
+  ]
+}

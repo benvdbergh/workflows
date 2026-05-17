@@ -1,0 +1,7 @@
+{
+  "id": "schema.valid.r3-unit-tests-child",
+  "description": "R3 profile: subworkflow child fixture validates.",
+  "kind": "schema",
+  "definition": "examples/r3-unit-tests-child.workflow.json",
+  "expect": { "ok": true }
+}

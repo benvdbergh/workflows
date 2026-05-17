@@ -1,0 +1,44 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "name": "conformance-subworkflow-parent",
+    "version": "1.0.0"
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "repo": { "type": "string" },
+      "tests_passed": { "type": "boolean" },
+      "done": { "type": "boolean" }
+    }
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "verify",
+      "type": "subworkflow",
+      "config": {
+        "workflow_ref": "urn:awp:wf:unit-tests",
+        "input_mapping": {
+          "repo": "${ .repo }"
+        }
+      }
+    },
+    {
+      "id": "mark_done",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "done": { "literal": true }
+        }
+      }
+    },
+    { "id": "end", "type": "end" }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "start" },
+    { "source": "start", "target": "verify" },
+    { "source": "verify", "target": "mark_done" },
+    { "source": "mark_done", "target": "end" }
+  ]
+}

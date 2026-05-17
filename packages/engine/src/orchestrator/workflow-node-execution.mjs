@@ -45,6 +45,56 @@ function parseWaitDurationMs(cfg) {
  * @param {{ json: (data: unknown, query: string) => Promise<unknown> }} jq
  * @returns {Promise<Record<string, unknown>>}
  */
+/**
+ * Resolve subworkflow / delegate `input_mapping` against parent state (jq template strings or literals).
+ *
+ * @param {Record<string, unknown>} parentState
+ * @param {Record<string, unknown>} inputMapping
+ * @param {{ json: (data: unknown, query: string) => Promise<unknown> }} jq
+ * @returns {Promise<Record<string, unknown>>}
+ */
+export async function applyInputMapping(parentState, inputMapping, jq) {
+  /** @type {Record<string, unknown>} */
+  const childInput = {};
+  for (const [key, specRaw] of Object.entries(inputMapping)) {
+    if (specRaw && typeof specRaw === "object" && !Array.isArray(specRaw)) {
+      const spec = /** @type {Record<string, unknown>} */ (specRaw);
+      if ("jq" in spec) {
+        const q = typeof spec.jq === "string" ? spec.jq : "";
+        if (!q.trim()) throw new Error(`input_mapping "${key}": empty jq expression`);
+        try {
+          childInput[key] = await jq.json(parentState, q);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new Error(`input_mapping "${key}" (jq): ${msg}`);
+        }
+        continue;
+      }
+      if ("literal" in spec) {
+        childInput[key] = JSON.parse(JSON.stringify(spec.literal));
+        continue;
+      }
+    }
+    if (typeof specRaw === "string") {
+      const trimmed = specRaw.trim();
+      const template = /^\$\{\s*(.+?)\s*\}$/.exec(trimmed);
+      if (template) {
+        try {
+          childInput[key] = await jq.json(parentState, template[1]);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          throw new Error(`input_mapping "${key}" (template): ${msg}`);
+        }
+        continue;
+      }
+      childInput[key] = specRaw;
+      continue;
+    }
+    childInput[key] = JSON.parse(JSON.stringify(specRaw));
+  }
+  return childInput;
+}
+
 export async function buildSetStateOutput(node, state, jq) {
   const cfg = node.config && typeof node.config === "object" ? /** @type {{ assignments?: unknown }} */ (node.config) : {};
   const assignments =
