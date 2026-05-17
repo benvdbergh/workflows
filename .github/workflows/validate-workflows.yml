@@ -2,10 +2,10 @@ name: Validate workflow definitions
 
 on:
   push:
-    branches: [master, main]
   pull_request:
     branches: [master, main]
   merge_group:
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -1,6 +1,6 @@
 /**
  * Operator MCP manifest: Cursor-style `mcp.json` subset (stdio command/args/env only).
- * @see docs/architecture/mcp-operator-manifest.md
+ * @see docs/architecture/arc42-assets/contracts/mcp-operator-manifest.md
  */
 import Ajv2020 from "ajv/dist/2020.js";
 import { existsSync, readFileSync } from "node:fs";

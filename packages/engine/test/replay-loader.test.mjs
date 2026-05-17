@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
 import { runLinearWorkflow } from "../src/orchestrator/linear-runner.mjs";
-import { runPocWorkflow } from "../src/orchestrator/poc-runner.mjs";
+import { runGraphWorkflow } from "../src/orchestrator/workflow-graph-walker.mjs";
 import { hydrateReplayContext } from "../src/orchestrator/replay-loader.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -143,7 +143,7 @@ describe("hydrateReplayContext", () => {
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-replay-interrupt";
 
-    const first = await runPocWorkflow({
+    const first = await runGraphWorkflow({
       definition,
       input: { ticket_text: "unclear" },
       executionId,

@@ -1,10 +1,55 @@
 # Alpha Release Notes (Pre-1.0)
 
-**Last reviewed:** 2026-05-04
+**Last reviewed:** 2026-05-17
 
-**Current published engine:** `@agent-workflow/engine@0.1.0-alpha.4` on the npm `alpha` dist-tag (see also [ROADMAP.md](../../ROADMAP.md) — R2 core orchestration for the reference engine is **delivered**; next major slice is R3).
+**Current published engine:** `@agent-workflow/engine@0.1.1` (publish via [Operator runbook](#operator-runbook-publish-to-announce); until then use repo `main` / tag `v0.1.1`). Prior npm line: `0.1.0-alpha.4` on `alpha`. See [ROADMAP.md](../../ROADMAP.md) — R2 core orchestration is **delivered**; next major slice is R3.
 
 Release policy and checklist reference: [alpha-versioning-and-release-commit-flow.md](alpha-versioning-and-release-commit-flow.md)
+
+## v0.1.1 — 2026-05-17
+
+### Added
+
+- Unified **workflow graph walker** (`workflow-graph-walker.mjs`) as the single orchestration path for linear, `switch`, `interrupt`/resume, and R2 nodes (`parallel`, `wait`, `set_state`).
+- **Parallel join runtime** (`parallel-join-runtime.mjs`) with graph invariants and walker support modules.
+- Engine tests: `workflow-graph-walker.test.mjs`, `parallel-join-runtime.test.mjs`.
+
+### Changed
+
+- **Linear runner** and application/MCP layers route through the graph walker (removed legacy `poc-runner` / `poc-runner-r2-parallel` entrypoints).
+- Conformance harness uses `runGraphWorkflow` from the public engine API.
+- CI: **Validate workflow definitions** runs on every branch push and supports `workflow_dispatch` (PRs still gate on `main` / `master`).
+
+### Fixed
+
+- (none called out separately — treat this cut as orchestration consolidation plus regression coverage)
+
+### Docs
+
+- Release notes and pinned `npx` examples updated for `0.1.1`.
+
+### Internal
+
+- Walker node execution extracted to `workflow-node-execution.mjs`; validation and MCP adapter aligned with the unified runner.
+
+### Breaking/Impact Notes
+
+- **Import/path:** consumers that imported `poc-runner` or `poc-runner-r2-parallel` must use `runGraphWorkflow` / `createLinearRunner` from `@agent-workflow/engine` (see package exports in `packages/engine/src/index.mjs`).
+
+### Validation run
+
+- `npm run check-engine-poc-schema-sync`
+- `npm run validate-workflows`
+- `npm run conformance`
+- `npm test`
+- `npm pack --workspace @agent-workflow/engine`
+
+### Publish (maintainers)
+
+1. Merge to `main`, tag **`v0.1.1`**, push tag.
+2. Confirm **Validate workflow definitions** passed on the release commit.
+3. Trigger **Release npm publish (manual)** with `release_ref`: `v0.1.1`, `dist_tag`: `latest` (or `alpha` for channel-only), `also_point_latest_dist_tag`: `false` when `dist_tag` is already `latest`.
+4. Optionally re-point `alpha`: `npm dist-tag add @agent-workflow/engine@0.1.1 alpha`.
 
 ## Audience and intent
 
@@ -55,7 +100,7 @@ npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 ### Reproducible install (exact pinned version)
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.1 workflows-engine-mcp
 ```
 
 ### Provider-neutral MCP client configuration examples
@@ -88,7 +133,7 @@ Pinned, immutable client configuration:
       "args": [
         "-y",
         "-p",
-        "@agent-workflow/engine@0.1.0-alpha.4",
+        "@agent-workflow/engine@0.1.1",
         "workflows-engine-mcp"
       ]
     }
@@ -113,7 +158,7 @@ Run this sequence for every alpha publish event.
      - `also_point_latest_dist_tag`: `true` (default) runs `npm dist-tag add @agent-workflow/engine@<version> latest` after publish so **`alpha` and `latest` both resolve to the same tarball** (typical when promoting a pre-release to the default channel). Set `false` if you intentionally want `latest` left on an older build.
 3. Post-publish smoke test:
    - `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp --help`
-   - `npx -y -p @agent-workflow/engine@0.1.0-alpha.4 workflows-engine-mcp --help`
+   - `npx -y -p @agent-workflow/engine@0.1.1 workflows-engine-mcp --help`
 4. Announcement update:
    - Update launch templates and release notes with the published version.
    - Publish channel posts from `docs/community-launch-playbook.md`.

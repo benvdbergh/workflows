@@ -17,7 +17,7 @@ function usage() {
       "    If <file> is omitted or `-`, reads JSON from stdin.\n" +
       "  workflows-engine mcp-manifest validate <file>\n" +
       "    Validates an operator MCP manifest (Cursor-style mcpServers subset).\n" +
-      "    See docs/architecture/mcp-operator-manifest.md.\n" +
+      "    See docs/architecture/arc42-assets/contracts/mcp-operator-manifest.md.\n" +
       "Exit: 0 valid, 1 validation failed, 2 usage / I/O / JSON parse error.\n"
   );
 }

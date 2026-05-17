@@ -4,7 +4,7 @@ This directory is the canonical conformance harness for protocol/engine behavior
 
 ## CI gate and local pre-PR check
 
-GitHub Actions runs this harness on pull requests and pushes to protected branches (`main`, `master`) via `.github/workflows/validate-workflows.yml`.
+GitHub Actions runs this harness on every push, on pull requests targeting `main` or `master`, and via manual **Validate workflow definitions** dispatch (`.github/workflows/validate-workflows.yml`).
 
 Contributor pre-PR gate (run from repository root):
 

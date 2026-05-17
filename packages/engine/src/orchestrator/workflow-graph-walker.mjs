@@ -1,10 +1,9 @@
 /**
- * POC graph walker: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`,
- * plus R2 `parallel`, `wait`, and `set_state`.
+ * General workflow graph walker: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`,
+ * `parallel`, `wait`, and `set_state`.
  * Switch routing uses only `config.cases` / `config.default` (static edges from the switch id are ignored).
  */
 import Ajv2020 from "ajv/dist/2020.js";
-import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { validateWorkflowDefinition } from "../validate.mjs";
 import { StubActivityExecutor } from "./activity-executor.mjs";
@@ -15,7 +14,29 @@ import {
 } from "./linear-runner.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 import { hydrateReplayContext } from "./replay-loader.mjs";
-import { createR2ParallelRuntime } from "./poc-runner-r2-parallel.mjs";
+import { createParallelJoinRuntime } from "./parallel-join-runtime.mjs";
+import { assertWorkflowGraphInvariants, buildOutgoing } from "./workflow-graph-invariants.mjs";
+import {
+  buildSetStateOutput,
+  resolveSwitchTarget,
+  runPlaceholderActivityStep,
+  runWaitNodeExecution,
+  summarizePrompt,
+} from "./workflow-node-execution.mjs";
+import {
+  NondeterminismError,
+  RESUME_FAILURE_CODE,
+  checkpointDefinitionMeta,
+  commandIdentity,
+  expectedCommandIdentity,
+  findLatestNonCheckpointEvent,
+  isParallelSpanPayload,
+  latestPrimaryEvent,
+  latestStateFromHistory,
+  parallelSpansEqual,
+  resolveCheckpointConfig,
+  throwIfStateInvalid,
+} from "./workflow-graph-walker-support.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -25,425 +46,10 @@ function loadJq() {
 }
 
 const PLACEHOLDER_TYPES = new Set(["step", "llm_call", "tool_call"]);
-const NONDETERMINISM_ERROR_CODE = "NONDETERMINISM_DETECTED";
 
 /**
- * @param {object} definition
- * @returns {{ enabled: boolean; mode: "each" | "interval"; intervalN?: number }}
- */
-function resolveCheckpointConfig(definition) {
-  const cp = definition?.checkpointing;
-  if (!cp || typeof cp !== "object") {
-    return { enabled: true, mode: "each" };
-  }
-  const raw =
-    typeof cp.strategy === "string"
-      ? cp.strategy
-      : typeof cp.policy === "string"
-        ? cp.policy
-        : "after_each_node";
-  const strategy = raw.trim();
-  if (strategy === "disabled" || strategy === "off" || strategy === "none") {
-    return { enabled: false, mode: "each" };
-  }
-  if (strategy === "every_n_nodes" || strategy === "interval") {
-    const n =
-      typeof cp.n === "number" && Number.isInteger(cp.n) && cp.n >= 1
-        ? cp.n
-        : typeof cp.interval === "number" && Number.isInteger(cp.interval) && cp.interval >= 1
-          ? cp.interval
-          : null;
-    if (n == null) {
-      throw new Error('checkpointing: strategy "every_n_nodes" requires integer n ≥ 1');
-    }
-    return { enabled: true, mode: "interval", intervalN: n };
-  }
-  if (strategy === "after_each_node" || strategy === "") {
-    return { enabled: true, mode: "each" };
-  }
-  throw new Error(`checkpointing: unknown strategy "${strategy}"`);
-}
-
-class NondeterminismError extends Error {
-  /**
-   * @param {string} message
-   * @param {Record<string, unknown>} context
-   */
-  constructor(message, context) {
-    super(message);
-    this.name = "NondeterminismError";
-    this.code = NONDETERMINISM_ERROR_CODE;
-    this.context = context;
-  }
-}
-
-/**
- * @param {import("../persistence/types.mjs").HistoryRow} row
- * @returns {{ name: string; nodeId?: string; seq: number }}
- */
-function commandIdentity(row) {
-  return {
-    name: row.name,
-    seq: row.seq,
-    ...(typeof row.payload?.nodeId === "string" ? { nodeId: row.payload.nodeId } : {}),
-  };
-}
-
-/**
- * @param {string} name
- * @param {Record<string, unknown>} payload
- * @returns {{ name: string; nodeId?: string }}
- */
-function expectedCommandIdentity(name, payload) {
-  return {
-    name,
-    ...(typeof payload.nodeId === "string" ? { nodeId: payload.nodeId } : {}),
-  };
-}
-
-/**
- * @param {unknown} jqResult
- * @returns {boolean}
- */
-function jqTruthy(jqResult) {
-  return jqResult !== false && jqResult !== null;
-}
-
-/**
- * @param {number} ms
- * @returns {Promise<void>}
- */
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * @param {object} cfg wait node config
- * @returns {number}
- */
-function parseWaitDurationMs(cfg) {
-  if (typeof cfg.duration_ms === "number" && cfg.duration_ms >= 0) return cfg.duration_ms;
-  const s = typeof cfg.duration === "string" ? cfg.duration.trim() : "";
-  if (!s) {
-    throw new Error('wait (kind "duration"): expected duration_ms (number) or duration (string)');
-  }
-  const m = /^(\d+)\s*(ms|s|m|h)?$/i.exec(s);
-  if (!m) {
-    throw new Error(`wait (kind "duration"): cannot parse duration string "${s}"`);
-  }
-  const n = Number(m[1]);
-  const u = (m[2] || "ms").toLowerCase();
-  const mult = u === "h" ? 3_600_000 : u === "m" ? 60_000 : u === "s" ? 1000 : 1;
-  return n * mult;
-}
-
-/**
- * @param {{ config?: object }} node
- * @param {Record<string, unknown>} state
- * @param {{ json: (data: unknown, query: string) => Promise<unknown> }} jq
- * @returns {Promise<Record<string, unknown>>}
- */
-async function buildSetStateOutput(node, state, jq) {
-  const cfg = node.config && typeof node.config === "object" ? /** @type {{ assignments?: unknown }} */ (node.config) : {};
-  const assignments =
-    cfg.assignments && typeof cfg.assignments === "object" && !Array.isArray(cfg.assignments)
-      ? /** @type {Record<string, unknown>} */ (cfg.assignments)
-      : {};
-  /** @type {Record<string, unknown>} */
-  const out = {};
-  for (const [key, specRaw] of Object.entries(assignments)) {
-    if (!specRaw || typeof specRaw !== "object" || Array.isArray(specRaw)) {
-      throw new Error(`set_state "${node.id}": assignment "${key}" must be an object with "jq" or "literal".`);
-    }
-    const spec = /** @type {Record<string, unknown>} */ (specRaw);
-    if ("jq" in spec) {
-      const q = typeof spec.jq === "string" ? spec.jq : "";
-      if (!q.trim()) throw new Error(`set_state "${node.id}": empty jq for "${key}"`);
-      try {
-        out[key] = await jq.json(state, q);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        throw new Error(`set_state "${node.id}" key "${key}" (jq): ${msg}`);
-      }
-    } else if ("literal" in spec) {
-      out[key] = JSON.parse(JSON.stringify(spec.literal));
-    } else {
-      throw new Error(`set_state "${node.id}": assignment "${key}" must use "jq" or "literal".`);
-    }
-  }
-  return out;
-}
-
-/**
- * @typedef {{ parallelNodeId: string; joinTargetId: string; branchName: string; branchEntryNodeId: string }} ParallelSpanPayload
- */
-
-/**
- * Shared `step` / `llm_call` / `tool_call` boundary for the POC walker (replay, in-process executor, host yield).
- *
- * @param {object} args
- * @param {{ id: string; type: string; config?: object }} args.node
- * @param {{ replayed: boolean }} args.scheduled
- * @param {Record<string, unknown>} args.state
- * @param {string} args.executionId
- * @param {import("./activity-executor.mjs").ActivityExecutor} args.executor
- * @param {import("./replay-loader.mjs").ReplayHydrationResult} args.replay
- * @param {"in_process" | "host_mediated"} args.activityExecutionMode
- * @param {(name: string, payload: Record<string, unknown>) => number} args.appendEvt
- * @param {ParallelSpanPayload | undefined} [args.parallelSpan]
- * @returns {Promise<
- *   | { kind: "completed"; output: Record<string, unknown> }
- *   | { kind: "failed"; error: string; code?: string }
- *   | { kind: "awaiting_activity"; nodeId: string; parallelSpan?: ParallelSpanPayload }
- * >}
- */
-async function runPlaceholderActivityStep(args) {
-  const {
-    node,
-    scheduled,
-    state,
-    executionId,
-    executor,
-    replay,
-    activityExecutionMode,
-    appendEvt,
-    parallelSpan,
-  } = args;
-
-  const replayedOutput = scheduled.replayed ? replay.replayResults.get(node.id) : undefined;
-  if (replayedOutput) {
-    const output = JSON.parse(JSON.stringify(replayedOutput));
-    appendEvt("ActivityCompleted", { nodeId: node.id, result: output, replayed: true });
-    return { kind: "completed", output };
-  }
-
-  /** @type {Record<string, unknown>} */
-  const reqPayload = { nodeId: node.id, nodeType: node.type };
-  if (
-    parallelSpan &&
-    typeof parallelSpan.parallelNodeId === "string" &&
-    typeof parallelSpan.joinTargetId === "string" &&
-    typeof parallelSpan.branchName === "string" &&
-    typeof parallelSpan.branchEntryNodeId === "string"
-  ) {
-    reqPayload.parallelSpan = { ...parallelSpan };
-  }
-  appendEvt("ActivityRequested", reqPayload);
-
-  if (activityExecutionMode === "host_mediated") {
-    return {
-      kind: "awaiting_activity",
-      nodeId: node.id,
-      ...(parallelSpan &&
-      typeof parallelSpan.parallelNodeId === "string" &&
-      typeof parallelSpan.joinTargetId === "string" &&
-      typeof parallelSpan.branchName === "string" &&
-      typeof parallelSpan.branchEntryNodeId === "string"
-        ? { parallelSpan: { ...parallelSpan } }
-        : {}),
-    };
-  }
-
-  const activityResult = await executor.executeActivity({
-    executionId,
-    node: /** @type {{ id: string; type: string; config?: object }} */ (node),
-    state,
-  });
-  if (!activityResult.ok) {
-    return {
-      kind: "failed",
-      error: activityResult.error,
-      ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
-    };
-  }
-  appendEvt("ActivityCompleted", { nodeId: node.id, result: activityResult.output });
-  return { kind: "completed", output: activityResult.output };
-}
-
-/**
- * @param {string} nodeId
- * @param {{ replayed: boolean }} scheduled
- * @param {(name: string, payload: Record<string, unknown>) => { replayed: boolean }} appendCmd
- * @param {(name: string, payload: Record<string, unknown>) => number} appendEvt
- * @param {object | undefined} config
- */
-async function runWaitNodeExecution(nodeId, scheduled, appendCmd, appendEvt, config) {
-  const wcfg = config && typeof config === "object" ? config : {};
-  const kind = /** @type {{ kind?: string }} */ (wcfg).kind;
-  if (kind === "signal") {
-    throw new Error(
-      'wait kind "signal" requires a host to deliver workflow_signal (not implemented in this engine profile)'
-    );
-  }
-  let waitMs = 0;
-  let untilIso;
-  if (kind === "duration") {
-    waitMs = parseWaitDurationMs(wcfg);
-  } else if (kind === "until") {
-    untilIso = typeof wcfg.until === "string" ? wcfg.until : "";
-    const t = Date.parse(untilIso);
-    if (Number.isNaN(t)) throw new Error('wait kind "until": invalid ISO-8601 timestamp');
-    waitMs = Math.max(0, t - Date.now());
-  } else {
-    throw new Error(`wait: unsupported or missing kind "${kind ?? ""}"`);
-  }
-  appendCmd("StartTimer", {
-    nodeId,
-    kind,
-    ...(untilIso ? { until: untilIso } : { wait_ms: waitMs }),
-  });
-  appendEvt("TimerStarted", { nodeId, kind });
-  if (!scheduled.replayed && waitMs > 0) await delay(waitMs);
-  appendEvt("TimerFired", { nodeId, kind });
-}
-
-/**
- * @param {object} definition
- * @returns {{ workflowVersion?: string; definitionHash: string }}
- */
-function checkpointDefinitionMeta(definition) {
-  const workflowVersion = typeof definition?.document?.version === "string" ? definition.document.version : undefined;
-  const canonical = JSON.stringify(definition);
-  const definitionHash = createHash("sha256").update(canonical).digest("hex");
-  return { workflowVersion, definitionHash };
-}
-
-/**
- * @param {Array<{ source: string; target: string }>} edges
- * @returns {Map<string, string[]>}
- */
-function buildOutgoing(edges) {
-  const out = new Map();
-  for (const e of edges) {
-    if (!e || typeof e.source !== "string" || typeof e.target !== "string") continue;
-    const list = out.get(e.source) ?? [];
-    list.push(e.target);
-    out.set(e.source, list);
-  }
-  return out;
-}
-
-/**
- * @param {{ config?: object }} node
- * @returns {string}
- */
-function summarizePrompt(node) {
-  const cfg = node.config && typeof node.config === "object" ? /** @type {{ prompt?: string }} */ (node.config) : {};
-  const p = typeof cfg.prompt === "string" ? cfg.prompt : "";
-  const max = 200;
-  return p.length > max ? `${p.slice(0, max)}…` : p;
-}
-
-/**
- * @param {import("ajv").ValidateFunction} validateState
- * @param {Record<string, unknown>} state
- * @param {string} context
- */
-function throwIfStateInvalid(validateState, state, context) {
-  const ok = validateState(state);
-  if (!ok) {
-    const detail =
-      validateState.errors?.map((e) => `${e.instancePath || "/"} ${e.message}`).join("; ") ?? "state validation failed";
-    throw new Error(`${context}: ${detail}`);
-  }
-}
-
-/**
- * @param {Array<{ id: string; type: string }>} nodes
- * @param {Map<string, string[]>} outgoing
- */
-function assertPocGraphEdges(nodes, outgoing) {
-  const startOut = outgoing.get("__start__") ?? [];
-  if (startOut.length !== 1) {
-    throw new Error(
-      `POC walker requires exactly one edge from "__start__"; found ${startOut.length}.`
-    );
-  }
-
-  const starts = nodes.filter((n) => n.type === "start");
-  const ends = nodes.filter((n) => n.type === "end");
-  if (starts.length !== 1) {
-    throw new Error(`POC walker requires exactly one "start" node; found ${starts.length}.`);
-  }
-  if (ends.length !== 1) {
-    throw new Error(`POC walker requires exactly one "end" node; found ${ends.length}.`);
-  }
-
-  for (const n of nodes) {
-    const outs = outgoing.get(n.id) ?? [];
-    if (n.type === "switch") {
-      continue;
-    }
-    if (n.type === "end") {
-      if (outs.length !== 0) {
-        throw new Error(`Node "${n.id}" (end) must have no outgoing edges; found ${outs.length}.`);
-      }
-      continue;
-    }
-    if (n.type === "interrupt") {
-      if (outs.length !== 1) {
-        throw new Error(
-          `Node "${n.id}" (interrupt) must have exactly one outgoing edge; found ${outs.length}.`
-        );
-      }
-      continue;
-    }
-    if (n.type === "parallel" || n.type === "wait" || n.type === "set_state") {
-      if (outs.length !== 1) {
-        throw new Error(
-          `Node "${n.id}" (type "${n.type}") must have exactly one outgoing edge (successor / join target); found ${outs.length}.`
-        );
-      }
-      continue;
-    }
-    if (outs.length !== 1) {
-      throw new Error(
-        `Node "${n.id}" (type "${n.type}") must have exactly one outgoing edge for POC; found ${outs.length}.`
-      );
-    }
-  }
-}
-
-/**
- * @param {{ config?: object }} node
- * @param {Record<string, unknown>} state
- * @param {{ json: (data: unknown, query: string) => Promise<unknown> }} jq
- * @returns {Promise<string>}
- */
-async function resolveSwitchTarget(node, state, jq) {
-  const cfg = node.config && typeof node.config === "object" ? /** @type {{ cases?: unknown; default?: unknown }} */ (node.config) : {};
-  const cases = Array.isArray(cfg.cases) ? cfg.cases : [];
-  const def = typeof cfg.default === "string" ? cfg.default : undefined;
-
-  for (const c of cases) {
-    if (!c || typeof c !== "object") continue;
-    const when = typeof /** @type {{ when?: unknown }} */ (c).when === "string" ? String(/** @type {{ when: string }} */ (c).when) : "";
-    const target = typeof /** @type {{ target?: unknown }} */ (c).target === "string" ? String(/** @type {{ target: string }} */ (c).target) : "";
-    if (!when.trim() || !target) continue;
-    try {
-      const r = await jq.json(state, when);
-      if (jqTruthy(r)) {
-        return target;
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(`switch "${node.id}" case jq failed (${when}): ${msg}`);
-    }
-  }
-
-  if (cases.length > 0 && def === undefined) {
-    throw new Error(
-      `switch "${node.id}": no case matched and config.default is missing (required when cases are present).`
-    );
-  }
-  if (def === undefined) {
-    throw new Error(`switch "${node.id}": no routing target (add config.cases or config.default).`);
-  }
-  return def;
-}
-
-/**
- * @typedef {object} RunPocWorkflowOptions
+ * @typedef {import("./workflow-node-execution.mjs").ParallelSpanPayload} ParallelSpanPayload
+ * @typedef {object} RunGraphWorkflowOptions
  * @property {object} definition
  * @property {Record<string, unknown>} input
  * @property {string} executionId
@@ -454,7 +60,7 @@ async function resolveSwitchTarget(node, state, jq) {
  */
 
 /**
- * @param {RunPocWorkflowOptions} options
+ * @param {RunGraphWorkflowOptions} options
  * @returns {Promise<
  *   | { status: "completed"; finalState: Record<string, unknown>; result?: unknown }
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown> }
@@ -462,7 +68,7 @@ async function resolveSwitchTarget(node, state, jq) {
  *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload }
  * >}
  */
-export async function runPocWorkflow(options) {
+export async function runGraphWorkflow(options) {
   const {
     definition,
     input,
@@ -517,7 +123,7 @@ export async function runPocWorkflow(options) {
   const outgoing = buildOutgoing(edges);
 
   try {
-    assertPocGraphEdges(nodes, outgoing);
+    assertWorkflowGraphInvariants(nodes, outgoing);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { status: "failed", error: msg };
@@ -608,7 +214,7 @@ export async function runPocWorkflow(options) {
     appendEvt("CheckpointWritten", cpPayload);
   }
 
-  const { executeParallelBlock } = createR2ParallelRuntime({
+  const { executeParallelBlock } = createParallelJoinRuntime({
     byId,
     outgoing,
     hooks: {
@@ -904,35 +510,7 @@ export async function runPocWorkflow(options) {
 }
 
 /**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- * @returns {Record<string, unknown> | undefined}
- */
-function latestStateFromHistory(rows) {
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const r = rows[i];
-    if (r.name === "StateUpdated" && r.payload && typeof r.payload.state === "object" && r.payload.state !== null) {
-      return /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(r.payload.state)));
-    }
-  }
-  return undefined;
-}
-
-/**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
- */
-function latestPrimaryEvent(rows) {
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const row = rows[i];
-    if (row.kind !== "event") continue;
-    if (row.name === "CheckpointWritten") continue;
-    return row;
-  }
-  return undefined;
-}
-
-/**
- * @typedef {object} ResumePocWorkflowOptions
+ * @typedef {object} ResumeGraphWorkflowOptions
  * @property {object} definition
  * @property {string} executionId
  * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store
@@ -943,7 +521,7 @@ function latestPrimaryEvent(rows) {
  */
 
 /**
- * @param {ResumePocWorkflowOptions} options
+ * @param {ResumeGraphWorkflowOptions} options
  * @returns {Promise<
  *   | { status: "completed"; finalState: Record<string, unknown>; result?: unknown }
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown> }
@@ -951,7 +529,7 @@ function latestPrimaryEvent(rows) {
  *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload }
  * >}
  */
-export async function resumePocWorkflow(options) {
+export async function resumeGraphWorkflow(options) {
   const {
     definition,
     executionId,
@@ -1001,6 +579,14 @@ export async function resumePocWorkflow(options) {
 
   const rows = store.listByExecution(executionId);
   assertHistoryReadableByEngine(rows);
+  /**
+   * @param {string} reason
+   * @param {"INVALID_RESUME_PAYLOAD"} code
+   * @param {Record<string, unknown> | undefined} [finalState]
+   */
+  function failResume(reason, code, finalState) {
+    return { status: "failed", error: reason, ...(finalState ? { finalState } : {}), code };
+  }
   const lastRow = latestPrimaryEvent(rows);
   if (!lastRow || lastRow.name !== "InterruptRaised") {
     const err = 'Cannot resume: last history event is not "InterruptRaised".';
@@ -1010,7 +596,7 @@ export async function resumePocWorkflow(options) {
       payload: { executionId, reason: "resume_not_allowed", message: err },
     });
     store.append(executionId, { kind: "event", name: "ExecutionFailed", payload: { executionId, error: err } });
-    return { status: "failed", error: err, finalState: latestStateFromHistory(rows) };
+    return failResume(err, RESUME_FAILURE_CODE.NOT_ALLOWED, latestStateFromHistory(rows));
   }
 
   const interruptNodeId = typeof lastRow.payload?.nodeId === "string" ? lastRow.payload.nodeId : "";
@@ -1022,7 +608,7 @@ export async function resumePocWorkflow(options) {
       payload: { executionId, reason: "resume_not_allowed", message: err },
     });
     store.append(executionId, { kind: "event", name: "ExecutionFailed", payload: { executionId, error: err } });
-    return { status: "failed", error: err, finalState: latestStateFromHistory(rows) };
+    return failResume(err, RESUME_FAILURE_CODE.NOT_ALLOWED, latestStateFromHistory(rows));
   }
 
   const nodes = /** @type {{ nodes: Array<{ id: string; type: string; config?: object }>; edges: Array<{ source: string; target: string }>; state_schema: object; document: { name?: string; version?: string } }} */ (
@@ -1032,10 +618,10 @@ export async function resumePocWorkflow(options) {
   const outgoing = buildOutgoing(edges);
 
   try {
-    assertPocGraphEdges(nodes, outgoing);
+    assertWorkflowGraphInvariants(nodes, outgoing);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { status: "failed", error: msg, finalState: latestStateFromHistory(rows) };
+    return failResume(msg, RESUME_FAILURE_CODE.NOT_ALLOWED, latestStateFromHistory(rows));
   }
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -1048,7 +634,7 @@ export async function resumePocWorkflow(options) {
       payload: { executionId, nodeId: interruptNodeId, reason: "resume_not_allowed", message: err },
     });
     store.append(executionId, { kind: "event", name: "ExecutionFailed", payload: { executionId, error: err } });
-    return { status: "failed", error: err, finalState: latestStateFromHistory(rows) };
+    return failResume(err, RESUME_FAILURE_CODE.NOT_ALLOWED, latestStateFromHistory(rows));
   }
 
   const resumeSchemaRaw =
@@ -1068,7 +654,7 @@ export async function resumePocWorkflow(options) {
       payload: { executionId, nodeId: interruptNodeId, reason: "resume_validation_failed", message: err },
     });
     store.append(executionId, { kind: "event", name: "ExecutionFailed", payload: { executionId, error: err } });
-    return { status: "failed", error: err, finalState: latestStateFromHistory(rows) };
+    return failResume(err, RESUME_FAILURE_CODE.VALIDATION_FAILED, latestStateFromHistory(rows));
   }
 
   const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -1090,7 +676,7 @@ export async function resumePocWorkflow(options) {
       },
     });
     store.append(executionId, { kind: "event", name: "ExecutionFailed", payload: { executionId, error: err } });
-    return { status: "failed", error: err, finalState: latestStateFromHistory(rows) };
+    return failResume(err, RESUME_FAILURE_CODE.VALIDATION_FAILED, latestStateFromHistory(rows));
   }
 
   const baseState = latestStateFromHistory(rows);
@@ -1102,7 +688,7 @@ export async function resumePocWorkflow(options) {
       payload: { executionId, nodeId: interruptNodeId, reason: "resume_not_allowed", message: err },
     });
     store.append(executionId, { kind: "event", name: "ExecutionFailed", payload: { executionId, error: err } });
-    return { status: "failed", error: err };
+    return failResume(err, RESUME_FAILURE_CODE.NOT_ALLOWED);
   }
 
   /** @type {Record<string, unknown>} */
@@ -1169,7 +755,7 @@ export async function resumePocWorkflow(options) {
 
   const emptyReplay = { replayResults: /** @type {Map<string, Record<string, unknown>>} */ (new Map()) };
 
-  const { executeParallelBlock: resumeExecuteParallel } = createR2ParallelRuntime({
+  const { executeParallelBlock: resumeExecuteParallel } = createParallelJoinRuntime({
     byId,
     outgoing,
     hooks: {
@@ -1459,54 +1045,11 @@ export async function resumePocWorkflow(options) {
 }
 
 /**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
- */
-function findLatestNonCheckpointEvent(rows) {
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const row = rows[i];
-    if (row.kind === "event" && row.name === "CheckpointWritten") continue;
-    return row;
-  }
-  return undefined;
-}
-
-/**
- * @param {unknown} span
- * @returns {span is ParallelSpanPayload}
- */
-function isParallelSpanPayload(span) {
-  if (!span || typeof span !== "object" || Array.isArray(span)) return false;
-  const s = /** @type {Record<string, unknown>} */ (span);
-  return (
-    typeof s.parallelNodeId === "string" &&
-    typeof s.joinTargetId === "string" &&
-    typeof s.branchName === "string" &&
-    typeof s.branchEntryNodeId === "string"
-  );
-}
-
-/**
- * @param {unknown} a
- * @param {unknown} b
- * @returns {boolean}
- */
-function parallelSpansEqual(a, b) {
-  if (!isParallelSpanPayload(a) || !isParallelSpanPayload(b)) return false;
-  return (
-    a.parallelNodeId === b.parallelNodeId &&
-    a.joinTargetId === b.joinTargetId &&
-    a.branchName === b.branchName &&
-    a.branchEntryNodeId === b.branchEntryNodeId
-  );
-}
-
-/**
  * @typedef {object} SubmitActivityOutcomeOptions
  * @property {object} definition
  * @property {string} executionId
  * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store
- * @property {Record<string, unknown>} input Same `input` as the initial `runPocWorkflow` / `startWorkflow` call (replay reconstruction requires it).
+ * @property {Record<string, unknown>} input Same `input` as the initial `runGraphWorkflow` / `startWorkflow` call (replay reconstruction requires it).
  * @property {string} nodeId Activity node id matching the pending `ActivityRequested` event.
  * @property {{ ok: true; result?: Record<string, unknown> } | { ok: false; error: string; code?: string }} outcome
  * @property {ParallelSpanPayload} [expectedParallelSpan] Required when the pending request carries `parallelSpan` (parallel branches); must match exactly.
@@ -1516,7 +1059,7 @@ function parallelSpansEqual(a, b) {
  */
 
 /**
- * Append `ActivityCompleted` / `ActivityFailed` after a host-mediated yield and continue the POC walker from persisted history.
+ * Append `ActivityCompleted` / `ActivityFailed` after a host-mediated yield and continue the graph walker from persisted history.
  *
  * @param {SubmitActivityOutcomeOptions} options
  * @returns {Promise<
@@ -1655,7 +1198,7 @@ export async function submitActivityOutcome(options) {
     payload: { executionId, nodeId, result: resultObj },
   });
 
-  return runPocWorkflow({
+  return runGraphWorkflow({
     definition,
     input,
     executionId,

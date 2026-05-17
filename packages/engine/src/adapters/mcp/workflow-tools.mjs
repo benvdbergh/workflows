@@ -22,6 +22,18 @@ function mapEngineFailure(error) {
 }
 
 /**
+ * @param {string | undefined} code
+ * @param {string | undefined} message
+ */
+function mcpErrorForResumeFailure(code, message) {
+  const text = message && message.trim() !== "" ? message : "Resume request failed.";
+  if (code === MCP_ADAPTER_ERROR.INVALID_RESUME_PAYLOAD) {
+    return new McpAdapterError(MCP_ADAPTER_ERROR.INVALID_RESUME_PAYLOAD, text);
+  }
+  return mapEngineFailure(new Error(text));
+}
+
+/**
  * Many MCP hosts surface only `content` text to the operator or agent; duplicate the
  * transport contract object into that text so `result` / `final_state` remain visible
  * without structured-result UI.
@@ -222,11 +234,8 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
           ...(parsed.activity_execution_mode ? { activityExecutionMode: parsed.activity_execution_mode } : {}),
         });
 
-        if (response.status === "failed" && response.error) {
-          const code = /resume/i.test(response.error)
-            ? MCP_ADAPTER_ERROR.INVALID_RESUME_PAYLOAD
-            : MCP_ADAPTER_ERROR.ENGINE_FAILURE;
-          throw new McpAdapterError(code, response.error);
+        if (response.status === "failed") {
+          throw mcpErrorForResumeFailure(response.code, response.error);
         }
 
         const structured = resumeResponseFromPort(response);

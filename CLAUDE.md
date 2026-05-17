@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-A specification, contract, and **POC engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The POC alpha (`@agent-workflow/engine@0.1.0-alpha.4`) has been released to npm under the `alpha` dist-tag.
+A specification, contract, and **POC engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The POC alpha line is `@agent-workflow/engine@0.1.1` (prior publish: `0.1.0-alpha.4` on `alpha`). Publish via the manual **Release npm publish** workflow after tagging `v0.1.1`.
 
 - `docs/RFC/` — nine-section RFC defining the protocol (workflow definition schema, execution model, MCP/REST/SDK integration, security, governance)
 - `docs/poc-scope.md` — **authoritative engine profile**: which node types, commands/events, and reducers the reference engine must support (read this before implementing anything)

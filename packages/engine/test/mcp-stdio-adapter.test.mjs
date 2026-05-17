@@ -5,13 +5,13 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { createMcpWorkflowToolHandlers } from "../src/adapters/mcp/workflow-tools.mjs";
 import { createWorkflowApplicationPort } from "../src/application/workflow-application-port.mjs";
-import { runPocWorkflow } from "../src/orchestrator/poc-runner.mjs";
+import { runGraphWorkflow } from "../src/orchestrator/workflow-graph-walker.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
 import { findWorkflowRepoRoot } from "../src/validate.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Minimal valid POC workflow: start → tool_call → end (host_mediated tests). */
+/** Minimal valid workflow: start → tool_call → end (host_mediated tests). */
 function hostMediatedLinearDefinition() {
   return {
     document: {
@@ -167,6 +167,7 @@ describe("MCP workflow adapter tool handlers", () => {
         return {
           executionId: "exec-55",
           status: "failed",
+          code: "INVALID_RESUME_PAYLOAD",
           error: "Resume payload invalid vs resume_schema: /intent is required",
         };
       },
@@ -182,12 +183,37 @@ describe("MCP workflow adapter tool handlers", () => {
     assert.equal(response.structuredContent.error.code, "INVALID_RESUME_PAYLOAD");
   });
 
+  it("workflow_resume maps unknown typed resume failures to ENGINE_FAILURE", async () => {
+    const handlers = createMcpWorkflowToolHandlers({
+      startWorkflow: unusedPortFn("startWorkflow"),
+      getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
+      submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
+      async resumeWorkflow() {
+        return {
+          executionId: "exec-unknown",
+          status: "failed",
+          code: "UNEXPECTED_FAILURE",
+          error: "unexpected runtime failure",
+        };
+      },
+    });
+
+    const response = await handlers.workflow_resume({
+      execution_id: "exec-unknown",
+      definition: { nodes: [], edges: [] },
+      resume_payload: {},
+    });
+
+    assert.equal(response.isError, true);
+    assert.equal(response.structuredContent.error.code, "ENGINE_FAILURE");
+  });
+
   it("workflow_resume returns deterministic failure for stale/non-interrupt resume attempts", async () => {
     const definition = loadLighthouse();
     const store = new MemoryExecutionHistoryStore();
     const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
 
-    const run = await runPocWorkflow({
+    const run = await runGraphWorkflow({
       definition,
       input: { ticket_text: "clear technical issue" },
       executionId: "exec-resume-stale",

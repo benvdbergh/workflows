@@ -1,12 +1,12 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateWorkflowDefinition } from "../packages/engine/src/validate.mjs";
 import {
   MemoryExecutionHistoryStore,
   RejectingActivityExecutor,
-  runPocWorkflow,
+  runGraphWorkflow,
   submitActivityOutcome,
+  validateWorkflowDefinition,
 } from "../packages/engine/src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -174,7 +174,7 @@ async function runReplayVector(vector) {
   const assertNoActivityExecutorInvocation = vector.assertNoActivityExecutorInvocation === true;
   const activityExecutor = assertNoActivityExecutorInvocation ? new RejectingActivityExecutor() : undefined;
 
-  let run = await runPocWorkflow({
+  let run = await runGraphWorkflow({
     definition,
     input: vector.input ?? {},
     executionId,

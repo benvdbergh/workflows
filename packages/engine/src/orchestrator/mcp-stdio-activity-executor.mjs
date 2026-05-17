@@ -2,7 +2,7 @@
  * Engine-direct MCP stdio client for `tools/call` against operator manifest server definitions.
  *
  * **Transport:** stdio subprocess only (operator manifest `command` / `args` / `env`).
- * HTTP/SSE `url` servers are out of scope for this module; see `docs/architecture/mcp-operator-manifest.md`.
+ * HTTP/SSE `url` servers are out of scope for this module; see `docs/architecture/arc42-assets/contracts/mcp-operator-manifest.md`.
  *
  * **Timeouts:** `callMcpToolStdio` and {@link McpManifestActivityExecutor} use conservative defaults
  * suitable for CI (`DEFAULT_MCP_ACTIVITY_TOOL_TIMEOUT_MS`). Override per call via `timeoutMs`, or pass
