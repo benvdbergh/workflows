@@ -1,0 +1,10 @@
+{
+  "id": "parity.r3.delegate_status_correlation",
+  "description": "agent_delegate status correlation fields — pending #6.",
+  "kind": "parity",
+  "pending": true,
+  "pendingReason": "Requires native agent_delegate (#6) and status payload extensions.",
+  "definition": "examples/lighthouse-customer-routing.workflow.json",
+  "executionId": "parity-r3-delegate-pending",
+  "steps": []
+}

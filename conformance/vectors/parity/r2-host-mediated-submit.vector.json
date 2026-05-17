@@ -1,0 +1,22 @@
+{
+  "id": "parity.r2.host_mediated_submit",
+  "description": "Host-mediated tool_call yields awaiting_activity; submit completes with matching node outcome.",
+  "kind": "parity",
+  "definition": "examples/conformance-host-activity-linear.workflow.json",
+  "executionId": "parity-host-submit-1",
+  "steps": [
+    {
+      "op": "start",
+      "input": {},
+      "activityExecutionMode": "host_mediated",
+      "expect": { "status": "awaiting_activity", "node_id": "work" }
+    },
+    {
+      "op": "submit_activity",
+      "nodeId": "work",
+      "outcome": { "ok": true, "result": { "out": "host-done" } },
+      "activityExecutionMode": "host_mediated",
+      "expect": { "status": "completed", "result": "host-done" }
+    }
+  ]
+}

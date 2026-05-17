@@ -1,0 +1,22 @@
+{
+  "id": "parity.r2.linear_complete",
+  "description": "Lighthouse technical path completes in one start; port and MCP snapshots match.",
+  "kind": "parity",
+  "definition": "examples/lighthouse-customer-routing.workflow.json",
+  "executionId": "parity-linear-complete-1",
+  "stubActivityOutputs": {
+    "classify": { "intent": "technical", "confidence": 0.9 },
+    "search_kb": { "snippets": [] }
+  },
+  "steps": [
+    {
+      "op": "start",
+      "input": { "ticket_text": "clear technical issue" },
+      "expect": { "status": "completed" }
+    },
+    {
+      "op": "status",
+      "expect": { "phase": "completed" }
+    }
+  ]
+}
