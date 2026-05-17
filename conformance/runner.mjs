@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   MemoryExecutionHistoryStore,
   RejectingActivityExecutor,
+  RejectingDelegateExecutor,
   runGraphWorkflow,
   submitActivityOutcome,
   validateWorkflowDefinition,
@@ -29,6 +30,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *   activityExecutionMode?: "in_process" | "host_mediated";
  *   assertNoActivityExecutorInvocation?: boolean;
  *   assertNoSubworkflowInvocation?: boolean;
+ *   assertNoDelegateExecutorInvocation?: boolean;
  *   activitySubmissions?: Array<{
  *     nodeId: string;
  *     outcome:
@@ -175,7 +177,9 @@ async function runReplayVector(vector) {
   const activitySubmissions = Array.isArray(vector.activitySubmissions) ? vector.activitySubmissions : [];
   const assertNoActivityExecutorInvocation = vector.assertNoActivityExecutorInvocation === true;
   const assertNoSubworkflowInvocation = vector.assertNoSubworkflowInvocation === true;
+  const assertNoDelegateExecutorInvocation = vector.assertNoDelegateExecutorInvocation === true;
   const activityExecutor = assertNoActivityExecutorInvocation ? new RejectingActivityExecutor() : undefined;
+  const delegateExecutor = assertNoDelegateExecutorInvocation ? new RejectingDelegateExecutor() : undefined;
 
   let run = await runGraphWorkflow({
     definition,
@@ -184,7 +188,9 @@ async function runReplayVector(vector) {
     store,
     activityExecutionMode,
     ...(activityExecutor ? { activityExecutor } : {}),
+    ...(delegateExecutor ? { delegateExecutor } : {}),
     ...(assertNoSubworkflowInvocation ? { assertNoSubworkflowInvocation: true } : {}),
+    ...(assertNoDelegateExecutorInvocation ? { assertNoDelegateExecutorInvocation: true } : {}),
   });
 
   for (const step of activitySubmissions) {

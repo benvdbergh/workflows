@@ -58,7 +58,13 @@ export function assertWorkflowGraphInvariants(nodes, outgoing) {
       }
       continue;
     }
-    if (n.type === "parallel" || n.type === "wait" || n.type === "set_state" || n.type === "subworkflow") {
+    if (
+      n.type === "parallel" ||
+      n.type === "wait" ||
+      n.type === "set_state" ||
+      n.type === "subworkflow" ||
+      n.type === "agent_delegate"
+    ) {
       if (outs.length !== 1) {
         throw new Error(
           `Node "${n.id}" (type "${n.type}") must have exactly one outgoing edge (successor / join target); found ${outs.length}.`

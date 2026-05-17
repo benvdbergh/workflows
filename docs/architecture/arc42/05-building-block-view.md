@@ -57,11 +57,9 @@ Implemented node categories (representative—not duplicating schema tables here
 
 **Control / structure:** `start`, `end`, `switch`, `parallel`, `wait`, `set_state`
 
-**Activities:** `step`, `llm_call`, `tool_call`, `interrupt`
+**Activities:** `step`, `llm_call`, `tool_call`, `interrupt`, `agent_delegate` (`delegate-executor.mjs`)
 
-**Composition (R3):** `subworkflow` (nested child `executionId`, `subworkflow-runtime.mjs`, `workflow-ref-resolver.mjs`)
-
-**Out of profile (until #6):** `agent_delegate`
+**Composition (R3):** `subworkflow` (`subworkflow-runtime.mjs`, `workflow-ref-resolver.mjs`)
 
 ---
 

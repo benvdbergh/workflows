@@ -166,7 +166,14 @@ function collectReplayResults(rows) {
           ? /** @type {Record<string, unknown>} */ (row.payload.result)
           : undefined;
       if (!result) continue;
-      replayResults.set(nodeId, JSON.parse(JSON.stringify(result)));
+      const stored = JSON.parse(JSON.stringify(result));
+      if (typeof row.payload?.delegateCorrelationId === "string") {
+        stored.__delegateCorrelationId = row.payload.delegateCorrelationId;
+      }
+      if (typeof row.payload?.externalTaskId === "string") {
+        stored.__externalTaskId = row.payload.externalTaskId;
+      }
+      replayResults.set(nodeId, stored);
       continue;
     }
 

@@ -13,15 +13,9 @@
       "type": "start"
     },
     {
-      "id": "delegate",
-      "type": "agent_delegate",
-      "config": {
-        "agent_id": "coder",
-        "protocol": "a2a",
-        "input_mapping": {
-          "task": "${ .task }"
-        }
-      }
+      "id": "bogus",
+      "type": "future_node_kind",
+      "config": {}
     }
   ],
   "edges": [
@@ -31,7 +25,7 @@
     },
     {
       "source": "start",
-      "target": "delegate"
+      "target": "bogus"
     }
   ]
 }

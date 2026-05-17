@@ -47,23 +47,27 @@ These discriminators **MUST** be supported by the POC schema bundle and honored 
 | `wait` | `config.kind`: `duration` (requires `duration_ms` or parseable `duration` string), `until` (ISO-8601 `until` timestamp), or `signal` (**requires host**; unsupported in bare engine — fails at runtime). |
 | `set_state` | `config.assignments`: map of state keys to `{ "jq": "<expr>" }` or `{ "literal": <value> }`; merged with `state_schema` reducers. |
 | `subworkflow` | **R3:** nested workflow per RFC-03: `config.workflow_ref` (URI/registry id), required `config.input_mapping`; optional `version_pin`. Child runs use a distinct `executionId`; parent merges child `finalState` into parent state. Max nested depth default 4. |
+| `agent_delegate` | **R3:** delegation per RFC-03: required `config.agent_id`, `config.protocol` (`a2a` \| `mcp` \| `sdk`), required `config.input_mapping`. Engine emits `ActivityRequested` / `ActivityCompleted` with `delegateCorrelationId` and `externalTaskId`. Reference engine includes in-process mock A2A (`submitted` → `working` → `completed`). |
 
 Common node fields [RFC-03 §3.5](rfc-03-workflow-definition-schema.md#35-node-object-common-fields): `id`, `type`, optional `config`, `retry`, `timeout`, `metadata` — all **in scope** where applicable.
 
 ### 2.1 Node `type` values (explicitly out of scope for this profile)
 
-Implementers **MUST NOT** infer support from the full RFC for:
+Implementers **MUST NOT** infer support from the full RFC for node types not listed in §2.
 
-- `agent_delegate`
+Validators **MUST** reject unknown `type` values.
 
-Validators **MUST** reject unknown `type` values (including the above until promoted).
+### 2.2 Delegation bridge migration (`tool_call` → native)
 
-### 2.2 Delegation profile boundary (north star vs POC bridge)
+Prior POC milestones emulated delegation with `tool_call` to agent-shaped tools (for example `agent.execute` / `agent.status`). Native **`agent_delegate`** is now in profile (§2).
 
-The protocol north-star for delegated autonomous work is **`agent_delegate`** (see [RFC-03 §3.7](rfc-03-workflow-definition-schema.md#37-node-types-normative) and [RFC-06 §6.2](rfc-06-interoperability.md#62-composing-a2a-and-agent-delegation)).  
-For this POC profile, where `agent_delegate` is out of scope, implementations **MAY** use a documented bridge via `tool_call` (for example, `agent.execute` / `agent.status`) to emulate delegation.
+| Bridge (`tool_call`) | Native (`agent_delegate`) |
+|----------------------|---------------------------|
+| `config.server` + `config.tool` | `config.agent_id` + `config.protocol` |
+| Tool arguments / host MCP payload | `config.input_mapping` (jq / literals, same shape as `subworkflow`) |
+| Ad-hoc correlation in tool results | `delegateCorrelationId`, `externalTaskId` on `ActivityRequested` / `ActivityCompleted` |
 
-When bridge mode is used, engines **SHOULD** preserve delegation-equivalent lifecycle and correlation semantics in history so workflows can be promoted to native `agent_delegate` with minimal definition changes in a future scope revision.
+Engines **SHOULD** preserve the same observable activity lifecycle when migrating definitions so replay prefixes remain valid after promotion.
 
 ---
 
