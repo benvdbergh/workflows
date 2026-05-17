@@ -24,8 +24,8 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 
 | Vector | Blocked by | Expected status fields (when implemented) |
 |--------|------------|---------------------------------------------|
-| `parity.r3.delegate_status_correlation` | [#6](https://github.com/benvdbergh/workflows/issues/6) | `delegate_correlation_id`, A2A task linkage |
-| `parity.r3.subworkflow_status_correlation` | [#7](https://github.com/benvdbergh/workflows/issues/7) | `child_execution_id`, `parent_execution_id` |
+| `parity.r3.delegate_status_correlation` | [#8](https://github.com/benvdbergh/workflows/issues/8) (runtime [#6](https://github.com/benvdbergh/workflows/issues/6) done) | `delegate_correlation_id`, A2A task linkage |
+| `parity.r3.subworkflow_status_correlation` | [#8](https://github.com/benvdbergh/workflows/issues/8) (runtime [#7](https://github.com/benvdbergh/workflows/issues/7) done) | `child_execution_id`, `parent_execution_id` |
 
 ## Normalized snapshot format
 
@@ -41,8 +41,8 @@ W3C Trace Context fields are **specified** for R3+ surfaces; the R3 runway harne
 | Field | Where documented | R3 CI behavior |
 |-------|------------------|----------------|
 | `traceparent` | Optional on `ExecutionStarted` and child/delegate events (RFC-05 §5.6) | No-op / not asserted until tracing story lands |
-| `delegate_correlation_id` | `workflow_status` when `agent_delegate` active | Pending #6 |
-| `child_execution_id` / `parent_execution_id` | `workflow_status` / history when `subworkflow` active | Pending #7 |
+| `delegate_correlation_id` | `workflow_status` when `agent_delegate` active | In activity events; **status projection pending #8** |
+| `child_execution_id` / `parent_execution_id` | `workflow_status` / history when `subworkflow` active | In subworkflow events; **status projection pending #8** |
 
 Informative command/event prefix narratives remain under `examples/*.trace.*.json` (not harness-validated). Parity vectors use live port/MCP responses as the executable contract.
 
