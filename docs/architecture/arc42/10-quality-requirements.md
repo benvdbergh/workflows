@@ -12,7 +12,7 @@
 
 ## 10.2 Non-functional backlog (stretch vs GA)
 
-Themes from **`ROADMAP.md`** not fully realized in POC tooling:
+Themes from **`ROADMAP.md`** not fully realized in reference-engine tooling:
 
 | NFR bucket | Desired future state *(not AS-IS completeness)* |
 |------------|--------------------------------------------------|
@@ -32,7 +32,7 @@ Themes from **`ROADMAP.md`** not fully realized in POC tooling:
 
 ## 10.4 Architecture strengths (as-is reinforcement)
 
-Together these properties keep the POC engine auditable despite limited surface parity:
+Together these properties keep the reference engine auditable despite limited surface parity:
 
 | Strength | Meaning |
 |---------|---------|

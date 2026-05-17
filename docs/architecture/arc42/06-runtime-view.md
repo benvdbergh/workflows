@@ -6,7 +6,7 @@
 sequenceDiagram
   participant Caller as Caller (CLI/repo script)
   participant Val as validate.mjs / AJV
-  participant SCH as POC JSON Schema bundle
+  participant SCH as bundled workflow JSON Schema
   Caller->>Val: workflow JSON
   Val->>SCH: compile + validate
   SCH-->>Val: OK / structured errors
@@ -19,7 +19,7 @@ Evidence: `packages/engine/src/validate.mjs`, root `npm run validate-workflows` 
 
 Narrative (validate → run → terminate or yield):
 
-1. Workflow definition validated against the bundled POC JSON Schema bundle and static POC constraints (**Section 6.1**, or callers may pre-validate explicitly).
+1. Workflow definition validated against the bundled workflow JSON Schema and static engine-profile constraints (**Section 6.1**, or callers may pre-validate explicitly).
 2. Execution starts from **input-bound** initial state (**`runGraphWorkflow`**); execution id minted unless supplied.
 3. Graph walker schedules nodes and records command/event pairs as each node completes or fails.
 4. **Reducer**/`jq`-shaped state updates merge per node completion semantics.
@@ -38,7 +38,7 @@ Exported orchestrators used by `createWorkflowApplicationPort` (**`workflow-grap
 3. Host observes progress via **`workflow_status`** (**`workflow_status`** **`phase`** values include **`running`**, **`completed`**, **`failed`**, **`interrupted`**, **`awaiting_activity`**).
 4. Host calls **`workflow_resume`** with **`resumePayload`** after **`interrupt`** milestones, and **`workflow_submit_activity`** when **`phase`** is **`awaiting_activity`** on a **`host_mediated`** boundary (operator walkthrough [`../arc42-assets/runbooks/mcp-stdio-host-smoke.md`](../arc42-assets/runbooks/mcp-stdio-host-smoke.md)).
 
-**Parity harness (R3 runway):** `conformance/vectors/parity/` runs table-driven scenarios against the application port and MCP handlers in-process ([`../arc42-assets/contracts/integration-parity-matrix.md`](../arc42-assets/contracts/integration-parity-matrix.md)). Native **`subworkflow`** ([#7](https://github.com/benvdbergh/workflows/issues/7)) and **`agent_delegate`** ([#6](https://github.com/benvdbergh/workflows/issues/6)) run in the walker; parity rows `parity.r3.*_status_correlation` stay `pending` until [#8](https://github.com/benvdbergh/workflows/issues/8) projects `child_execution_id` / `delegate_correlation_id` on `workflow_status`.
+**Integration parity harness:** `conformance/vectors/parity/` runs table-driven scenarios against the application port and MCP handlers in-process ([`../arc42-assets/contracts/integration-parity-matrix.md`](../arc42-assets/contracts/integration-parity-matrix.md)). Native **`subworkflow`** and **`agent_delegate`** run in the walker; parity rows for status correlation stay `pending` until [#8](https://github.com/benvdbergh/workflows/issues/8) projects `child_execution_id` / `delegate_correlation_id` on `workflow_status`.
 
 ## 6.3 Scenario: Interrupt and resume
 

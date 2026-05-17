@@ -1,4 +1,3 @@
-import { applyOutputWithReducers } from "./linear-runner.mjs";
 import { applyInputMapping } from "./workflow-node-execution.mjs";
 import { resolveWorkflowRef } from "./workflow-ref-resolver.mjs";
 
@@ -36,14 +35,13 @@ export function mintChildExecutionId(parentExecutionId, nodeId) {
  * @param {boolean} [args.assertNoDelegateExecutorInvocation]
  * @param {(options: import("./workflow-graph-walker.mjs").RunGraphWorkflowOptions) => Promise<import("./workflow-graph-walker.mjs").RunGraphWorkflowResult>} args.runGraphWorkflow
  * @param {{ json: (data: unknown, query: string) => Promise<unknown> }} args.jq
- * @returns {Promise<{ kind: "ok" } | { kind: "failed"; error: string }>}
+ * @returns {Promise<{ kind: "ok"; mergedOutput: Record<string, unknown> } | { kind: "failed"; error: string }>}
  */
 export async function executeSubworkflowNode(args) {
   const {
     node,
     state,
     executionId,
-    parentDefinition,
     store,
     appendCmd,
     appendEvt,
@@ -90,12 +88,6 @@ export async function executeSubworkflowNode(args) {
         : replayPayload.childFinalState && typeof replayPayload.childFinalState === "object"
           ? /** @type {Record<string, unknown>} */ (replayPayload.childFinalState)
           : {};
-    Object.assign(
-      state,
-      /** @type {Record<string, unknown>} */ (
-        applyOutputWithReducers(state, merged, parentDefinition.state_schema)
-      )
-    );
     appendEvt("SubworkflowCompleted", {
       nodeId: node.id,
       workflowRef,
@@ -107,7 +99,7 @@ export async function executeSubworkflowNode(args) {
       replayed: true,
     });
     appendCmd("CompleteSubworkflow", { nodeId: node.id, workflowRef, childExecutionId });
-    return { kind: "ok" };
+    return { kind: "ok", mergedOutput: merged };
   }
 
   if (subworkflowDepth >= maxSubworkflowDepth) {
@@ -182,12 +174,6 @@ export async function executeSubworkflowNode(args) {
 
   const childFinalState = childRun.finalState ?? {};
   const mergedOutput = { ...childFinalState };
-  Object.assign(
-    state,
-    /** @type {Record<string, unknown>} */ (
-      applyOutputWithReducers(state, mergedOutput, parentDefinition.state_schema)
-    )
-  );
 
   appendEvt("SubworkflowCompleted", {
     nodeId: node.id,
@@ -200,5 +186,5 @@ export async function executeSubworkflowNode(args) {
   });
   appendCmd("CompleteSubworkflow", { nodeId: node.id, workflowRef, childExecutionId });
 
-  return { kind: "ok" };
+  return { kind: "ok", mergedOutput };
 }

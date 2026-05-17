@@ -1,10 +1,25 @@
 {
   "id": "parity.r3.subworkflow_status_correlation",
-  "description": "subworkflow childExecutionId / parentExecutionId on status — pending #7.",
+  "description": "subworkflow status exposes child_execution_id and parent_execution_id after parent completion.",
   "kind": "parity",
-  "pending": true,
-  "pendingReason": "Requires native subworkflow (#7) and child execution history.",
-  "definition": "examples/lighthouse-customer-routing.workflow.json",
-  "executionId": "parity-r3-subworkflow-pending",
-  "steps": []
+  "definition": "examples/conformance-subworkflow-parent.workflow.json",
+  "executionId": "parity-subworkflow-status-1",
+  "stubActivityOutputs": {
+    "run_tests": { "tests_passed": true }
+  },
+  "steps": [
+    {
+      "op": "start",
+      "input": { "repo": "acme/widget" },
+      "expect": { "status": "completed" }
+    },
+    {
+      "op": "status",
+      "expect": {
+        "phase": "completed",
+        "child_execution_id": "parity-subworkflow-status-1:sub:verify",
+        "parent_execution_id": "parity-subworkflow-status-1"
+      }
+    }
+  ]
 }

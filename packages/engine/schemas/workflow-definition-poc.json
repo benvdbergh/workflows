@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.org/agent-workflow/poc/v1/workflow-definition",
-  "title": "Agent Workflow Protocol — POC workflow definition (R2 core orchestration)",
-  "description": "JSON Schema for the profile defined in docs/poc-scope.md (POC + R2 + R3 subworkflow). Normative semantics: docs/RFC/rfc-03-workflow-definition-schema.md.",
+  "title": "Agent Workflow Protocol — reference engine workflow definition",
+  "description": "JSON Schema for the profile defined in docs/poc-scope.md (core orchestration, delegation, and nested subworkflows). Normative semantics: docs/RFC/rfc-03-workflow-definition-schema.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["document", "state_schema", "nodes", "edges"],

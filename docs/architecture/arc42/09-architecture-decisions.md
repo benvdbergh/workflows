@@ -4,10 +4,10 @@ Significant architectural decisions live as **architecture decision records (ADR
 
 | ADR | Title | Topic |
 |-----|-------|-------|
-| [ADR-0001](../adr/ADR-0001-poc-foundation-decisions.md) | POC foundation | Runtime scope anchored in `docs/poc-scope.md` |
+| [ADR-0001](../adr/ADR-0001-poc-foundation-decisions.md) | Engine profile foundation | Runtime scope anchored in `docs/poc-scope.md` |
 | [ADR-0002](../adr/ADR-0002-host-mediated-activity-execution.md) | Host-mediated activity execution | MCP host submits activity outcomes (`workflow_submit_activity`) |
 | [ADR-0003](../adr/ADR-0003-engine-direct-mcp-activity-execution.md) | Engine-direct MCP activity execution | Optional operator manifests for unattended profiles |
-| [ADR-0004](../adr/ADR-0004-r3-delegation-and-subworkflow.md) | R3 delegation and subworkflow | Native `agent_delegate` + `subworkflow`, replay invariants |
+| [ADR-0004](../adr/ADR-0004-r3-delegation-and-subworkflow.md) | Delegation and subworkflow | Native `agent_delegate` + `subworkflow`, replay invariants |
 
 Lifecycle and conventions: [`../adr/README.md`](../adr/README.md).
 
@@ -20,7 +20,7 @@ Fertile tension clusters for future ADRs—each record should cite **RFC** secti
 | Theme | Typical trigger |
 |-------|----------------|
 | Host-mediated vs **`in_process`** orchestration ergonomics vs trust boundaries | MCP host ergonomics, dual-mode hosts (**ADR-0002** lineage) |
-| Richer delegate/subworkflow semantics (cancel propagation, dedicated delegate events, status correlation) | Post-R3 ([#8](https://github.com/benvdbergh/workflows/issues/8), R4+) per **ADR-0004** |
+| Richer delegate/subworkflow semantics (cancel propagation, dedicated delegate events, status correlation) | Follow-on ([#8](https://github.com/benvdbergh/workflows/issues/8)) per **ADR-0004** |
 | Checkpoint density vs throughput/cost trade-offs | Larger graphs, parallelism fan-out |
 | Adapter parity sequencing (**MCP** now, **REST/SDK** later—**Section 11**) | Portfolio integrators diverging expectations |
 | Contract / schema **versioning** & compatibility guards ahead of GA | npm major bumps, bundled schema pinning |

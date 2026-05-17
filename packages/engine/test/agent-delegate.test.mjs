@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
-import { runGraphWorkflow } from "../src/orchestrator/workflow-graph-walker.mjs";
+import { runGraphWorkflow, resumeGraphWorkflow } from "../src/orchestrator/workflow-graph-walker.mjs";
 import { hydrateReplayContext } from "../src/orchestrator/replay-loader.mjs";
 import {
   RejectingDelegateExecutor,
@@ -149,6 +149,23 @@ describe("agent_delegate", () => {
 
     assert.equal(out.status, "completed");
     assert.equal(out.finalState?.patch, "// from history");
+
+    const rows = store.listByExecution(executionId);
+    const requestedForImplement = rows.filter(
+      (r) => r.name === "ActivityRequested" && r.payload?.nodeId === "implement"
+    );
+    assert.equal(
+      requestedForImplement.length,
+      1,
+      "replay must not append a second ActivityRequested for agent_delegate"
+    );
+    const replayedCompleted = rows.filter(
+      (r) =>
+        r.name === "ActivityCompleted" &&
+        r.payload?.nodeId === "implement" &&
+        r.payload?.replayed === true
+    );
+    assert.equal(replayedCompleted.length, 1);
   });
 
   it("r3 multi-agent coding workflow runs implement as agent_delegate then subworkflow", async () => {
@@ -176,5 +193,129 @@ describe("agent_delegate", () => {
     const rows = store.listByExecution(executionId);
     assert.ok(rows.some((r) => r.name === "ActivityCompleted" && r.payload?.nodeId === "implement"));
     assert.ok(rows.some((r) => r.name === "SubworkflowCompleted" && r.payload?.nodeId === "verify"));
+  });
+
+  it("resumeGraphWorkflow after r3 interrupt completes review → end", async () => {
+    clearWorkflowRefs();
+    const parent = loadJson("examples/r3-multi-agent-coding.workflow.json");
+    const child = loadJson("examples/r3-unit-tests-child.workflow.json");
+    registerWorkflowRef("urn:awp:wf:unit-tests", child);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "test-r3-resume-review";
+    const first = await runGraphWorkflow({
+      definition: parent,
+      input: { task: "fix bug", repo: "acme/app" },
+      executionId,
+      store,
+      stubActivityOutputs: {
+        run_tests: { tests_passed: true },
+      },
+    });
+
+    assert.equal(first.status, "interrupted");
+    assert.equal(first.nodeId, "review");
+
+    const resumed = await resumeGraphWorkflow({
+      definition: parent,
+      executionId,
+      store,
+      resumePayload: { approve: true },
+    });
+
+    assert.equal(resumed.status, "completed");
+    assert.equal(resumed.finalState?.approve, true);
+
+    const rows = store.listByExecution(executionId);
+    assert.ok(rows.some((r) => r.name === "InterruptResumed" && r.payload?.nodeId === "review"));
+    assert.equal(rows.at(-1)?.name, "ExecutionCompleted");
+  });
+
+  it("resumeGraphWorkflow forwards custom delegateExecutor on post-interrupt delegate", async () => {
+    /** @type {object} */
+    const definition = {
+      document: {
+        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        name: "delegate-after-interrupt",
+        version: "1.0.0",
+      },
+      state_schema: {
+        type: "object",
+        properties: {
+          task: { type: "string" },
+          patch: { type: "string" },
+          approve: { type: "boolean" },
+        },
+      },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "review",
+          type: "interrupt",
+          config: {
+            prompt: "Proceed with delegate?",
+            resume_schema: {
+              type: "object",
+              properties: { approve: { type: "boolean" } },
+              required: ["approve"],
+            },
+          },
+        },
+        {
+          id: "implement",
+          type: "agent_delegate",
+          config: {
+            agent_id: "coder",
+            protocol: "a2a",
+            input_mapping: { task: "${ .task }" },
+          },
+        },
+        { id: "end", type: "end" },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "review" },
+        { source: "review", target: "implement" },
+        { source: "implement", target: "end" },
+      ],
+    };
+    assert.equal(validateWorkflowDefinition(definition).ok, true);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "test-resume-custom-delegate";
+    const first = await runGraphWorkflow({
+      definition,
+      input: { task: "custom delegate path" },
+      executionId,
+      store,
+    });
+    assert.equal(first.status, "interrupted");
+    assert.equal(first.nodeId, "review");
+
+    let delegateInvoked = false;
+    /** @type {import("../src/orchestrator/delegate-executor.mjs").DelegateExecutor} */
+    const customDelegate = {
+      async executeDelegate(ctx) {
+        delegateInvoked = true;
+        return {
+          ok: true,
+          output: { patch: "// custom executor patch" },
+          delegateCorrelationId: mintDelegateCorrelationId(ctx.executionId, ctx.node.id),
+          externalTaskId: "custom-ext-1",
+        };
+      },
+    };
+
+    const resumed = await resumeGraphWorkflow({
+      definition,
+      executionId,
+      store,
+      resumePayload: { approve: true },
+      delegateExecutor: customDelegate,
+    });
+
+    assert.equal(resumed.status, "completed");
+    assert.equal(delegateInvoked, true);
+    assert.equal(resumed.finalState?.patch, "// custom executor patch");
   });
 });

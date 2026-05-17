@@ -78,6 +78,11 @@ function statusResponseFromPort(parsed) {
     phase: parsed.phase,
     ...(parsed.currentNodeId !== undefined ? { current_node_id: parsed.currentNodeId } : {}),
     ...(parsed.lastError !== undefined ? { last_error: parsed.lastError } : {}),
+    ...(parsed.delegateCorrelationId !== undefined
+      ? { delegate_correlation_id: parsed.delegateCorrelationId }
+      : {}),
+    ...(parsed.childExecutionId !== undefined ? { child_execution_id: parsed.childExecutionId } : {}),
+    ...(parsed.parentExecutionId !== undefined ? { parent_execution_id: parsed.parentExecutionId } : {}),
   };
   return workflowStatusResultSchema.parse(response);
 }

@@ -2,9 +2,55 @@
 
 **Last reviewed:** 2026-05-17
 
-**Current published engine:** `@agent-workflow/engine@0.1.1` (publish via [Operator runbook](#operator-runbook-publish-to-announce); until then use repo `main` / tag `v0.1.1`). Prior npm line: `0.1.0-alpha.4` on `alpha`. See [ROADMAP.md](../../ROADMAP.md) — R2 core orchestration is **delivered**; next major slice is R3.
+**Current published engine:** `@agent-workflow/engine@0.1.2` (publish via [Operator runbook](#operator-runbook-publish-to-announce); until then use repo `main` / tag `v0.1.2`). Prior npm line: `0.1.1` (`latest` / `alpha`). See [ROADMAP.md](../../ROADMAP.md) for post-alpha sequencing.
 
 Release policy and checklist reference: [alpha-versioning-and-release-commit-flow.md](alpha-versioning-and-release-commit-flow.md)
+
+## v0.1.2 — 2026-05-17
+
+### Added
+
+- Native **`agent_delegate`** and **`subworkflow`** node types in the engine profile, schema bundle, and graph walker (`delegate-executor.mjs`, `subworkflow-runtime.mjs`, `workflow-ref-resolver.mjs`).
+- In-process **mock A2A** delegate lifecycle (`submitted` → `working` → `completed`) for `agent_delegate` with `config.protocol: "a2a"`.
+- **Subworkflow nesting depth limit** (default max depth 4; configurable via walker options).
+
+### Changed
+
+- Engine profile and product documentation aligned: delegation and composition are **in scope** for `@agent-workflow/engine@0.1.2` (patch bump per alpha SemVer policy).
+
+### Fixed
+
+- (none called out separately for this cut)
+
+### Docs
+
+- Release notes, `CLAUDE.md`, arc42 product sections, and `docs/poc-scope.md` scrubbed of stale “out of scope” delegation/composition language; capability terms replace release-milestone labels in product docs.
+
+### Internal
+
+- Conformance and engine tests extended for delegate/subworkflow replay paths.
+
+### Breaking/Impact Notes
+
+- **Patch (`0.1.2`):** new node types and commands/events; consumers on `0.1.1` should re-validate workflows against the bundled schema before upgrade.
+- **`subworkflow` workflow refs:** packaged installs must register child definitions via `registerWorkflowRef(urn, definition)` (or equivalent host wiring); URNs in `config.workflow_ref` are not auto-discovered from the filesystem in the published tarball alone.
+
+### Validation run
+
+- `npm run check-engine-poc-schema-sync`
+- `npm run validate-workflows`
+- `npm run conformance`
+- `npm test`
+- `npm pack --workspace @agent-workflow/engine`
+
+### Publish (maintainers)
+
+1. Merge to `main`, tag **`v0.1.2`**, push tag.
+2. Confirm **Validate workflow definitions** passed on the release commit.
+3. Trigger **Release npm publish (manual)** with `release_ref`: `v0.1.2`:
+   - **Default channel:** `dist_tag`: `latest` (single OIDC publish; no extra dist-tag step).
+   - **Alpha channel:** `dist_tag`: `alpha`, `also_point_latest_dist_tag`: `false` unless repository secret **`NPM_TOKEN`** is configured (OIDC publish + `npm dist-tag add` often fails with `E401`).
+4. To point **`latest`** at an already-published version (e.g. after alpha-only publish): `npm dist-tag add @agent-workflow/engine@0.1.2 latest` locally, or re-run the workflow with `NPM_TOKEN` set and `also_point_latest_dist_tag` true.
 
 ## v0.1.1 — 2026-05-17
 
@@ -60,14 +106,15 @@ These notes are for external evaluators and early adopters validating the curren
 ## Highlights for this alpha phase
 
 - Protocol-first repository with a structured RFC set under `docs/RFC/`.
-- JSON Schema contract in `schemas/workflow-definition-poc.json` for the **POC + R2** profile in [`docs/poc-scope.md`](../poc-scope.md) (including `parallel`, `wait`, `set_state`).
-- Golden workflow fixtures and trace companions in `examples/`, including R2 parallel and research-style fixtures.
+- JSON Schema contract in `schemas/workflow-definition-poc.json` for the **engine profile** in [`docs/poc-scope.md`](../poc-scope.md) (core orchestration, `parallel`, `wait`, `set_state`, **`agent_delegate`**, **`subworkflow`**).
+- Golden workflow fixtures and trace companions in `examples/`, including parallel and research-style fixtures.
 - Deterministic conformance harness entrypoint via `npm run conformance` (schema, replay, host-activity, and engine-direct replay invariants).
-- Node.js engine package with validation, append-only execution history, `switch`, `interrupt`/resume, **R2** graph nodes (`parallel` join policies, `wait` duration/until, `set_state`), checkpoint policy hooks, **host-mediated** and **engine-direct** `tool_call` activity execution (see [ADR-0003](../architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md)), and MCP stdio adapter.
+- Node.js engine package with validation, append-only execution history, `switch`, `interrupt`/resume, parallel join policies, `wait` duration/until, `set_state`, delegation and nested workflows, checkpoint policy hooks, **host-mediated** and **engine-direct** `tool_call` activity execution (see [ADR-0003](../architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md)), and MCP stdio adapter.
 
 ## Known limitations
 
-- **Out of scope** for the active engine profile: `agent_delegate` and `subworkflow` (planned for R3; see `docs/poc-scope.md` and `ROADMAP.md`).
+- **`agent_delegate`:** reference engine uses **mock A2A** only; production A2A/MCP/SDK adapters are not bundled (see `docs/poc-scope.md`, [ADR-0004](../architecture/adr/ADR-0004-r3-delegation-and-subworkflow.md)).
+- **`subworkflow` workflow refs:** child definitions must be registered (e.g. `registerWorkflowRef`); built-in URNs load from `examples/` only in a monorepo checkout, not from the npm tarball ([engine README](../../packages/engine/README.md#workflow-references), [arc42 §8.8](../architecture/arc42/08-cross-cutting-concepts.md#88-workflow-reference-resolution-subworkflow)).
 - **Wait `signal`:** requires a host; the bare engine fails this path at runtime (see `docs/poc-scope.md`).
 - Some RFC sections describe long-term direction (e.g. REST/SDK parity, core binary) that extends beyond this Node.js reference package.
 - Trace companion files are illustrative execution narratives and are not schema-validated executable workflow inputs.
@@ -102,7 +149,7 @@ npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 ### Reproducible install (exact pinned version)
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.1 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.2 workflows-engine-mcp
 ```
 
 ### Provider-neutral MCP client configuration examples
@@ -135,7 +182,7 @@ Pinned, immutable client configuration:
       "args": [
         "-y",
         "-p",
-        "@agent-workflow/engine@0.1.1",
+        "@agent-workflow/engine@0.1.2",
         "workflows-engine-mcp"
       ]
     }
@@ -160,7 +207,7 @@ Run this sequence for every alpha publish event.
      - `also_point_latest_dist_tag`: `false` by default. Set `true` only when you need **`alpha` and `latest`** on the same version; requires repository secret **`NPM_TOKEN`** or the promotion step may fail with `E401` under OIDC-only auth. Prefer `dist_tag: latest` when the default npm channel should move.
 3. Post-publish smoke test:
    - `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp --help`
-   - `npx -y -p @agent-workflow/engine@0.1.1 workflows-engine-mcp --help`
+   - `npx -y -p @agent-workflow/engine@0.1.2 workflows-engine-mcp --help`
 4. Announcement update:
    - Update launch templates and release notes with the published version.
    - Publish channel posts from `docs/community-launch-playbook.md`.

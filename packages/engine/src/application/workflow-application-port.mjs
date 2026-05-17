@@ -23,6 +23,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {object} definition
  * @property {Record<string, unknown>} resumePayload
  * @property {"in_process" | "host_mediated"} [activityExecutionMode]
+ * @property {import("../orchestrator/delegate-executor.mjs").DelegateExecutor} [delegateExecutor]
  */
 
 /**
@@ -64,6 +65,9 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity"} phase
  * @property {string | undefined} currentNodeId
  * @property {string | undefined} lastError
+ * @property {string | undefined} [delegateCorrelationId] Latest agent_delegate activity correlation
+ * @property {string | undefined} [childExecutionId] Active or latest nested child execution id
+ * @property {string | undefined} [parentExecutionId] Parent execution when nested or subworkflow context exists
  */
 
 /**
@@ -143,17 +147,116 @@ function findLatestNonCheckpointEvent(rows) {
   return undefined;
 }
 
+const CHILD_EXECUTION_MARKER = ":sub:";
+
+/**
+ * @param {string} executionId
+ * @returns {{ parentExecutionId: string; nodeId: string } | undefined}
+ */
+function parseChildExecutionId(executionId) {
+  const idx = executionId.lastIndexOf(CHILD_EXECUTION_MARKER);
+  if (idx <= 0) {
+    return undefined;
+  }
+  return {
+    parentExecutionId: executionId.slice(0, idx),
+    nodeId: executionId.slice(idx + CHILD_EXECUTION_MARKER.length),
+  };
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ */
+function latestDelegateCorrelationId(rows) {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (row.kind !== "event") continue;
+    if (row.name !== "ActivityRequested" && row.name !== "ActivityCompleted") continue;
+    if (row.payload?.nodeType !== "agent_delegate") continue;
+    const correlationId = row.payload?.delegateCorrelationId;
+    if (typeof correlationId === "string") {
+      return correlationId;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {string} executionId
+ */
+function latestSubworkflowCorrelation(rows, executionId) {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (row.kind === "event" && (row.name === "SubworkflowStarted" || row.name === "SubworkflowCompleted")) {
+      const childExecutionId = row.payload?.childExecutionId;
+      const parentExecutionId = row.payload?.parentExecutionId;
+      if (typeof childExecutionId === "string" && typeof parentExecutionId === "string") {
+        return { childExecutionId, parentExecutionId };
+      }
+    }
+    if (row.kind === "command" && row.name === "StartSubworkflow") {
+      const childExecutionId = row.payload?.childExecutionId;
+      if (typeof childExecutionId === "string") {
+        return { childExecutionId, parentExecutionId: executionId };
+      }
+    }
+  }
+  const parsed = parseChildExecutionId(executionId);
+  if (parsed) {
+    return { childExecutionId: executionId, parentExecutionId: parsed.parentExecutionId };
+  }
+  return undefined;
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {string} executionId
+ */
+function projectStatusCorrelation(rows, executionId) {
+  /** @type {Pick<WorkflowStatusResponse, "delegateCorrelationId" | "childExecutionId" | "parentExecutionId">} */
+  const correlation = {};
+  const delegateCorrelationId = latestDelegateCorrelationId(rows);
+  if (delegateCorrelationId) {
+    correlation.delegateCorrelationId = delegateCorrelationId;
+  }
+  const subworkflow = latestSubworkflowCorrelation(rows, executionId);
+  if (subworkflow?.childExecutionId) {
+    correlation.childExecutionId = subworkflow.childExecutionId;
+  }
+  if (subworkflow?.parentExecutionId) {
+    correlation.parentExecutionId = subworkflow.parentExecutionId;
+  }
+  return correlation;
+}
+
+/**
+ * @param {string} executionId
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {Omit<WorkflowStatusResponse, "executionId" | "delegateCorrelationId" | "childExecutionId" | "parentExecutionId">} body
+ * @returns {WorkflowStatusResponse}
+ */
+function buildStatusResponse(executionId, rows, body) {
+  return {
+    executionId,
+    ...body,
+    ...projectStatusCorrelation(rows, executionId),
+  };
+}
+
 /**
  * Stable application-facing port for workflow control operations used by interface adapters.
  *
  * @param {{
  *   store: import("../persistence/types.mjs").ExecutionHistoryStore;
  *   activityExecutor?: import("../orchestrator/activity-executor.mjs").ActivityExecutor;
+ *   delegateExecutor?: import("../orchestrator/delegate-executor.mjs").DelegateExecutor;
  * }} deps
  * Optional `activityExecutor` runs `tool_call` nodes in-process (e.g. MCP manifest executor); omit to use the stub executor.
+ * Optional `delegateExecutor` runs `agent_delegate` nodes; omit to use the mock A2A delegate executor.
  */
 export function createWorkflowApplicationPort(deps) {
-  const { store, activityExecutor } = deps;
+  const { store, activityExecutor, delegateExecutor } = deps;
 
   return {
     /**
@@ -211,41 +314,41 @@ export function createWorkflowApplicationPort(deps) {
 
       const lastPrimary = latestPrimaryEvent(rows);
       if (lastPrimary?.name === "ExecutionCompleted") {
-        return { executionId: request.executionId, phase: "completed", currentNodeId: undefined, lastError: undefined };
+        return buildStatusResponse(request.executionId, rows, {
+          phase: "completed",
+          currentNodeId: undefined,
+          lastError: undefined,
+        });
       }
       if (lastPrimary?.name === "ExecutionFailed") {
-        return {
-          executionId: request.executionId,
+        return buildStatusResponse(request.executionId, rows, {
           phase: "failed",
           currentNodeId: latestNodeId(rows),
           lastError: latestError(rows),
-        };
+        });
       }
       if (lastPrimary?.name === "InterruptRaised") {
-        return {
-          executionId: request.executionId,
+        return buildStatusResponse(request.executionId, rows, {
           phase: "interrupted",
           currentNodeId: latestNodeId(rows),
           lastError: undefined,
-        };
+        });
       }
       const lastNc = findLatestNonCheckpointEvent(rows);
       if (lastNc?.kind === "event" && lastNc.name === "ActivityRequested") {
         const nid =
           typeof lastNc.payload?.nodeId === "string" ? lastNc.payload.nodeId : latestNodeId(rows);
-        return {
-          executionId: request.executionId,
+        return buildStatusResponse(request.executionId, rows, {
           phase: "awaiting_activity",
           currentNodeId: nid,
           lastError: undefined,
-        };
+        });
       }
-      return {
-        executionId: request.executionId,
+      return buildStatusResponse(request.executionId, rows, {
         phase: "running",
         currentNodeId: latestNodeId(rows),
         lastError: undefined,
-      };
+      });
     },
 
     /**
@@ -253,6 +356,7 @@ export function createWorkflowApplicationPort(deps) {
      * @returns {Promise<WorkflowResumeResponse>}
      */
     async resumeWorkflow(request) {
+      const resumeDelegate = request.delegateExecutor ?? delegateExecutor;
       const runResult = await resumeGraphWorkflow({
         definition: request.definition,
         executionId: request.executionId,
@@ -260,6 +364,7 @@ export function createWorkflowApplicationPort(deps) {
         store,
         ...(activityExecutor ? { activityExecutor } : {}),
         ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
+        ...(resumeDelegate ? { delegateExecutor: resumeDelegate } : {}),
       });
 
       return {

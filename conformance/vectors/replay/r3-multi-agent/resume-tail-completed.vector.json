@@ -1,0 +1,200 @@
+{
+  "id": "replay.r3.multi_agent.resume_tail_completed",
+  "description": "Resume from InterruptRaised on review completes through end without re-invoking delegate or subworkflow.",
+  "kind": "replay",
+  "definition": "examples/r3-multi-agent-coding.workflow.json",
+  "input": { "task": "fix bug", "repo": "acme/app" },
+  "assertNoDelegateExecutorInvocation": true,
+  "assertNoSubworkflowInvocation": true,
+  "resumePayload": { "approve": true },
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "coding-task",
+        "workflowVersion": "1.0.0",
+        "inputKeys": ["task", "repo"]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "start",
+        "state": { "task": "fix bug", "repo": "acme/app" }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "implement" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "implement" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": {
+        "nodeId": "implement",
+        "nodeType": "agent_delegate",
+        "agentId": "coder",
+        "protocol": "a2a",
+        "delegateCorrelationId": "replay.r3.multi_agent.resume_tail_completed::exec:delegate:implement"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "implement",
+        "result": {
+          "patch": "// replay patch",
+          "delegate_status": "completed"
+        },
+        "delegateCorrelationId": "replay.r3.multi_agent.resume_tail_completed::exec:delegate:implement",
+        "externalTaskId": "a2a-task-replay.r3.multi_agent.resume_tail_completed--exec-delegate-implement"
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "implement",
+        "output": { "patch": "// replay patch", "delegate_status": "completed" }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "implement",
+        "state": {
+          "task": "fix bug",
+          "repo": "acme/app",
+          "patch": "// replay patch",
+          "delegate_status": "completed"
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "verify" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "verify" }
+    },
+    {
+      "kind": "command",
+      "name": "StartSubworkflow",
+      "payload": {
+        "nodeId": "verify",
+        "workflowRef": "urn:awp:wf:unit-tests",
+        "childExecutionId": "replay.r3.multi_agent.resume_tail_completed::exec:sub:verify"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "SubworkflowStarted",
+      "payload": {
+        "nodeId": "verify",
+        "workflowRef": "urn:awp:wf:unit-tests",
+        "parentExecutionId": "replay.r3.multi_agent.resume_tail_completed::exec",
+        "childExecutionId": "replay.r3.multi_agent.resume_tail_completed::exec:sub:verify"
+      }
+    },
+    {
+      "kind": "event",
+      "name": "SubworkflowCompleted",
+      "payload": {
+        "nodeId": "verify",
+        "workflowRef": "urn:awp:wf:unit-tests",
+        "parentExecutionId": "replay.r3.multi_agent.resume_tail_completed::exec",
+        "childExecutionId": "replay.r3.multi_agent.resume_tail_completed::exec:sub:verify",
+        "childFinalState": { "repo": "acme/app", "tests_passed": true },
+        "mergedOutput": { "repo": "acme/app", "tests_passed": true }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteSubworkflow",
+      "payload": {
+        "nodeId": "verify",
+        "workflowRef": "urn:awp:wf:unit-tests",
+        "childExecutionId": "replay.r3.multi_agent.resume_tail_completed::exec:sub:verify"
+      }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": {
+        "nodeId": "verify",
+        "output": { "repo": "acme/app", "tests_passed": true }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": {
+        "nodeId": "verify",
+        "state": {
+          "task": "fix bug",
+          "repo": "acme/app",
+          "patch": "// replay patch",
+          "delegate_status": "completed",
+          "tests_passed": true
+        }
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "review" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "review" }
+    },
+    {
+      "kind": "command",
+      "name": "RaiseInterrupt",
+      "payload": { "nodeId": "review", "prompt": "Approve patch for merge?" }
+    },
+    {
+      "kind": "event",
+      "name": "InterruptRaised",
+      "payload": { "nodeId": "review", "prompt": "Approve patch for merge?" }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "ResumeInterrupt", "nodeId": "review" },
+      { "name": "CompleteNode", "nodeId": "review" },
+      { "name": "ScheduleNode", "nodeId": "end" },
+      { "name": "CompleteNode", "nodeId": "end" }
+    ]
+  }
+}

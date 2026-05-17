@@ -73,6 +73,9 @@ export const workflowStatusResultSchema = z.object({
   phase: z.enum(["running", "completed", "failed", "interrupted", "awaiting_activity"]),
   current_node_id: z.string().optional(),
   last_error: z.string().optional(),
+  delegate_correlation_id: z.string().optional(),
+  child_execution_id: z.string().optional(),
+  parent_execution_id: z.string().optional(),
 });
 
 export const workflowResumeResultSchema = z.object({

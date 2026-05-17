@@ -52,6 +52,7 @@ export function resolveWorkflowRef(workflowRef) {
 
   const filename = builtinRefs()[workflowRef];
   if (filename) {
+    // Built-in URNs read examples/ under the monorepo root; npm package hosts must registerWorkflowRef.
     const root = findWorkflowRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
     const filePath = path.join(root, "examples", filename);
     const definition = JSON.parse(readFileSync(filePath, "utf8"));

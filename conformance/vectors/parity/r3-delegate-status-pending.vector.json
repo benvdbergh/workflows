@@ -1,10 +1,21 @@
 {
   "id": "parity.r3.delegate_status_correlation",
-  "description": "agent_delegate status correlation fields — pending #6.",
+  "description": "agent_delegate status exposes delegate_correlation_id after linear completion.",
   "kind": "parity",
-  "pending": true,
-  "pendingReason": "Requires native agent_delegate (#6) and status payload extensions.",
-  "definition": "examples/lighthouse-customer-routing.workflow.json",
-  "executionId": "parity-r3-delegate-pending",
-  "steps": []
+  "definition": "examples/conformance-agent-delegate-linear.workflow.json",
+  "executionId": "parity-delegate-status-1",
+  "steps": [
+    {
+      "op": "start",
+      "input": { "task": "implement feature X" },
+      "expect": { "status": "completed" }
+    },
+    {
+      "op": "status",
+      "expect": {
+        "phase": "completed",
+        "delegate_correlation_id": "parity-delegate-status-1:delegate:implement"
+      }
+    }
+  ]
 }

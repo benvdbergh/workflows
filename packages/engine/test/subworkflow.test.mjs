@@ -58,6 +58,12 @@ describe("subworkflow", () => {
     assert.ok(parentRows.some((r) => r.name === "SubworkflowCompleted"));
     assert.ok(parentRows.some((r) => r.name === "StartSubworkflow"));
     assert.ok(parentRows.some((r) => r.name === "CompleteSubworkflow"));
+    const verifyComplete = parentRows.find(
+      (r) => r.kind === "command" && r.name === "CompleteNode" && r.payload?.nodeId === "verify"
+    );
+    assert.ok(verifyComplete);
+    assert.equal(verifyComplete.payload.output?.tests_passed, true);
+    assert.equal(verifyComplete.payload.output?.repo, "acme/widget");
   });
 
   it("fails parent when child workflow fails", async () => {
@@ -85,8 +91,67 @@ describe("subworkflow", () => {
     });
 
     assert.equal(out.status, "failed");
+    assert.match(out.error ?? "", /child activity failed|child workflow failed/i);
+
     const rows = store.listByExecution("test-subworkflow-child-fail");
+    const failCmd = rows.find(
+      (r) => r.kind === "command" && r.name === "FailNode" && r.payload?.nodeId === "verify"
+    );
+    assert.equal(failCmd?.payload?.reason, "subworkflow_failed");
+    assert.ok(
+      rows.some(
+        (r) =>
+          r.name === "SubworkflowCompleted" &&
+          r.payload?.nodeId === "verify" &&
+          r.payload?.failed === true
+      )
+    );
     assert.ok(rows.some((r) => r.name === "ExecutionFailed"));
+    assert.ok(!rows.some((r) => r.name === "NodeScheduled" && r.payload?.nodeId === "mark_done"));
+  });
+
+  it("fails when subworkflowDepth >= maxSubworkflowDepth", async () => {
+    const parent = loadJson("examples/conformance-subworkflow-parent.workflow.json");
+    const child = loadJson("examples/r3-unit-tests-child.workflow.json");
+    registerWorkflowRef("urn:awp:wf:unit-tests", child);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "test-subworkflow-max-depth";
+    const out = await runGraphWorkflow({
+      definition: parent,
+      input: { repo: "acme/app" },
+      executionId,
+      store,
+      subworkflowDepth: 4,
+      maxSubworkflowDepth: 4,
+    });
+
+    assert.equal(out.status, "failed");
+    assert.match(out.error ?? "", /max depth 4 exceeded/);
+
+    const rows = store.listByExecution(executionId);
+    const failCmd = rows.find((r) => r.kind === "command" && r.name === "FailNode");
+    assert.equal(failCmd?.payload?.reason, "subworkflow_failed");
+    assert.ok(rows.some((r) => r.name === "ExecutionFailed"));
+  });
+
+  it("assertNoSubworkflowInvocation guard rejects live child run without replay prefix", async () => {
+    const parent = loadJson("examples/conformance-subworkflow-parent.workflow.json");
+    const child = loadJson("examples/r3-unit-tests-child.workflow.json");
+    registerWorkflowRef("urn:awp:wf:unit-tests", child);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "test-subworkflow-no-invoke";
+    const out = await runGraphWorkflow({
+      definition: parent,
+      input: { repo: "acme/app" },
+      executionId,
+      store,
+      assertNoSubworkflowInvocation: true,
+    });
+
+    assert.equal(out.status, "failed");
+    assert.match(out.error ?? "", /child invocation not allowed/);
   });
 
   it("replay hydrates SubworkflowCompleted and tail skips child invocation", async () => {

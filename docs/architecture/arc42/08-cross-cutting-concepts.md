@@ -16,7 +16,7 @@ Deterministic branching requires:
 
 - reproducible reducer/jq evaluations on recorded inputs,
 - no hidden side channels influencing branch choice,
-- nondeterminism surfaced as typed failures (`NONDETERMINISM_DETECTED` family in POC runner implementation).
+- nondeterminism surfaced as typed failures (`NONDETERMINISM_DETECTED` family in graph walker implementation).
 
 ## 8.3 Error handling strategy
 
@@ -26,7 +26,7 @@ Deterministic branching requires:
 | **Orchestration** | Machine-oriented codes for resume/adaptation (`INVALID_RESUME_PAYLOAD`, …) |
 | **MCP adapter** | Stable tool error taxonomy for hosts (`packages/engine/src/adapters/mcp/errors.mjs`) |
 
-## 8.4 Logging / observability (POC stance)
+## 8.4 Logging / observability (reference engine stance)
 
 Stdout/stderr narratives for conformance and MCP smoke; structured logging not yet a first-class product surface.
 
@@ -40,11 +40,22 @@ Stdout/stderr narratives for conformance and MCP smoke; structured logging not y
 
 ## 8.6 Checkpointing *(optional capability)*
 
-Profile allows `checkpointing` configuration; POC runner emits deterministic checkpoint events aligned with walker boundaries—consumers derive recovery semantics per RFC + profile narratives.
+Profile allows `checkpointing` configuration; the graph walker emits deterministic checkpoint events aligned with walker boundaries—consumers derive recovery semantics per RFC + profile narratives.
 
 ## 8.7 Integration contract (operator manifest)
 
 Engine-direct wiring is documented as a **transport-facing** operator JSON contract: [`../arc42-assets/contracts/mcp-operator-manifest.md`](../arc42-assets/contracts/mcp-operator-manifest.md).
+
+## 8.8 Workflow reference resolution (subworkflow)
+
+Workflows that call a nested definition via **`subworkflow`** use `config.workflow_ref` (URI or registry id). The reference engine resolves refs through an **in-process registry** (`registerWorkflowRef` / `clearWorkflowRefs` in `workflow-ref-resolver.mjs`).
+
+| Deployment | Behavior |
+|------------|----------|
+| **Full repository checkout** | A small set of built-in URNs may load JSON from `examples/` when the monorepo root is found (e.g. conformance/demo child fixtures). |
+| **Published `@agent-workflow/engine` npm package** | `examples/` is **not** in the publish payload; built-in file-backed URNs are unavailable. Embedders must register child definitions before run (or supply definitions only through explicit registration). |
+
+Product detail and API notes: [`packages/engine/README.md`](../../../packages/engine/README.md#workflow-references).
 
 ---
 

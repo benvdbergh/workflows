@@ -453,7 +453,10 @@ export async function runGraphWorkflow(options) {
           appendEvt("ExecutionFailed", { error: sw.error });
           return { status: "failed", error: sw.error, finalState: state };
         }
-        appendCmd("CompleteNode", { nodeId: current, output: {} });
+        appendCmd("CompleteNode", { nodeId: current, output: sw.mergedOutput });
+        state = /** @type {Record<string, unknown>} */ (
+          applyOutputWithReducers(state, sw.mergedOutput, definition.state_schema)
+        );
         const swStateSeq = appendEvt("StateUpdated", {
           nodeId: current,
           state: JSON.parse(JSON.stringify(state)),
@@ -621,6 +624,11 @@ export async function runGraphWorkflow(options) {
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
  * @property {import("./activity-executor.mjs").ActivityExecutor} [activityExecutor]
  * @property {"in_process" | "host_mediated"} [activityExecutionMode]
+ * @property {number} [subworkflowDepth] nested subworkflow depth (default 0).
+ * @property {number} [maxSubworkflowDepth] max nested depth (default 4).
+ * @property {boolean} [assertNoSubworkflowInvocation] when true, nested child runs throw (conformance replay).
+ * @property {import("./delegate-executor.mjs").DelegateExecutor} [delegateExecutor]
+ * @property {boolean} [assertNoDelegateExecutorInvocation] when true, delegate port must not run (conformance replay).
  */
 
 /**
@@ -1091,7 +1099,10 @@ export async function resumeGraphWorkflow(options) {
           appendEvt("ExecutionFailed", { error: sw.error });
           return { status: "failed", error: sw.error, finalState: state };
         }
-        appendCmd("CompleteNode", { nodeId: current, output: {} });
+        appendCmd("CompleteNode", { nodeId: current, output: sw.mergedOutput });
+        state = /** @type {Record<string, unknown>} */ (
+          applyOutputWithReducers(state, sw.mergedOutput, definition.state_schema)
+        );
         const swStateSeq = appendEvt("StateUpdated", {
           nodeId: current,
           state: JSON.parse(JSON.stringify(state)),
@@ -1251,6 +1262,9 @@ export async function resumeGraphWorkflow(options) {
  * @property {"in_process" | "host_mediated"} [activityExecutionMode] Continuation mode for any further activities (default `host_mediated`).
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
  * @property {import("./activity-executor.mjs").ActivityExecutor} [activityExecutor]
+ * @property {number} [subworkflowDepth] nested subworkflow depth (default 0); must match the initial `runGraphWorkflow` call for this execution.
+ * @property {number} [maxSubworkflowDepth] max nested depth (default 4).
+ * @property {boolean} [assertNoSubworkflowInvocation] when true, nested child runs throw (conformance replay).
  */
 
 /**
@@ -1276,6 +1290,9 @@ export async function submitActivityOutcome(options) {
     activityExecutionMode = "host_mediated",
     stubActivityOutputs = {},
     activityExecutor,
+    subworkflowDepth = 0,
+    maxSubworkflowDepth = 4,
+    assertNoSubworkflowInvocation = false,
     delegateExecutor,
     assertNoDelegateExecutorInvocation = false,
   } = options;
@@ -1403,6 +1420,9 @@ export async function submitActivityOutcome(options) {
     stubActivityOutputs,
     activityExecutor,
     activityExecutionMode,
+    subworkflowDepth,
+    maxSubworkflowDepth,
+    ...(assertNoSubworkflowInvocation ? { assertNoSubworkflowInvocation: true } : {}),
     ...(delegateExecutor ? { delegateExecutor } : {}),
     ...(assertNoDelegateExecutorInvocation ? { assertNoDelegateExecutorInvocation: true } : {}),
   });

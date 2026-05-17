@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { createMcpWorkflowToolHandlers } from "../src/adapters/mcp/workflow-tools.mjs";
 import { createWorkflowApplicationPort } from "../src/application/workflow-application-port.mjs";
+import { StubActivityExecutor } from "../src/orchestrator/activity-executor.mjs";
+import { mintDelegateCorrelationId } from "../src/orchestrator/delegate-executor.mjs";
 import { runGraphWorkflow } from "../src/orchestrator/workflow-graph-walker.mjs";
+import { mintChildExecutionId } from "../src/orchestrator/subworkflow-runtime.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
 import { findWorkflowRepoRoot } from "../src/validate.mjs";
 
@@ -52,6 +55,11 @@ function loadLighthouse() {
   const root = findWorkflowRepoRoot(__dirname);
   const fixturePath = path.join(root, "examples", "lighthouse-customer-routing.workflow.json");
   return JSON.parse(readFileSync(fixturePath, "utf8"));
+}
+
+function loadRepoJson(relPath) {
+  const root = findWorkflowRepoRoot(__dirname);
+  return JSON.parse(readFileSync(path.join(root, relPath), "utf8"));
 }
 
 describe("MCP workflow adapter tool handlers", () => {
@@ -132,6 +140,56 @@ describe("MCP workflow adapter tool handlers", () => {
 
     assert.equal(response.isError, true);
     assert.equal(response.structuredContent.error.code, "EXECUTION_NOT_FOUND");
+  });
+
+  it("workflow_status projects delegate_correlation_id after agent_delegate completion", async () => {
+    const definition = loadRepoJson("examples/conformance-agent-delegate-linear.workflow.json");
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const executionId = "mcp-status-delegate-1";
+
+    const started = await handlers.workflow_start({
+      execution_id: executionId,
+      definition,
+      input: { task: "ship correlation on status" },
+    });
+    assert.equal(started.structuredContent.status, "completed");
+
+    const response = await handlers.workflow_status({ execution_id: executionId });
+    assert.equal(response.isError, undefined);
+    assert.equal(response.structuredContent.phase, "completed");
+    assert.equal(
+      response.structuredContent.delegate_correlation_id,
+      mintDelegateCorrelationId(executionId, "implement")
+    );
+  });
+
+  it("workflow_status projects child and parent execution ids after subworkflow completion", async () => {
+    const definition = loadRepoJson("examples/conformance-subworkflow-parent.workflow.json");
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(
+      createWorkflowApplicationPort({
+        store,
+        activityExecutor: new StubActivityExecutor({ run_tests: { tests_passed: true } }),
+      })
+    );
+    const executionId = "mcp-status-subworkflow-1";
+
+    const started = await handlers.workflow_start({
+      execution_id: executionId,
+      definition,
+      input: { repo: "acme/widget" },
+    });
+    assert.equal(started.structuredContent.status, "completed");
+
+    const response = await handlers.workflow_status({ execution_id: executionId });
+    assert.equal(response.isError, undefined);
+    assert.equal(response.structuredContent.phase, "completed");
+    assert.equal(
+      response.structuredContent.child_execution_id,
+      mintChildExecutionId(executionId, "verify")
+    );
+    assert.equal(response.structuredContent.parent_execution_id, executionId);
   });
 
   it("workflow_resume completes interrupted executions with valid payloads", async () => {

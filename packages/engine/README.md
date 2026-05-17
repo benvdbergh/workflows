@@ -1,6 +1,6 @@
 # `@agent-workflow/engine`
 
-Publishable npm package: **definition-time** validation for Agent Workflow Protocol workflow documents per [`docs/poc-scope.md`](../../docs/poc-scope.md), an **append-only execution history** port (SQLite or in-memory), a **linear graph runner**, and a **general graph walker** with `switch`, `interrupt` / resume, **parallel** join policies (`all` / `any` / `n_of_m`), **wait** (`duration` / `until`; `signal` needs a host), and **set_state**.
+Publishable npm package: **definition-time** validation for Agent Workflow Protocol workflow documents per [`docs/poc-scope.md`](../../docs/poc-scope.md), an **append-only execution history** port (SQLite or in-memory), a **linear graph runner**, and a **general graph walker** with `switch`, `interrupt` / resume, **parallel** join policies (`all` / `any` / `n_of_m`), **wait** (`duration` / `until`; `signal` needs a host), **set_state**, **`agent_delegate`** (in-process mock A2A), and **`subworkflow`** (nested runs with depth limit; register child defs via `registerWorkflowRef`).
 
 ## Entrypoint (CLI)
 
@@ -45,7 +45,7 @@ No-install npm usage for MCP hosts:
 npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 
 # consume a pinned, reproducible package version
-npx -y -p @agent-workflow/engine@0.1.1 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.2 workflows-engine-mcp
 ```
 
 **Operator setup (default for MCP clients)** — register the published package; the host runs `npx` and does not need this repository on disk. Use `-y` (non-interactive) and `-p` so npm selects the `workflows-engine-mcp` bin when both `workflows-engine` and `workflows-engine-mcp` are present:
@@ -166,7 +166,7 @@ Phases: **validate** (bundled workflow schema + reject `state_schema.properties.
 
 **API:** `runPocWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })` and `resumePocWorkflow({ definition, executionId, store, resumePayload, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })`. **`activityExecutionMode`** defaults to `"in_process"` (run `ActivityExecutor` immediately). With **`"host_mediated"`**, the walker returns `{ status: 'awaiting_activity', nodeId, state, parallelSpan? }` after `ActivityRequested` (see ADR-0002). Continue by appending the outcome and calling `runPocWorkflow` again, or use **`submitActivityOutcome({ definition, executionId, store, input, nodeId, outcome, expectedParallelSpan?, ... })`** (also exported) which validates the pending request and re-enters the walker. Parallel branches attach **`parallelSpan`** to `ActivityRequested`; submits for those nodes must pass the same **`expectedParallelSpan`**.
 
-`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, and `set_state`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
+`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, `set_state`, `agent_delegate`, and `subworkflow`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
 
 **`switch` routing:** Successors come **only** from `config.cases` (first jq match wins; jq input root is the **current workflow state object**, same as the linear runner) and `config.default` when no case matches. If any `cases` exist and none match and `default` is omitted, the run fails with a clear error. **Static `edges` whose `source` is the switch node id are ignored for routing** (they may exist in documents; the engine does not follow them). This matches the routing guidance in `docs/poc-scope.md` (avoid duplicate routing channels).
 
@@ -181,6 +181,21 @@ Phases: **validate** (bundled workflow schema + reject `state_schema.properties.
 Each checkpoint payload includes `executionId`, `workflowVersion`, `definitionHash` (sha256 of canonical definition JSON), `lastAppliedEventSeq`, `nodeId`, and `stateRef` (currently `inline_state` snapshot). This links each checkpoint to a concrete history boundary (`lastAppliedEventSeq`) while keeping room for future blob indirection.
 
 **Recovery loading:** `hydrateReplayContext({ startMode: "safe_point" })` prefers the latest valid `CheckpointWritten` boundary and starts replay from `lastAppliedEventSeq + 1`. If checkpoints are absent or invalid, hydration falls back to genesis replay (`startSeq = 1`).
+
+### Workflow references
+
+`subworkflow` nodes resolve `config.workflow_ref` at runtime through an in-process registry (`src/orchestrator/workflow-ref-resolver.mjs`).
+
+- **`registerWorkflowRef(workflowRef, definition)`** — register a parsed child definition object before running a parent that references `workflowRef`. Registrations last for the process lifetime.
+- **`clearWorkflowRefs()`** — reset the registry (tests and long-lived hosts).
+
+Import these helpers from `workflow-ref-resolver.mjs` (they are not re-exported from the package entrypoint today).
+
+**Monorepo checkout:** one built-in reference resolves from disk when the **workflows** repository root is discoverable (`findWorkflowRepoRoot()`): `urn:awp:wf:unit-tests` → `examples/r3-unit-tests-child.workflow.json`.
+
+**Published npm install:** the tarball ships only `src/`, `schemas/`, and this README (`examples/` is not bundled). Built-in URNs do not resolve on disk; register every `workflow_ref` your definitions use via `registerWorkflowRef`, or load child JSON from your own artifact store and register it before `runGraphWorkflow` / MCP `workflow_start`.
+
+Operator-oriented summary: [arc42 cross-cutting — workflow reference resolution](../../docs/architecture/arc42/08-cross-cutting-concepts.md#88-workflow-reference-resolution-subworkflow). Release notes: [alpha — known limitations](../../docs/releases/alpha-release-notes.md#known-limitations).
 
 ### Execution history
 

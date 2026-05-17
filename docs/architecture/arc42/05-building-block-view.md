@@ -17,7 +17,7 @@
 |-----------|----------------|-----------------|
 | **Validation** | AJV compile + workflow definition validation | `src/validate.mjs`, `schemas/` (bundled) |
 | **Application port** | Stable facade: start / status / resume / submit activity | `src/application/workflow-application-port.mjs` |
-| **Graph orchestration** | POC profile node matrix: **`runGraphWorkflow`**, **`resumeGraphWorkflow`**, **`submitActivityOutcome`**; parallel join runtime; deterministic checkpoints; graph invariants | `src/orchestrator/workflow-graph-walker.mjs`, `workflow-graph-walker-support.mjs`, `workflow-graph-invariants.mjs`, `workflow-node-execution.mjs`, `parallel-join-runtime.mjs` |
+| **Graph orchestration** | Engine profile node matrix: **`runGraphWorkflow`**, **`resumeGraphWorkflow`**, **`submitActivityOutcome`**; parallel join runtime; deterministic checkpoints; graph invariants | `src/orchestrator/workflow-graph-walker.mjs`, `workflow-graph-walker-support.mjs`, `workflow-graph-invariants.mjs`, `workflow-node-execution.mjs`, `parallel-join-runtime.mjs` |
 | **Linear path** | Linear execution, reducers, node path computation | `src/orchestrator/linear-runner.mjs` |
 | **Activity execution** | Executors, stubs, engine-direct MCP stdio activity execution | `src/orchestrator/activity-executor.mjs`, `mcp-stdio-activity-executor.mjs` |
 | **Replay support** | Hydrate replay context from history | `src/orchestrator/replay-loader.mjs` |
@@ -48,10 +48,10 @@ Structured errors via `src/adapters/mcp/errors.mjs` (codes include `VALIDATION_E
 ## 5.4 Key dependencies between components
 
 - **MCP stdio bin** constructs `MemoryExecutionHistoryStore` (or SQLite if configured downstream), **`createWorkflowApplicationPort`**, then **`createMcpWorkflowStdioServer`**.
-- **Application port** delegates to **`runGraphWorkflow`**, **`resumeGraphWorkflow`**, **`submitActivityOutcome`** (`workflow-graph-walker.mjs`), which encapsulate POC replay stepping.
+- **Application port** delegates to **`runGraphWorkflow`**, **`resumeGraphWorkflow`**, **`submitActivityOutcome`** (`workflow-graph-walker.mjs`), which encapsulate deterministic replay stepping.
 - **Conformance runner** imports engine from `packages/engine/src/index.mjs` and exercises validation + replay scenarios.
 
-## 5.5 POC execution profile (building block rationale)
+## 5.5 Engine execution profile (building block rationale)
 
 Implemented node categories (representative—not duplicating schema tables here):
 
@@ -59,7 +59,7 @@ Implemented node categories (representative—not duplicating schema tables here
 
 **Activities:** `step`, `llm_call`, `tool_call`, `interrupt`, `agent_delegate` (`delegate-executor.mjs`)
 
-**Composition (R3):** `subworkflow` (`subworkflow-runtime.mjs`, `workflow-ref-resolver.mjs`)
+**Composition:** `subworkflow` (`subworkflow-runtime.mjs`, `workflow-ref-resolver.mjs`)
 
 ---
 

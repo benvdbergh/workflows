@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
 import { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome } from "../src/orchestrator/workflow-graph-walker.mjs";
+import { clearWorkflowRefs, registerWorkflowRef } from "../src/orchestrator/workflow-ref-resolver.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -661,5 +662,113 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
     });
     assert.equal(done.status, "completed");
     assert.equal(done.result, "after_join");
+  });
+
+  it("submitActivityOutcome forwards subworkflowDepth to continuation (max depth enforced)", async () => {
+    const pocSchema = "https://example.org/agent-workflow/poc/v1/workflow-definition";
+    const stateSchema = { type: "object", properties: { marker: { type: "string" } } };
+
+    /** @type {object} */
+    const deepest = {
+      document: { schema: pocSchema, name: "depth-deepest", version: "1.0.0" },
+      state_schema: stateSchema,
+      nodes: [
+        { id: "start", type: "start" },
+        { id: "end", type: "end" },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "end" },
+      ],
+    };
+
+    /** @type {object} */
+    const inner = {
+      document: { schema: pocSchema, name: "depth-inner", version: "1.0.0" },
+      state_schema: stateSchema,
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "call_deepest",
+          type: "subworkflow",
+          config: {
+            workflow_ref: "urn:test:depth-deepest",
+            input_mapping: { marker: { literal: "inner" } },
+          },
+        },
+        { id: "end", type: "end" },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "call_deepest" },
+        { source: "call_deepest", target: "end" },
+      ],
+    };
+
+    /** @type {object} */
+    const middle = {
+      document: { schema: pocSchema, name: "depth-middle", version: "1.0.0" },
+      state_schema: stateSchema,
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "tool",
+          type: "tool_call",
+          config: { server: "demo-mcp", tool: "stub", arguments: {} },
+        },
+        {
+          id: "call_inner",
+          type: "subworkflow",
+          config: {
+            workflow_ref: "urn:test:depth-inner",
+            input_mapping: { marker: { literal: "middle" } },
+          },
+        },
+        { id: "end", type: "end" },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "tool" },
+        { source: "tool", target: "call_inner" },
+        { source: "call_inner", target: "end" },
+      ],
+    };
+
+    for (const def of [deepest, inner, middle]) {
+      assert.equal(validateWorkflowDefinition(def).ok, true);
+    }
+
+    clearWorkflowRefs();
+    registerWorkflowRef("urn:test:depth-deepest", deepest);
+    registerWorkflowRef("urn:test:depth-inner", inner);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-submit-depth";
+    const input = { marker: "root" };
+    const depthOpts = { subworkflowDepth: 2, maxSubworkflowDepth: 3 };
+
+    const first = await runGraphWorkflow({
+      definition: middle,
+      input,
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+      ...depthOpts,
+    });
+    assert.equal(first.status, "awaiting_activity");
+    assert.equal(first.nodeId, "tool");
+
+    const afterSubmit = await submitActivityOutcome({
+      definition: middle,
+      executionId,
+      store,
+      input,
+      nodeId: "tool",
+      outcome: { ok: true, result: {} },
+      activityExecutionMode: "host_mediated",
+      ...depthOpts,
+    });
+    assert.equal(afterSubmit.status, "failed");
+    assert.match(afterSubmit.error ?? "", /subworkflow max depth 3 exceeded/);
   });
 });

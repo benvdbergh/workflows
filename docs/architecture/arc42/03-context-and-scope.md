@@ -43,7 +43,7 @@ Treat the repo concurrently as:
 3. **Executable reference package** (`packages/engine/`, **`@agent-workflow/engine`** on npm).
 4. **Regression gates**: deterministic conformance (`conformance/`) plus validation scripts and CI.
 
-This layout is intentional: fast iteration where the POC profile permits, deterministic behavior backed by replay where it matters.
+This layout is intentional: fast iteration where the engine profile permits, deterministic behavior backed by replay where it matters.
 
 ## 3.5 Logical layers (conceptual—not extra deployables)
 
@@ -57,7 +57,7 @@ See Section 5 for module-level decomposition.
 
 ### Validation & conformance (scope of coverage today)
 
-Schema validation paths are aligned across the engine package, repo scripts, and CI. Conformance presently emphasizes **schema** vectors and **`replay`** prefix/tail checks for deterministic orchestration semantics. Areas implied by **`docs/RFC/rfc-08-reference-implementation.md`** can remain intentionally partial until explicitly scheduled—do not infer full RFC-08 coverage from the POC harness alone.
+Schema validation paths are aligned across the engine package, repo scripts, and CI. Conformance presently emphasizes **schema** vectors and **`replay`** prefix/tail checks for deterministic orchestration semantics. Areas implied by **`docs/RFC/rfc-08-reference-implementation.md`** can remain intentionally partial until explicitly scheduled—do not infer full RFC-08 coverage from the conformance harness alone.
 
 ---
 

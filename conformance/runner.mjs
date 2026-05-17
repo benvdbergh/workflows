@@ -5,6 +5,7 @@ import {
   MemoryExecutionHistoryStore,
   RejectingActivityExecutor,
   RejectingDelegateExecutor,
+  resumeGraphWorkflow,
   runGraphWorkflow,
   submitActivityOutcome,
   validateWorkflowDefinition,
@@ -31,6 +32,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *   assertNoActivityExecutorInvocation?: boolean;
  *   assertNoSubworkflowInvocation?: boolean;
  *   assertNoDelegateExecutorInvocation?: boolean;
+ *   resumePayload?: Record<string, unknown>;
  *   activitySubmissions?: Array<{
  *     nodeId: string;
  *     outcome:
@@ -218,6 +220,19 @@ async function runReplayVector(vector) {
     } else {
       run = sub;
     }
+  }
+
+  if (vector.resumePayload && typeof vector.resumePayload === "object" && !Array.isArray(vector.resumePayload)) {
+    run = await resumeGraphWorkflow({
+      definition,
+      executionId,
+      store,
+      resumePayload: vector.resumePayload,
+      ...(activityExecutor ? { activityExecutor } : {}),
+      ...(delegateExecutor ? { delegateExecutor } : {}),
+      ...(assertNoSubworkflowInvocation ? { assertNoSubworkflowInvocation: true } : {}),
+      ...(assertNoDelegateExecutorInvocation ? { assertNoDelegateExecutorInvocation: true } : {}),
+    });
   }
 
   const expect =

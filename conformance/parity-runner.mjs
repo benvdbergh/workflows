@@ -73,6 +73,11 @@ function normalizePortSnapshot(op, portResult, isError, errorCode) {
       phase: r.phase,
       ...(r.currentNodeId !== undefined ? { current_node_id: r.currentNodeId } : {}),
       ...(r.lastError !== undefined ? { last_error: r.lastError } : {}),
+      ...(r.delegateCorrelationId !== undefined
+        ? { delegate_correlation_id: r.delegateCorrelationId }
+        : {}),
+      ...(r.childExecutionId !== undefined ? { child_execution_id: r.childExecutionId } : {}),
+      ...(r.parentExecutionId !== undefined ? { parent_execution_id: r.parentExecutionId } : {}),
     };
   }
   const parallelSpan = /** @type {import("../packages/engine/src/application/workflow-application-port.mjs").WorkflowParallelSpan | undefined} */ (
@@ -118,6 +123,11 @@ function normalizeMcpSnapshot(op, mcpResult) {
     ...(s.code !== undefined ? { code: s.code } : {}),
     ...(s.current_node_id !== undefined ? { current_node_id: s.current_node_id } : {}),
     ...(s.last_error !== undefined ? { last_error: s.last_error } : {}),
+    ...(s.delegate_correlation_id !== undefined
+      ? { delegate_correlation_id: s.delegate_correlation_id }
+      : {}),
+    ...(s.child_execution_id !== undefined ? { child_execution_id: s.child_execution_id } : {}),
+    ...(s.parent_execution_id !== undefined ? { parent_execution_id: s.parent_execution_id } : {}),
     ...(s.parallel_span !== undefined ? { parallel_span: s.parallel_span } : {}),
   };
 }

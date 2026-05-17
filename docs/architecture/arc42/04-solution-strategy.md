@@ -4,9 +4,9 @@
 
 | Topic | Decision | Consequence |
 |-------|----------|-------------|
-| **Validation** | Ajv Draft 2020-12 aligned with POC schema bundle | Unified validation CLI and library API (`packages/engine/src/validate.mjs`). |
+| **Validation** | Ajv Draft 2020-12 aligned with bundled workflow schema | Unified validation CLI and library API (`packages/engine/src/validate.mjs`). |
 | **Execution model** | Append-only history + deterministic replay stepping | Enables crash-recovery narratives and conformance replay vectors. |
-| **Two orchestration pathways** | **Linear runner** (`runLinearWorkflow`, `linear-runner.mjs`) vs **graph walker** (`runGraphWorkflow` / `resumeGraphWorkflow` / `submitActivityOutcome`, `workflow-graph-walker.mjs`) | Linear path for constrained graphs; graph path implements the POC profile node matrix including `parallel`/`wait`/`set_state` semantics. |
+| **Two orchestration pathways** | **Linear runner** (`runLinearWorkflow`, `linear-runner.mjs`) vs **graph walker** (`runGraphWorkflow` / `resumeGraphWorkflow` / `submitActivityOutcome`, `workflow-graph-walker.mjs`) | Linear path for constrained graphs; graph path implements the engine profile node matrix including parallel/wait/set_state, delegation, and subworkflow semantics. |
 | **Activity boundary split** | `activityExecutionMode: "in_process" \| "host_mediated"` | Host-mediated aligns with conversational hosts (ADR-0002); in-process supports tests and automation with optional engine-direct MCP (ADR-0003). |
 | **Persistence** | `MemoryExecutionHistoryStore` / `SqliteExecutionHistoryStore` behind store types | Simple swap-in for tests vs durable operator runs. |
 | **Integration** | MCP stdio adapter maps DTO → application port (`createWorkflowApplicationPort`) | Transport swaps possible without rewriting orchestrator core logic. |

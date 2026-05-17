@@ -28,7 +28,7 @@ This directory contains the **[arc42](https://arc42.org/)** template applied to 
 ## Supporting documents
 
 - [`../adr/README.md`](../adr/README.md) — decisions catalog.
-- [`../../../ROADMAP.md`](../../../ROADMAP.md) — release phases beyond POC/R2 profile.
+- [`../../../ROADMAP.md`](../../../ROADMAP.md) — post-alpha release sequencing.
 - **`arc42-linked assets`** (diagrams, runbooks, contracts, demos): [`../arc42-assets/README.md`](../arc42-assets/README.md)
 
 ### Evidence anchors (engineering)

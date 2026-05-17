@@ -79,15 +79,6 @@ export async function executeDelegateNode(args) {
     const { output, delegateCorrelationId, externalTaskId } = unpackReplayDelegateResult(replayStored);
     const correlationId =
       delegateCorrelationId ?? mintDelegateCorrelationId(executionId, node.id);
-    appendEvt("ActivityRequested", {
-      nodeId: node.id,
-      nodeType: "agent_delegate",
-      agentId,
-      protocol,
-      delegateCorrelationId: correlationId,
-      ...(externalTaskId ? { externalTaskId } : {}),
-      replayed: true,
-    });
     appendEvt("ActivityCompleted", {
       nodeId: node.id,
       result: output,

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-A specification, contract, and **POC engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The POC alpha line is `@agent-workflow/engine@0.1.1` (prior publish: `0.1.0-alpha.4` on `alpha`). Publish via the manual **Release npm publish** workflow after tagging `v0.1.1`.
+A specification, contract, and **POC engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The alpha line is `@agent-workflow/engine@0.1.2` (prior publish: `0.1.1` on `latest` / `alpha`). Publish via the manual **Release npm publish** workflow after tagging `v0.1.2`.
 
 - `docs/RFC/` — nine-section RFC defining the protocol (workflow definition schema, execution model, MCP/REST/SDK integration, security, governance)
 - `docs/poc-scope.md` — **authoritative engine profile**: which node types, commands/events, and reducers the reference engine must support (read this before implementing anything)
@@ -73,7 +73,7 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `work
 
 ## Key architectural decisions
 
-**Engine profile.** `docs/poc-scope.md` freezes the surface the reference engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, and `set_state`. Explicitly out of scope for this profile: `agent_delegate`, `subworkflow`. The schema enforces allowed `type` values via a `oneOf` discriminated union that rejects unknown `type` values.
+**Engine profile.** `docs/poc-scope.md` freezes the surface the reference engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, `set_state`, `agent_delegate`, and `subworkflow`. The schema enforces allowed `type` values via a `oneOf` discriminated union that rejects unknown `type` values.
 
 **JSON Schema `additionalProperties: false`** on the workflow root means adding top-level fields (e.g. `extensions`) will fail validation by design.
 

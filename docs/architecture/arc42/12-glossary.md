@@ -3,8 +3,8 @@
 | Term | Definition |
 |------|------------|
 | **Agent Workflow Protocol** | Specification family under `docs/RFC/` defining declarative workflows for agent systems |
-| **POC profile / engine profile** | Authoritative runtime subset documented in [`docs/poc-scope.md`](../../poc-scope.md) |
-| **Workflow definition** | JSON document complying with POC schema describing nodes, edges, state schema |
+| **Engine profile** | Authoritative runtime subset documented in [`docs/poc-scope.md`](../../poc-scope.md) |
+| **Workflow definition** | JSON document complying with the bundled workflow schema describing nodes, edges, state schema |
 | **Execution** | A single invocation of orchestration keyed by **`executionId`** |
 | **`workflows-engine`** | CLI bin for workflow validation/manifest tooling (`packages/engine/src/cli.mjs`) |
 | **`workflows-engine-mcp`** | MCP stdio adapter bin (`packages/engine/src/mcp-stdio-server.mjs`) |
