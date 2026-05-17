@@ -48,8 +48,10 @@ Release policy and checklist reference: [alpha-versioning-and-release-commit-flo
 
 1. Merge to `main`, tag **`v0.1.1`**, push tag.
 2. Confirm **Validate workflow definitions** passed on the release commit.
-3. Trigger **Release npm publish (manual)** with `release_ref`: `v0.1.1`, `dist_tag`: `latest` (or `alpha` for channel-only), `also_point_latest_dist_tag`: `false` when `dist_tag` is already `latest`.
-4. Optionally re-point `alpha`: `npm dist-tag add @agent-workflow/engine@0.1.1 alpha`.
+3. Trigger **Release npm publish (manual)** with `release_ref`: `v0.1.1`:
+   - **Default channel:** `dist_tag`: `latest` (single OIDC publish; no extra dist-tag step).
+   - **Alpha channel:** `dist_tag`: `alpha`, `also_point_latest_dist_tag`: `false` unless repository secret **`NPM_TOKEN`** is configured (OIDC publish + `npm dist-tag add` often fails with `E401`).
+4. To point **`latest`** at an already-published version (e.g. after alpha-only publish): `npm dist-tag add @agent-workflow/engine@0.1.1 latest` locally, or re-run the workflow with `NPM_TOKEN` set and `also_point_latest_dist_tag` true.
 
 ## Audience and intent
 
@@ -155,7 +157,7 @@ Run this sequence for every alpha publish event.
    - Inputs:
      - `release_ref`: release tag, branch, or SHA.
      - `dist_tag`: `alpha` for pre-release channel (use `latest` only if you want the publish step itself to target `latest`).
-     - `also_point_latest_dist_tag`: `true` (default) runs `npm dist-tag add @agent-workflow/engine@<version> latest` after publish so **`alpha` and `latest` both resolve to the same tarball** (typical when promoting a pre-release to the default channel). Set `false` if you intentionally want `latest` left on an older build.
+     - `also_point_latest_dist_tag`: `false` by default. Set `true` only when you need **`alpha` and `latest`** on the same version; requires repository secret **`NPM_TOKEN`** or the promotion step may fail with `E401` under OIDC-only auth. Prefer `dist_tag: latest` when the default npm channel should move.
 3. Post-publish smoke test:
    - `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp --help`
    - `npx -y -p @agent-workflow/engine@0.1.1 workflows-engine-mcp --help`

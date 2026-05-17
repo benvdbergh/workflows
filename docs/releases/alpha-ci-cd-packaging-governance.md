@@ -117,7 +117,9 @@ Troubleshooting quick reference:
   - Bump `packages/engine/package.json` version and retag per versioning policy.
 - Wrong channel published:
   - Confirm `dist_tag` selection at dispatch; use `alpha` for pre-release iterations and reserve `latest` for approved baseline.
-- Publish step succeeds but **latest dist-tag** step fails:
-  - Check logs on the separate **Point latest dist-tag** step; confirm OIDC/trusted publishing allows `npm dist-tag` for this package (same registry auth as publish).
+- Publish step succeeds but **latest dist-tag** step fails (`E401`):
+  - **Cause:** `npm publish --provenance` uses OIDC; `npm dist-tag add` often does not reuse that session in a later step.
+  - **Fix (CI):** re-dispatch with repository secret **`NPM_TOKEN`** (npm automation token with publish rights) set, `also_point_latest_dist_tag` true, and `dist_tag` `alpha`; or set `dist_tag` to **`latest`** on publish (no separate promotion).
+  - **Fix (local):** after publish, run `npm dist-tag add @agent-workflow/engine@<version> latest` while logged in as a maintainer (`npm login`).
 - Combined-step ambiguity:
   - Publish and `latest` pointer are separate steps so logs show whether `npm publish` or `npm dist-tag add` failed ([workflow](https://github.com/benvdbergh/workflows/blob/master/.github/workflows/release-npm-publish.yml)).
