@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
-import { runPocWorkflow, resumePocWorkflow, submitActivityOutcome } from "../src/orchestrator/poc-runner.mjs";
+import { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome } from "../src/orchestrator/workflow-graph-walker.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,7 +45,7 @@ class CrashAfterHistorySeqStore {
   }
 }
 
-describe("runPocWorkflow (lighthouse)", () => {
+describe("runGraphWorkflow (lighthouse)", () => {
   it("technical intent stubs path search_kb → finish → completed", async () => {
     const definition = loadLighthouse();
     assert.equal(validateWorkflowDefinition(definition).ok, true);
@@ -53,7 +53,7 @@ describe("runPocWorkflow (lighthouse)", () => {
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-lh-tech";
 
-    const out = await runPocWorkflow({
+    const out = await runGraphWorkflow({
       definition,
       input: { ticket_text: "My API returns 500" },
       executionId,
@@ -83,7 +83,7 @@ describe("runPocWorkflow (lighthouse)", () => {
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-lh-interrupt";
 
-    const first = await runPocWorkflow({
+    const first = await runGraphWorkflow({
       definition,
       input: { ticket_text: "unclear" },
       executionId,
@@ -110,7 +110,7 @@ describe("runPocWorkflow (lighthouse)", () => {
     assert.equal(ir[0].payload.nodeId, "human_review");
     assert.ok(typeof ir[0].payload.prompt === "string");
 
-    const resumed = await resumePocWorkflow({
+    const resumed = await resumeGraphWorkflow({
       definition,
       executionId,
       store,
@@ -136,7 +136,7 @@ describe("runPocWorkflow (lighthouse)", () => {
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-lh-bad-resume";
 
-    await runPocWorkflow({
+    await runGraphWorkflow({
       definition,
       input: { ticket_text: "x" },
       executionId,
@@ -148,7 +148,7 @@ describe("runPocWorkflow (lighthouse)", () => {
 
     const nBefore = store.listByExecution(executionId).length;
 
-    const bad = await resumePocWorkflow({
+    const bad = await resumeGraphWorkflow({
       definition,
       executionId,
       store,
@@ -169,7 +169,7 @@ describe("runPocWorkflow (lighthouse)", () => {
   });
 });
 
-describe("runPocWorkflow (switch precedence)", () => {
+describe("runGraphWorkflow (switch precedence)", () => {
   it("ignores static edges from switch; cases win over sw→wrong edge", async () => {
     const fixturePath = path.join(__dirname, "fixtures", "switch-precedence.workflow.json");
     const definition = JSON.parse(readFileSync(fixturePath, "utf8"));
@@ -178,7 +178,7 @@ describe("runPocWorkflow (switch precedence)", () => {
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-sw-prec";
 
-    const out = await runPocWorkflow({
+    const out = await runGraphWorkflow({
       definition,
       input: { pick: "good" },
       executionId,
@@ -200,14 +200,14 @@ describe("runPocWorkflow (switch precedence)", () => {
   });
 });
 
-describe("runPocWorkflow (deterministic replay matching)", () => {
+describe("runGraphWorkflow (deterministic replay matching)", () => {
   it("recovers after deterministic mid-run crash and converges with uninterrupted result", async () => {
     const definition = loadLighthouse();
     const executionId = "exec-replay-crash-recovery";
 
     const uninterruptedStore = new MemoryExecutionHistoryStore();
     let uninterruptedCalls = 0;
-    const uninterrupted = await runPocWorkflow({
+    const uninterrupted = await runGraphWorkflow({
       definition,
       input: { ticket_text: "My API returns 500" },
       executionId: `${executionId}-baseline`,
@@ -228,7 +228,7 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
     let crashRunCalls = 0;
 
     await assert.rejects(
-      runPocWorkflow({
+      runGraphWorkflow({
         definition,
         input: { ticket_text: "My API returns 500" },
         executionId,
@@ -252,7 +252,7 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
     assert.equal(crashRunCalls, 1);
 
     let restartCalls = 0;
-    const recovered = await runPocWorkflow({
+    const recovered = await runGraphWorkflow({
       definition,
       input: { ticket_text: "My API returns 500" },
       executionId,
@@ -287,7 +287,7 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
     const executionId = "exec-replay-match";
 
     let firstCalls = 0;
-    const first = await runPocWorkflow({
+    const first = await runGraphWorkflow({
       definition,
       input: { ticket_text: "My API returns 500" },
       executionId,
@@ -305,7 +305,7 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
     assert.equal(firstCalls, 2);
 
     let replayCalls = 0;
-    const replayed = await runPocWorkflow({
+    const replayed = await runGraphWorkflow({
       definition,
       input: { ticket_text: "My API returns 500" },
       executionId,
@@ -328,7 +328,7 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-replay-diverge";
 
-    const first = await runPocWorkflow({
+    const first = await runGraphWorkflow({
       definition,
       input: { ticket_text: "My API returns 500" },
       executionId,
@@ -350,7 +350,7 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
     ];
     routeNode.config.default = "open_ticket";
 
-    const second = await runPocWorkflow({
+    const second = await runGraphWorkflow({
       definition: diverged,
       input: { ticket_text: "My API returns 500" },
       executionId,
@@ -367,14 +367,14 @@ describe("runPocWorkflow (deterministic replay matching)", () => {
   });
 });
 
-describe("runPocWorkflow (checkpoint policy)", () => {
+describe("runGraphWorkflow (checkpoint policy)", () => {
   it("omits CheckpointWritten when checkpointing.strategy is disabled", async () => {
     const definition = structuredClone(loadLighthouse());
     definition.checkpointing = { strategy: "disabled" };
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-checkpoint-disabled";
 
-    const out = await runPocWorkflow({
+    const out = await runGraphWorkflow({
       definition,
       input: { ticket_text: "My API returns 500" },
       executionId,
@@ -389,7 +389,7 @@ describe("runPocWorkflow (checkpoint policy)", () => {
     assert.equal(checkpoints.length, 0);
   });
 
-  it("every_n_nodes emits fewer checkpoints than after_each_node on the R2 parallel fixture", async () => {
+  it("every_n_nodes emits fewer checkpoints than after_each_node on the parallel-join fixture", async () => {
     const root = findWorkflowRepoRoot(__dirname);
     const base = JSON.parse(
       readFileSync(path.join(root, "examples", "r2-research-parallel.workflow.json"), "utf8")
@@ -400,7 +400,7 @@ describe("runPocWorkflow (checkpoint policy)", () => {
     async function countCheckpoints(def) {
       const store = new MemoryExecutionHistoryStore();
       const id = `exec-r2-cp-${def.checkpointing ? "i" : "d"}`;
-      const r = await runPocWorkflow({
+      const r = await runGraphWorkflow({
         definition: def,
         input: { topic: "t" },
         executionId: id,
@@ -422,7 +422,7 @@ describe("runPocWorkflow (checkpoint policy)", () => {
     assert.ok(intervalCount < eachCount);
 
     const policyStore = new MemoryExecutionHistoryStore();
-    await runPocWorkflow({
+    await runGraphWorkflow({
       definition: intervalDef,
       input: { topic: "t" },
       executionId: "exec-r2-cp-interval-policy",
@@ -442,7 +442,7 @@ describe("runPocWorkflow (checkpoint policy)", () => {
     const definition = structuredClone(loadLighthouse());
     definition.checkpointing = { strategy: "every_n_nodes" };
     const store = new MemoryExecutionHistoryStore();
-    const out = await runPocWorkflow({
+    const out = await runGraphWorkflow({
       definition,
       input: { ticket_text: "x" },
       executionId: "exec-bad-cp",
@@ -458,7 +458,7 @@ describe("runPocWorkflow (checkpoint policy)", () => {
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-checkpoint-policy";
 
-    const out = await runPocWorkflow({
+    const out = await runGraphWorkflow({
       definition,
       input: { ticket_text: "My API returns 500" },
       executionId,
@@ -494,7 +494,7 @@ describe("runPocWorkflow (checkpoint policy)", () => {
   });
 });
 
-describe("runPocWorkflow (host-mediated activities)", () => {
+describe("runGraphWorkflow (host-mediated activities)", () => {
   it("yields after ActivityRequested then completes via submitActivityOutcome (linear)", async () => {
     /** @type {object} */
     const definition = {
@@ -530,7 +530,7 @@ describe("runPocWorkflow (host-mediated activities)", () => {
     const executionId = "exec-host-linear";
     const input = {};
 
-    const first = await runPocWorkflow({
+    const first = await runGraphWorkflow({
       definition,
       input,
       executionId,
@@ -626,7 +626,7 @@ describe("runPocWorkflow (host-mediated activities)", () => {
     const executionId = "exec-host-par";
     const input = {};
 
-    const first = await runPocWorkflow({
+    const first = await runGraphWorkflow({
       definition,
       input,
       executionId,

@@ -155,7 +155,7 @@ describe("runLinearWorkflow", () => {
 });
 
 describe("applyOutputWithReducers", () => {
-  it("append and merge behave per POC", () => {
+  it("append and merge behave per engine state_schema reducers", () => {
     const schema = {
       properties: {
         tags: { reducer: "append" },

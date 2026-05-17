@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { SqliteExecutionHistoryStore, runPocWorkflow, validateWorkflowDefinition } from "../packages/engine/src/index.mjs";
+import { SqliteExecutionHistoryStore, runGraphWorkflow, validateWorkflowDefinition } from "../packages/engine/src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -57,7 +57,7 @@ async function run() {
 
   const baselineStore = new SqliteExecutionHistoryStore({ path: sqlitePath });
   const baselineExecutionId = "story-6-2-lighthouse-baseline";
-  const baseline = await runPocWorkflow({
+  const baseline = await runGraphWorkflow({
     definition,
     input,
     executionId: baselineExecutionId,
@@ -76,7 +76,7 @@ async function run() {
   const crashableStore = new CrashAfterHistorySeqStore(crashableStoreInner, executionId, 9);
 
   await assert.rejects(
-    runPocWorkflow({
+    runGraphWorkflow({
       definition,
       input,
       executionId,
@@ -99,7 +99,7 @@ async function run() {
 
   const recoveredStore = new SqliteExecutionHistoryStore({ path: sqlitePath });
   let restartCalls = 0;
-  const recovered = await runPocWorkflow({
+  const recovered = await runGraphWorkflow({
     definition,
     input,
     executionId,

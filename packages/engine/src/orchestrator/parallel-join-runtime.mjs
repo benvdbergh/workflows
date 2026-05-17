@@ -1,5 +1,6 @@
 /**
- * R2 parallel branch walking and join policies (deterministic branch order).
+ * Parallel branch execution: fork, per-branch walk to join target, and join policies
+ * (all / any / n_of_m) with deterministic branch ordering.
  * @see docs/RFC/rfc-04-execution-model.md §4.7
  */
 
@@ -10,7 +11,7 @@ import { applyOutputWithReducers } from "./linear-runner.mjs";
  */
 
 /**
- * @typedef {object} R2WalkHooks
+ * @typedef {object} ParallelJoinWalkHooks
  * @property {() => Record<string, unknown>} getState
  * @property {(s: Record<string, unknown>) => void} setState
  * @property {(name: string, payload: Record<string, unknown>) => { replayed: boolean }} appendCmd
@@ -33,9 +34,9 @@ import { applyOutputWithReducers } from "./linear-runner.mjs";
  * @param {object} params
  * @param {Map<string, { id: string; type: string; config?: object }>} params.byId
  * @param {Map<string, string[]>} params.outgoing
- * @param {R2WalkHooks} params.hooks
+ * @param {ParallelJoinWalkHooks} params.hooks
  */
-export function createR2ParallelRuntime(params) {
+export function createParallelJoinRuntime(params) {
   const { byId, outgoing, hooks } = params;
   const PLACEHOLDER_TYPES = new Set(["step", "llm_call", "tool_call"]);
 

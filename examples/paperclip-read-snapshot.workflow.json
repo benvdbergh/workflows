@@ -1,0 +1,65 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/v1",
+    "name": "paperclip-read-snapshot",
+    "version": "1.0.0",
+    "description": "Demo: engine-direct tool_call chain against the Paperclip MCP (read-only). Linear sequence lists projects, goals, and issues; each MCP structuredContent or text payload merges into workflow state. Run workflows-engine-mcp with WORKFLOW_ENGINE_MCP_CONFIG pointing at a manifest whose mcpServers.paperclip entry matches your Paperclip stdio server (see examples/mcp-operator-paperclip.example.json)."
+  },
+  "state_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {}
+  },
+  "nodes": [
+    {
+      "id": "begin",
+      "type": "start",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        }
+      }
+    },
+    {
+      "id": "list_projects",
+      "type": "tool_call",
+      "config": {
+        "server": "paperclip",
+        "tool": "paperclipListProjects",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "list_goals",
+      "type": "tool_call",
+      "config": {
+        "server": "paperclip",
+        "tool": "paperclipListGoals",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "list_issues",
+      "type": "tool_call",
+      "config": {
+        "server": "paperclip",
+        "tool": "paperclipListIssues",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "finish",
+      "type": "end",
+      "config": {}
+    }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "begin" },
+    { "source": "begin", "target": "list_projects" },
+    { "source": "list_projects", "target": "list_goals" },
+    { "source": "list_goals", "target": "list_issues" },
+    { "source": "list_issues", "target": "finish" }
+  ]
+}

@@ -42,16 +42,15 @@ Each ADR should include:
 ## Repository-specific guidance
 
 - Anchor decisions to:
+  - [`docs/architecture/arc42/`](../arc42/) (baseline narrative, esp. Sections **3–7** runtime/deployment storyline)
   - `docs/RFC/`
   - `docs/poc-scope.md`
   - `ROADMAP.md`
-  - `docs/governance/spec-architecture-governance.md`
-  - `docs/architecture/as-is-system-overview.md`
 - For contract-impacting decisions, include required conformance/schema/test updates.
 - Use ADRs to document meaningful decisions; avoid creating ADRs for trivial edits.
 
 ## Current ADRs
 
-- `ADR-0001-poc-foundation-decisions.md`
+- `ADR-0001-poc-foundation-decisions.md` — amended 2026-05-05; runtime scope truth is always [`docs/poc-scope.md`](../../poc-scope.md) (see ADR amendment section).
 - `ADR-0002-host-mediated-activity-execution.md`
 - `ADR-0003-engine-direct-mcp-activity-execution.md`

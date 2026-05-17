@@ -4,7 +4,7 @@ This directory is the canonical conformance harness for protocol/engine behavior
 
 ## CI gate and local pre-PR check
 
-GitHub Actions runs this harness on pull requests and pushes to protected branches (`main`, `master`) via `.github/workflows/validate-workflows.yml`.
+GitHub Actions runs this harness on every push, on pull requests targeting `main` or `master`, and via manual **Validate workflow definitions** dispatch (`.github/workflows/validate-workflows.yml`).
 
 Contributor pre-PR gate (run from repository root):
 
@@ -36,7 +36,7 @@ Current domain coverage:
 - `vectors/schema/invalid/*.vector.json`
 - `vectors/replay/**/*.vector.json` (includes `replay/host-activity/` for host-mediated activity replay and submit error codes; `replay/engine-direct-activity/` for in-process / engine-direct replay invariants)
 
-Future domains (replay, reducers, interrupts) should follow the same layout and runner contract.
+Additional domains (expanded reducer matrices, dedicated interrupt-resume cases, MCP mock roundtrip, and similar) should follow the same layout and runner contract.
 
 ## Vector format
 

@@ -4,26 +4,26 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
-import { runPocWorkflow } from "../src/orchestrator/poc-runner.mjs";
+import { runGraphWorkflow } from "../src/orchestrator/workflow-graph-walker.mjs";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function loadR2ParallelFixture() {
+function loadParallelJoinFixture() {
   const root = findWorkflowRepoRoot(__dirname);
   const p = path.join(root, "examples", "r2-research-parallel.workflow.json");
   return JSON.parse(readFileSync(p, "utf8"));
 }
 
-describe("runPocWorkflow (R2 parallel, wait, set_state)", () => {
+describe("runGraphWorkflow (parallel, wait, set_state)", () => {
   it("runs research-style parallel join all with set_state and zero-duration wait", async () => {
-    const definition = loadR2ParallelFixture();
+    const definition = loadParallelJoinFixture();
     assert.equal(validateWorkflowDefinition(definition).ok, true);
 
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-r2-parallel-demo";
 
-    const out = await runPocWorkflow({
+    const out = await runGraphWorkflow({
       definition,
       input: { topic: "widgets" },
       executionId,

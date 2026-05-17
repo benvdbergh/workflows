@@ -20,7 +20,7 @@ Production agent systems require capabilities that today are fragmented or absen
 - **Human-in-the-loop** pauses with typed resume payloads and auditability.
 - **Portable workflow definitions** that can be versioned, shared, and executed on more than one engine.
 
-Surveys of the ecosystem (see founding landscape document [`analysis-brief.md`](analysis-brief.md)) indicate that **no single framework** combines all of these in a **standardized, interoperable** package; the closest conceptual fit (e.g. graph-native agent runtimes) often remains **code-first** and **ecosystem-specific**, which blocks cross-platform reuse.
+Surveys of the ecosystem (see founding landscape document [`analysis-brief.md`](../research/analysis-brief.md)) indicate that **no single framework** combines all of these in a **standardized, interoperable** package; the closest conceptual fit (e.g. graph-native agent runtimes) often remains **code-first** and **ecosystem-specific**, which blocks cross-platform reuse.
 
 ## Standards stack and gap
 
@@ -30,9 +30,9 @@ The emerging stack for agent systems is layering:
 |-------|------|----------|
 | Knowledge / behavior | Skills, agent instructions | Agent Skills, AGENTS.md |
 | Agent-to-agent | Delegation, tasks, cards | A2A |
+| **Workflow orchestration** | **Stateful plans between tools and agents** | **(gap — this RFC)** |
 | Tool connectivity | Atomic capabilities | MCP |
 | Infrastructure | Discovery, identity, messaging | AGNTCY, observability stacks |
-| **Workflow orchestration** | **Stateful plans between tools and agents** | **(gap — this RFC)** |
 
 The same layering is shown below (informative): higher layers depend on lower transport and orchestration capabilities.
 

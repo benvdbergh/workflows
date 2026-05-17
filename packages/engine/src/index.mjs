@@ -1,5 +1,5 @@
 /**
- * @agent-workflow/engine — POC validation and execution history port (persistence adapters).
+ * @agent-workflow/engine — workflow definition validation and execution history port (persistence adapters).
  *
  * @typedef {import("./orchestrator/activity-executor.mjs").ActivityExecutorContext} ActivityExecutorContext
  * @typedef {import("./orchestrator/activity-executor.mjs").ActivityExecutorResult} ActivityExecutorResult
@@ -28,7 +28,7 @@ export {
   computeLinearNodePath,
   runLinearWorkflow,
 } from "./orchestrator/linear-runner.mjs";
-export { runPocWorkflow, resumePocWorkflow, submitActivityOutcome } from "./orchestrator/poc-runner.mjs";
+export { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome } from "./orchestrator/workflow-graph-walker.mjs";
 export { hydrateReplayContext } from "./orchestrator/replay-loader.mjs";
 export { createWorkflowApplicationPort } from "./application/workflow-application-port.mjs";
 export { createMcpWorkflowStdioServer } from "./adapters/mcp/stdio-server.mjs";

@@ -1,0 +1,155 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/v1",
+    "name": "paperclip-read-parallel",
+    "version": "1.0.0",
+    "description": "Three Paperclip tool_calls in a parallel fork/join: each branch does tool_call then set_state to copy .text into projects_raw / goals_raw / issues_raw and clear .text so keys do not clobber. Join target runs once after all branches and builds a token-small report, then clears raw blobs. Note: the reference engine executes join-all branches in deterministic branch-list order (not OS-parallel); shared state accumulates across branches."
+  },
+  "state_schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+      "projects_raw": { "type": ["string", "null"] },
+      "goals_raw": { "type": ["string", "null"] },
+      "issues_raw": { "type": ["string", "null"] },
+      "report": { "type": "object" },
+      "text": { "type": ["string", "null"] }
+    }
+  },
+  "nodes": [
+    {
+      "id": "begin",
+      "type": "start",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": true
+        }
+      }
+    },
+    {
+      "id": "fan",
+      "type": "parallel",
+      "config": {
+        "join": "all",
+        "branches": [
+          { "name": "projects", "entry": "list_projects" },
+          { "name": "goals", "entry": "list_goals" },
+          { "name": "issues", "entry": "list_issues" }
+        ]
+      }
+    },
+    {
+      "id": "list_projects",
+      "type": "tool_call",
+      "config": {
+        "server": "paperclip",
+        "tool": "paperclipListProjects",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "stash_projects",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "projects_raw": {
+            "jq": "(.text // \"\") | tostring"
+          },
+          "text": {
+            "literal": ""
+          }
+        }
+      }
+    },
+    {
+      "id": "list_goals",
+      "type": "tool_call",
+      "config": {
+        "server": "paperclip",
+        "tool": "paperclipListGoals",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "stash_goals",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "goals_raw": {
+            "jq": "(.text // \"\") | tostring"
+          },
+          "text": {
+            "literal": ""
+          }
+        }
+      }
+    },
+    {
+      "id": "list_issues",
+      "type": "tool_call",
+      "config": {
+        "server": "paperclip",
+        "tool": "paperclipListIssues",
+        "arguments": {}
+      }
+    },
+    {
+      "id": "stash_issues",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "issues_raw": {
+            "jq": "(.text // \"\") | tostring"
+          },
+          "text": {
+            "literal": ""
+          }
+        }
+      }
+    },
+    {
+      "id": "digest",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "report": {
+            "jq": "{ projects_chars: (.projects_raw | tostring | length), goals_chars: (.goals_raw | tostring | length), issues_chars: (.issues_raw | tostring | length), issue_ids_preview: (try ((.issues_raw | fromjson) as $d | (if ($d | type) == \"array\" then $d elif ($d.items | type) == \"array\" then $d.items elif ($d.issues | type) == \"array\" then $d.issues elif ($d.results | type) == \"array\" then $d.results elif ($d.data | type) == \"array\" then $d.data elif ($d.data.items | type) == \"array\" then $d.data.items elif ($d.data.issues | type) == \"array\" then $d.data.issues else [] end) | map(.id // .issueId // .issue_id // .uuid // empty) | map(select(. != null and . != \"\")) | .[0:15]) catch []) }"
+          },
+          "projects_raw": {
+            "literal": null
+          },
+          "goals_raw": {
+            "literal": null
+          },
+          "issues_raw": {
+            "literal": null
+          },
+          "text": {
+            "literal": ""
+          }
+        }
+      }
+    },
+    {
+      "id": "finish",
+      "type": "end",
+      "config": {
+        "output_mapping": ".report"
+      }
+    }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "begin" },
+    { "source": "begin", "target": "fan" },
+    { "source": "fan", "target": "digest" },
+    { "source": "list_projects", "target": "stash_projects" },
+    { "source": "stash_projects", "target": "digest" },
+    { "source": "list_goals", "target": "stash_goals" },
+    { "source": "stash_goals", "target": "digest" },
+    { "source": "list_issues", "target": "stash_issues" },
+    { "source": "stash_issues", "target": "digest" },
+    { "source": "digest", "target": "finish" }
+  ]
+}

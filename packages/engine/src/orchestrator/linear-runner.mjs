@@ -1,5 +1,5 @@
 /**
- * Linear POC orchestration: validate → start → walk → complete (single chain from `__start__` to `end`).
+ * Linear workflow orchestration: validate → start → walk → complete (single chain from `__start__` to `end`).
  */
 import Ajv2020 from "ajv/dist/2020.js";
 import { createRequire } from "node:module";
@@ -27,7 +27,7 @@ export function assertNoCustomReducers(definition) {
   for (const [key, spec] of Object.entries(props)) {
     if (spec && typeof spec === "object" && spec.reducer === "custom") {
       throw new Error(
-        `Unsupported reducer "custom" on state_schema.properties.${key}. POC only supports overwrite (default), append, and merge (see docs/poc-scope.md).`
+        `Unsupported reducer "custom" on state_schema.properties.${key}. This engine profile only supports overwrite (default), append, and merge (see docs/poc-scope.md).`
       );
     }
   }
@@ -199,7 +199,7 @@ function assertNoUnsupportedNodeTypes(nodes) {
   for (const n of nodes) {
     if (n.type === "switch" || n.type === "interrupt") {
       throw new Error(
-        `Node "${n.id}" has type "${n.type}", which is not supported by the linear runner (see STORY-2-5 / docs/poc-scope.md).`
+        `Node "${n.id}" has type "${n.type}", which is not supported by the linear runner (see docs/poc-scope.md).`
       );
     }
   }
@@ -220,7 +220,7 @@ function assertLinearNodeTypesOnPath(definition) {
 
 /**
  * @typedef {object} RunLinearWorkflowOptions
- * @property {object} definition Parsed workflow definition (POC JSON).
+ * @property {object} definition Parsed workflow definition JSON.
  * @property {Record<string, unknown>} input Initial execution state (workflow input object).
  * @property {string} executionId Correlation id for history rows.
  * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store Append-only history store.

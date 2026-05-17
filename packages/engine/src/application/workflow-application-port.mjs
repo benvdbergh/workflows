@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { resumePocWorkflow, runPocWorkflow, submitActivityOutcome } from "../orchestrator/poc-runner.mjs";
+import { resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 
 const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "InterruptRaised"]);
@@ -73,6 +73,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {Record<string, unknown> | undefined} finalState
  * @property {unknown} [result]
  * @property {string | undefined} error
+ * @property {string | undefined} [code] Stable machine code when `status` is `failed`
  * @property {string | undefined} nodeId
  * @property {Record<string, unknown>} [state]
  * @property {WorkflowParallelSpan} [parallelSpan]
@@ -165,7 +166,7 @@ export function createWorkflowApplicationPort(deps) {
           ? request.executionId
           : randomUUID();
 
-      const runResult = await runPocWorkflow({
+      const runResult = await runGraphWorkflow({
         definition: request.definition,
         input: request.input,
         executionId,
@@ -179,7 +180,9 @@ export function createWorkflowApplicationPort(deps) {
         status: runResult.status,
         ...(runResult.finalState !== undefined ? { finalState: runResult.finalState } : {}),
         ...(runResult.status === "completed" ? { result: runResult.result } : {}),
-        ...(runResult.status === "failed" ? { error: runResult.error } : {}),
+        ...(runResult.status === "failed"
+          ? { error: runResult.error, ...(runResult.code ? { code: runResult.code } : {}) }
+          : {}),
         ...(runResult.status === "interrupted"
           ? { nodeId: runResult.nodeId, state: runResult.state }
           : {}),
@@ -250,7 +253,7 @@ export function createWorkflowApplicationPort(deps) {
      * @returns {Promise<WorkflowResumeResponse>}
      */
     async resumeWorkflow(request) {
-      const runResult = await resumePocWorkflow({
+      const runResult = await resumeGraphWorkflow({
         definition: request.definition,
         executionId: request.executionId,
         resumePayload: request.resumePayload,
@@ -264,7 +267,9 @@ export function createWorkflowApplicationPort(deps) {
         status: runResult.status,
         ...(runResult.finalState !== undefined ? { finalState: runResult.finalState } : {}),
         ...(runResult.status === "completed" ? { result: runResult.result } : {}),
-        ...(runResult.status === "failed" ? { error: runResult.error } : {}),
+        ...(runResult.status === "failed"
+          ? { error: runResult.error, ...(runResult.code ? { code: runResult.code } : {}) }
+          : {}),
         ...(runResult.status === "interrupted"
           ? { nodeId: runResult.nodeId, state: runResult.state }
           : {}),

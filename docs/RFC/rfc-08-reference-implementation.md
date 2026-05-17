@@ -4,6 +4,8 @@
 **Series:** Agent Workflow Protocol (working title)  
 **Related:** [Execution Model](rfc-04-execution-model.md) · [Integration Interfaces](rfc-05-integration-interfaces.md) · [Governance and Adoption](rfc-09-governance-adoption.md)
 
+**As-built note:** This monorepo currently ships a **Node.js** reference implementation as npm package **`@agent-workflow/engine`** under `packages/engine/`, aligned with [`docs/poc-scope.md`](../poc-scope.md). The component and folder layout in §8.4 remains an informative target for a broader multi-language artifact tree.
+
 ---
 
 ## 8.1 Minimum viable engine
@@ -57,7 +59,7 @@ Additional informative example (non-MVP candidate):
 
 4. **Agentic task intake and prompt improver** — intention detection, task sizing, skills/tools/context gathering, and a `switch` that routes to either workflow draft publication or delegated agent execution.
 
-POC note: where the active profile excludes `agent_delegate`, implementations MAY use a documented `tool_call` bridge for delegated execution semantics and map back to the same observable lifecycle.
+Profile note: where the active engine profile excludes `agent_delegate`, implementations MAY use a documented `tool_call` bridge for delegated execution semantics and map back to the same observable lifecycle.
 
 ## 8.4 Repository layout (informative)
 

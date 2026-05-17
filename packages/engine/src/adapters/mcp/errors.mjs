@@ -34,6 +34,9 @@ export function normalizeMcpAdapterError(error) {
     return error;
   }
   const message = error instanceof Error ? error.message : String(error);
+  if (typeof error?.code === "string" && error.code === MCP_ADAPTER_ERROR.INVALID_RESUME_PAYLOAD) {
+    return new McpAdapterError(MCP_ADAPTER_ERROR.INVALID_RESUME_PAYLOAD, message);
+  }
   if (typeof error?.code === "string" && error.code === "EXECUTION_NOT_FOUND") {
     return new McpAdapterError(MCP_ADAPTER_ERROR.EXECUTION_NOT_FOUND, message);
   }

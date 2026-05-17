@@ -1,5 +1,5 @@
 /**
- * POC workflow definition validation (JSON Schema Draft 2020-12).
+ * Workflow definition validation (JSON Schema Draft 2020-12).
  * Mirrors scripts/validate-workflows.mjs: same schema path relative to repo root, same Ajv options.
  */
 import Ajv2020 from "ajv/dist/2020.js";
@@ -10,10 +10,10 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * POC schema shipped next to `src/` inside the published package (no-install / npx).
+ * Bundled schema path next to `src/` inside the published package (no-install / npx).
  * @returns {string}
  */
-function bundledPocSchemaPath() {
+function bundledWorkflowSchemaPath() {
   return path.join(__dirname, "..", "schemas", "workflow-definition-poc.json");
 }
 
@@ -48,8 +48,8 @@ export function findWorkflowRepoRoot(startDir = __dirname) {
 /**
  * @returns {import("ajv").AnySchema}
  */
-function loadPocSchema() {
-  const bundled = bundledPocSchemaPath();
+function loadWorkflowDefinitionSchema() {
+  const bundled = bundledWorkflowSchemaPath();
   if (existsSync(bundled)) {
     return JSON.parse(readFileSync(bundled, "utf8"));
   }
@@ -61,13 +61,13 @@ function loadPocSchema() {
 let cachedValidate = null;
 
 /**
- * Compiles the POC schema once (cached) and returns a function that validates arbitrary parsed JSON objects.
+ * Compiles the workflow definition schema once (cached) and returns a function that validates arbitrary parsed JSON objects.
  * @returns {(data: unknown) => { ok: true } | { ok: false, errors: import("ajv").ErrorObject[] | null | undefined }}
  */
 export function compileWorkflowValidator() {
   if (!cachedValidate) {
     const ajv = new Ajv2020({ allErrors: true, strict: false });
-    cachedValidate = ajv.compile(loadPocSchema());
+    cachedValidate = ajv.compile(loadWorkflowDefinitionSchema());
   }
   const validate = cachedValidate;
   return (data) => {

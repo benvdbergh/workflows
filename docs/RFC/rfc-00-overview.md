@@ -8,7 +8,7 @@
 
 ## Relationship to the founding brief
 
-The landscape analysis, gap framing, adoption playbook, and the **original nine-section outline** live in **[`analysis-brief.md`](analysis-brief.md)**. This RFC set **implements** that outline as sharded Markdown: same scope (declarative workflow protocol, execution model, MCP/REST/SDK surfaces, security, reference implementation, governance), with **`analysis-brief.md`** kept as **supporting context** (market narrative, quantitative claims to verify separately).
+The landscape analysis, gap framing, adoption playbook, and the **original nine-section outline** live in **[`analysis-brief.md`](../analysis-brief.md)**. This RFC set **implements** that outline as sharded Markdown: same scope (declarative workflow protocol, execution model, MCP/REST/SDK surfaces, security, reference implementation, governance), with **`analysis-brief.md`** kept as **supporting context** (market narrative, quantitative claims to verify separately).
 
 ---
 
@@ -53,4 +53,4 @@ Several sections include **Mermaid** figures (stack, architecture, replay, inter
 - [rfc-07-security-model.md](rfc-07-security-model.md)  
 - [rfc-08-reference-implementation.md](rfc-08-reference-implementation.md)  
 - [rfc-09-governance-adoption.md](rfc-09-governance-adoption.md)  
-- [analysis-brief.md](analysis-brief.md) — founding analysis and RFC outline source  
+- [analysis-brief.md](../analysis-brief.md) — founding analysis and RFC outline source  

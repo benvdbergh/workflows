@@ -4,7 +4,7 @@ Last updated: 2026-05-04
 
 ## Purpose
 
-Define a **single, documented JSON shape** for operator-supplied MCP **stdio** server definitions so the reference engine can align with common IDE host manifests (Cursor-style `mcp.json` under `mcpServers`) without inventing a parallel undocumented format. Normative security and trust expectations for **engine-direct** execution are in [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md).
+Define a **single, documented JSON shape** for operator-supplied MCP **stdio** server definitions so the reference engine can align with common IDE host manifests (Cursor-style `mcp.json` under `mcpServers`) without inventing a parallel undocumented format. Normative security and trust expectations for **engine-direct** execution are in [ADR-0003](../../adr/ADR-0003-engine-direct-mcp-activity-execution.md).
 
 ## Schema
 
@@ -27,6 +27,15 @@ When code or tooling needs a manifest path without an explicit caller argument, 
 3. **Default file:** `<cwd>/.agent-workflow/mcp.json` if that path exists on disk.
 
 If none of the above apply, `resolveMcpOperatorManifestPath` returns `null` (no implicit manifest).
+
+## `workflows-engine-mcp` engine-direct config (separate resolution path)
+
+Library helpers above apply when tooling calls `resolveMcpOperatorManifestPath()` without an explicit path. The **`workflows-engine-mcp`** process instead loads a manifest for **engine-direct** `tool_call` execution from:
+
+- Environment variable **`WORKFLOW_ENGINE_MCP_CONFIG`**, or
+- CLI flag **`--mcp-config <path>`** after the bin name (overrides the env var when both are set).
+
+That startup path is **independent** of `AGENT_WORKFLOW_MCP_MANIFEST` and `<cwd>/.agent-workflow/mcp.json`. See `packages/engine/README.md` (engine-direct section) and [ADR-0003](../../adr/ADR-0003-engine-direct-mcp-activity-execution.md).
 
 ## CLI validation
 
@@ -62,10 +71,10 @@ Operators should **trim** vendor-only keys when translating a desktop `mcp.json`
 
 ## Secret handling
 
-Follow [RFC-07](../RFC/rfc-07-security-model.md) and ADR-0003: prefer environment injection by a process supervisor, restrict file permissions on manifest paths, and avoid committing real secrets (use placeholders in examples and tests).
+Follow [RFC-07](../../../RFC/rfc-07-security-model.md) and ADR-0003: prefer environment injection by a process supervisor, restrict file permissions on manifest paths, and avoid committing real secrets (use placeholders in examples and tests).
 
 ## References
 
-- [ADR-0002](adr/ADR-0002-host-mediated-activity-execution.md), [ADR-0003](adr/ADR-0003-engine-direct-mcp-activity-execution.md)
-- [RFC-06 §6.1](../RFC/rfc-06-interoperability.md#61-composing-mcp)
+- [ADR-0002](../../adr/ADR-0002-host-mediated-activity-execution.md), [ADR-0003](../../adr/ADR-0003-engine-direct-mcp-activity-execution.md)
+- [RFC-06 section 6.1](../../../RFC/rfc-06-interoperability.md#61-composing-mcp)
 - `docs/governance/spec-architecture-governance.md`
