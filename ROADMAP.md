@@ -158,7 +158,7 @@ Move from single-node reference posture to production-grade operational posture.
 
 ## Suggested planning conversion to epics
 
-To keep momentum and traceability with `/project-planning`, convert each release into:
+To keep momentum and traceability with `/project-planning` (backlog SSOT: [Linear workflows project](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview); see `.project-planning.yaml`), convert each release into:
 
 - 1 release umbrella epic (goal, scope, exit criteria).
 - 3-6 feature epics (runtime, schema/conformance, interfaces, security, docs/governance).

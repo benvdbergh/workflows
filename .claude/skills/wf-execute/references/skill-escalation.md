@@ -1,63 +1,17 @@
-# wf-execute Escalation Reference
+# wf-execute skill escalation
 
-## Ownership Model
+## wf-execute owns
 
-### Owns
+- Linear issue → branch → PR execution hygiene.
+- Progress and release-close reporting on the Linear backlog.
+- Acceptance-criteria traceability during implementation.
 
-- Execution orchestration from issue kickoff to merged/closed state.
-- Cross-artifact linkage hygiene between issue, branch, PR, and project item.
-- Project field maintenance for `Type`, `Release`, `Horizon`, `Commitment`, `Runway`, `Area`, `Blocked`.
-- Progress and blocker reporting cadence during active execution.
-- Release-close execution reporting and carryover handoff.
+## wf-execute does not own
 
-### Does Not Own
+- Epic/story decomposition (escalate to **`project-planning`** / **`wf-plan`**).
+- Release version policy (escalate to **`release-versioning`**).
+- GitHub community triage taxonomy (escalate to **`repo-triage-pr-ops`** for intake issues).
 
-- Deep decomposition strategy, slicing framework, and planning dependency trees.
-- Code quality framework selection, architecture decisions, and implementation style policy.
-- SemVer governance, release train policy, and changelog policy design.
-- Repository-level triage operating model, SLA policy, and label taxonomy governance.
+## Handoff from planning
 
-## Escalation Paths
-
-### Escalate to `project-planning`
-
-Use when work item decomposition is not execution-ready:
-
-- Scope is too broad or ambiguous.
-- Dependencies are unclear or sequencing is missing.
-- Acceptance criteria do not define executable completion.
-
-Refine the **GitHub issue** (and sub-issues / relationships) as the planning output; do not author new per-story markdown under `docs`. See `../wf-plan/references/workflows-github-backlog-override.md`. For **how** to edit issues/projects safely (stdin bodies, field IDs, GraphQL/REST), use **`../wf-plan/references/github-tooling-guide.md`**—the same mechanics **`wf-execute`** applies during implementation.
-
-### Escalate to `minimalist-coding`
-
-Use when implementation quality guidance is required:
-
-- Proposed change is large and needs simplification.
-- Layer boundaries are unclear.
-- Refactor scope or architecture fit is uncertain.
-
-### Escalate to `release-versioning`
-
-Use when release governance decisions are required:
-
-- Version bump type is unclear.
-- Release notes/changelog policy needs interpretation.
-- Carryover affects planned release semantics.
-
-### Escalate to `repo-triage-pr-ops`
-
-Use when issue/PR operating conventions are unclear:
-
-- Label or milestone conventions are ambiguous.
-- Review routing and ownership rules are missing.
-- Intake/triage workflow conflicts with current execution path.
-
-## Handoff Checklist
-
-When escalating, provide:
-
-1. Current issue and PR links.
-2. Current project status and field values.
-3. Specific decision needed.
-4. Blocking impact on release or commitment.
+Refine the **Linear issue** (description, sub-issues, blocking relations) as the planning output; do not author new per-story markdown under `docs`. See `../wf-plan/references/workflows-linear-backlog-override.md`. For **how** to edit issues safely, use **`../wf-plan/references/linear-tooling-guide.md`**—the same mechanics **`wf-execute`** applies during implementation.

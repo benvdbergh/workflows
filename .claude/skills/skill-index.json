@@ -1,10 +1,11 @@
 {
-  "generated": "2026-05-04T00:00:00Z",
+  "generated": "2026-06-04T00:00:00Z",
   "totalSkills": 4,
   "alwaysLoadedCount": 0,
   "deferredCount": 4,
-  "planning_backlog": "github",
-  "planning_override_doc": "wf-plan/references/workflows-github-backlog-override.md",
+  "planning_backlog": "linear",
+  "planning_override_doc": "wf-plan/references/workflows-linear-backlog-override.md",
+  "linear_project_url": "https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview",
   "skills": {
     "wf-design": {
       "name": "wf-design",
@@ -22,9 +23,9 @@
     "wf-execute": {
       "name": "wf-execute",
       "path": "wf-execute/SKILL.md",
-      "fullDescription": "Orchestrates execution workflow hygiene across GitHub issues, project fields, branch and PR linkage, progress reporting, and release-close carryover for the workflows repository. Use when work starts from an issue and needs consistent status transitions, field updates, and execution reporting through closure.",
+      "fullDescription": "Orchestrates execution workflow hygiene across Linear backlog items, GitHub PRs, branch linkage, progress reporting, and release-close carryover for the workflows repository. Use when work starts from a Linear story and needs consistent status transitions and execution reporting through closure.",
       "triggers": [
-        "work starts from an issue and needs consistent status transitions",
+        "work starts from a Linear story",
         "field updates",
         "and execution reporting through closure"
       ],
@@ -48,7 +49,7 @@
     "wf-plan": {
       "name": "wf-plan",
       "path": "wf-plan/SKILL.md",
-      "fullDescription": "Orchestrates project-level planning, roadmap, and delivery-cadence workflows for the workflows repository by routing requests to the right specialist skills and enforcing commitment-vs-forecast clarity. Use when planning from vision, slicing releases, sequencing architectural runway, running roadmap/project cadence, or producing planning status reports.",
+      "fullDescription": "Orchestrates project-level planning, roadmap, and delivery-cadence workflows for the workflows repository by routing requests to the right specialist skills and enforcing commitment-vs-forecast clarity. Covers Linear backlog hygiene when creating or updating planning items. Use when planning from vision, slicing releases, sequencing architectural runway, running roadmap/project cadence, or producing planning status reports.",
       "triggers": [
         "planning from vision",
         "slicing releases",

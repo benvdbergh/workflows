@@ -22,4 +22,4 @@
 
 ---
 
-**Improvement candidate:** Migrate this table entries to tracked GitHub epics tied to conformance milestones when debt becomes actionable.
+**Improvement candidate:** Migrate this table entries to tracked Linear milestones/issues tied to conformance milestones when debt becomes actionable (see `.project-planning.yaml`).
