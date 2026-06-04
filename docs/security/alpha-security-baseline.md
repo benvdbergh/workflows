@@ -1,6 +1,6 @@
 # Alpha Repository Security Baseline
 
-**Last reviewed:** 2026-04-13  
+**Last reviewed:** 2026-06-04  
 **Review cadence:** every 30 days while alpha is active  
 **Owner:** maintainers
 
@@ -14,19 +14,31 @@ This document states the minimum security posture for the public alpha and disti
 
 Reference: [`SECURITY.md`](../../SECURITY.md)
 
-## 2) Dependency and code scanning posture (enabled vs pending)
+## 2) Dependency and code scanning posture
 
 ### Enabled now
 
 - Workflow validation and conformance CI is active in `.github/workflows/validate-workflows.yml`.
 - Manual governed release packaging path is active in `.github/workflows/release-packaging.yml` (no auto-publish, read-only permissions, package artifact only).
 - `npm ci` is used in CI for lockfile-resolved dependency installs.
+- **Dependabot** version updates: `.github/dependabot.yml` (npm + GitHub Actions). Enable **Dependabot alerts** and GHSA ingestion in repository settings (org-gated).
+- **CodeQL** static analysis: `.github/workflows/codeql.yml` (JavaScript/TypeScript, least-privilege `security-events: write`).
 
-### Pending
+### MCP transport and engine (reference package)
 
-- Dependabot alerts and automated dependency update PRs (requires `.github/dependabot.yml` and org/repo settings).
-- Code scanning (CodeQL or equivalent) workflow and upload permissions.
-- Security tab policy checks and alert triage routine.
+- **Payload size cap:** 2 MiB UTF-8 JSON per definition / input / resume_payload at MCP adapter transport (`MAX_MCP_WORKFLOW_JSON_BYTES`).
+- **AJV validation** at transport before `createWorkflowApplicationPort` on `workflow_start` and `workflow_resume`.
+- **Adapter error mapping:** definition validation failures on `workflow_start` return `VALIDATION_ERROR` (not `ENGINE_FAILURE`).
+- **Persisted-event secret redaction:** keys `apiKey`, `token`, `password`, `secret` (case-insensitive) redacted via `RedactingExecutionHistoryStore` on all port-backed runs.
+- **Engine-direct command allowlist:** default `node` / `npx` basenames; extend with `WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS` — see [engine-direct-manifest-policy.md](engine-direct-manifest-policy.md).
+- **Definition signing stub:** `verifyDefinitionSignature` (unsigned passes; signed presence recorded, crypto verify deferred to v1 profile).
+
+### Pending (v1 / org)
+
+- **Scoped MCP auth tokens** and action-level authZ on MCP tools (required for R4 GA per `ROADMAP.md`; not implemented in alpha — document as ADR follow-up, no token validation on stdio adapter today).
+- Secret scanning and push protection (org/repo settings).
+- Private GitHub Security Advisories workflow.
+- Full manifest path sandbox and cryptographic definition/manifest verification.
 
 ## 3) Secret scanning and push protection expectations
 
@@ -42,15 +54,21 @@ Reference: [`SECURITY.md`](../../SECURITY.md)
 - Push protection should be enforced at org or repository level where plan/entitlements allow it.
 - Admins should define bypass governance (who can bypass and with what audit trail).
 
-Until these controls are active, maintainers rely on manual review and least-privilege token handling.
+Until these controls are active, maintainers rely on manual review, payload redaction defaults, and least-privilege token handling.
 
-## 4) Accepted security gaps register
+## 4) MCP stdio deployment risks
+
+- **Default store:** `workflows-engine-mcp` uses in-memory history; executions are not durable across process restarts and are visible to any client on the same stdio session.
+- **Shared hosts:** Multiple operators or agents attaching to one engine process share execution IDs and history unless an external store contract is introduced (SQLite-backed MCP persistence is documented as optional future work, not enabled by default).
+- **Engine-direct:** Enabling `WORKFLOW_ENGINE_MCP_CONFIG` runs child MCP servers with operator-supplied credentials in the engine trust zone.
+
+## 5) Accepted security gaps register
 
 Accepted short-term gaps are tracked in `security-gap-register.md` with owner and trigger dates.
 
 Link: [security-gap-register.md](security-gap-register.md)
 
-## 5) Follow-up trigger model
+## 6) Follow-up trigger model
 
 Any of the following should trigger immediate re-review of this baseline:
 

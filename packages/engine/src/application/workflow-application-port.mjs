@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
+import { RedactingExecutionHistoryStore } from "../persistence/redacting-history-store.mjs";
 
 const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "InterruptRaised"]);
 
@@ -257,7 +258,11 @@ function buildStatusResponse(executionId, rows, body) {
  * Optional `delegateExecutor` runs `agent_delegate` nodes; omit to use the mock A2A delegate executor.
  */
 export function createWorkflowApplicationPort(deps) {
-  const { store, activityExecutor, delegateExecutor } = deps;
+  const store =
+    deps.store instanceof RedactingExecutionHistoryStore
+      ? deps.store
+      : new RedactingExecutionHistoryStore(deps.store);
+  const { activityExecutor, delegateExecutor } = deps;
 
   return {
     /**

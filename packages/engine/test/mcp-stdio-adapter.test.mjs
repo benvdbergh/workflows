@@ -15,6 +15,26 @@ import { findWorkflowRepoRoot } from "../src/validate.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** Minimal valid workflow: start → tool_call → end (host_mediated tests). */
+/** Minimal schema-valid definition for mock port tests (transport AJV passes). */
+function minimalValidWorkflowDefinition() {
+  return {
+    document: {
+      schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+      name: "mcp-mock",
+      version: "1.0.0",
+    },
+    state_schema: { type: "object" },
+    nodes: [
+      { id: "start", type: "start" },
+      { id: "end", type: "end" },
+    ],
+    edges: [
+      { source: "__start__", target: "start" },
+      { source: "start", target: "end" },
+    ],
+  };
+}
+
 function hostMediatedLinearDefinition() {
   return {
     document: {
@@ -80,7 +100,7 @@ describe("MCP workflow adapter tool handlers", () => {
 
     const response = await handlers.workflow_start({
       execution_id: "exec-123",
-      definition: { nodes: [], edges: [] },
+      definition: minimalValidWorkflowDefinition(),
       input: { ticket_text: "help" },
     });
 
@@ -233,7 +253,7 @@ describe("MCP workflow adapter tool handlers", () => {
 
     const response = await handlers.workflow_resume({
       execution_id: "exec-55",
-      definition: { nodes: [], edges: [] },
+      definition: minimalValidWorkflowDefinition(),
       resume_payload: {},
     });
 
@@ -258,7 +278,7 @@ describe("MCP workflow adapter tool handlers", () => {
 
     const response = await handlers.workflow_resume({
       execution_id: "exec-unknown",
-      definition: { nodes: [], edges: [] },
+      definition: minimalValidWorkflowDefinition(),
       resume_payload: {},
     });
 
@@ -306,7 +326,7 @@ describe("MCP workflow adapter tool handlers", () => {
 
     const response = await handlers.workflow_start({
       execution_id: "exec-x",
-      definition: { nodes: [], edges: [] },
+      definition: minimalValidWorkflowDefinition(),
       input: {},
     });
 

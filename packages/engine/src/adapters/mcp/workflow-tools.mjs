@@ -9,6 +9,10 @@ import {
   workflowSubmitActivityResultSchema,
 } from "./contracts.mjs";
 import { MCP_ADAPTER_ERROR, McpAdapterError, normalizeMcpAdapterError, toToolErrorResult } from "./errors.mjs";
+import {
+  validateWorkflowResumeTransportPayload,
+  validateWorkflowStartTransportPayload,
+} from "./transport-validation.mjs";
 import { ZodError } from "zod";
 
 /**
@@ -19,6 +23,18 @@ function mapEngineFailure(error) {
   return new McpAdapterError(MCP_ADAPTER_ERROR.ENGINE_FAILURE, "Engine reported a workflow failure.", {
     cause: error instanceof Error ? error.message : String(error),
   });
+}
+
+/**
+ * @param {string | undefined} code
+ * @param {string | undefined} message
+ */
+function mcpErrorForStartFailure(code, message) {
+  const text = message && message.trim() !== "" ? message : "Workflow start failed.";
+  if (code === MCP_ADAPTER_ERROR.VALIDATION_ERROR || code === "VALIDATION_ERROR") {
+    return new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, text, { engineCode: code });
+  }
+  return mapEngineFailure(new Error(text));
 }
 
 /**
@@ -169,6 +185,7 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
     async workflow_start(args) {
       try {
         const parsed = workflowStartArgsSchema.parse(args);
+        validateWorkflowStartTransportPayload(parsed.definition, parsed.input);
         const response = await workflowPort.startWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,
@@ -180,7 +197,7 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
         });
 
         if (response.status === "failed" && response.error) {
-          throw mapEngineFailure(new Error(response.error));
+          throw mcpErrorForStartFailure(response.code, response.error);
         }
 
         const structured = startResponseFromPort(response);
@@ -235,6 +252,7 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
     async workflow_resume(args) {
       try {
         const parsed = workflowResumeArgsSchema.parse(args);
+        validateWorkflowResumeTransportPayload(parsed.definition, parsed.resume_payload);
         const response = await workflowPort.resumeWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,

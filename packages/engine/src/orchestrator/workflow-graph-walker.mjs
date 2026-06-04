@@ -123,7 +123,11 @@ export async function runGraphWorkflow(options) {
     const profileCode = v.errors?.find(
       (e) => e.params && typeof e.params === "object" && typeof e.params.code === "string"
     )?.params?.code;
-    return { status: "failed", error: msg, ...(profileCode ? { code: profileCode } : {}) };
+    return {
+      status: "failed",
+      error: msg,
+      code: profileCode ?? "VALIDATION_ERROR",
+    };
   }
 
   try {
@@ -764,7 +768,11 @@ export async function resumeGraphWorkflow(options) {
     const profileCode = v.errors?.find(
       (e) => e.params && typeof e.params === "object" && typeof e.params.code === "string"
     )?.params?.code;
-    return { status: "failed", error: msg, ...(profileCode ? { code: profileCode } : {}) };
+    return {
+      status: "failed",
+      error: msg,
+      code: profileCode ?? "VALIDATION_ERROR",
+    };
   }
 
   try {
