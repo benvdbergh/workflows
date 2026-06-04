@@ -275,10 +275,10 @@ describe("runGraphWorkflow (deterministic replay matching)", () => {
     assert.equal(restartCalls, 1);
 
     const recoveredRows = persistedStore.listByExecution(executionId);
-    const replayedCompletions = recoveredRows.filter(
-      (r) => r.kind === "event" && r.name === "ActivityCompleted" && r.payload?.replayed === true
+    const classifyCompletions = recoveredRows.filter(
+      (r) => r.kind === "event" && r.name === "ActivityCompleted" && r.payload?.nodeId === "classify"
     );
-    assert.ok(replayedCompletions.some((r) => r.payload.nodeId === "classify"));
+    assert.equal(classifyCompletions.length, 1);
     assert.equal(recoveredRows.at(-1)?.name, "ExecutionCompleted");
   });
 
@@ -326,6 +326,7 @@ describe("runGraphWorkflow (deterministic replay matching)", () => {
 
   it("fails with nondeterminism error code when replayed command sequence diverges", async () => {
     const definition = loadLighthouse();
+    definition.checkpointing = { strategy: "disabled" };
     const store = new MemoryExecutionHistoryStore();
     const executionId = "exec-replay-diverge";
 
@@ -575,6 +576,71 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
     });
     assert.equal(notAwaiting.status, "failed");
     assert.equal(notAwaiting.code, "ACTIVITY_SUBMIT_NOT_AWAITING");
+
+    const rows = store.listByExecution(executionId);
+    const executionStarted = rows.filter((r) => r.kind === "event" && r.name === "ExecutionStarted");
+    assert.equal(executionStarted.length, 1);
+    const workCompleted = rows.filter(
+      (r) => r.kind === "event" && r.name === "ActivityCompleted" && r.payload?.nodeId === "work"
+    );
+    assert.equal(workCompleted.length, 1);
+    assert.notEqual(workCompleted[0]?.payload?.replayed, true);
+    const executionCompleted = rows.filter((r) => r.kind === "event" && r.name === "ExecutionCompleted");
+    assert.equal(executionCompleted.length, 1);
+  });
+
+  it("submit continuation rejects mismatched input keys vs ExecutionStarted", async () => {
+    /** @type {object} */
+    const definition = {
+      document: {
+        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        name: "host-input-check",
+        version: "1.0.0",
+      },
+      state_schema: {
+        type: "object",
+        properties: { ticket: { type: "string" } },
+      },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "work",
+          type: "tool_call",
+          config: { server: "demo-mcp", tool: "stub", arguments: {} },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".ticket" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "work" },
+        { source: "work", target: "end" },
+      ],
+    };
+    assert.equal(validateWorkflowDefinition(definition).ok, true);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-host-input-mismatch";
+    const startInput = { ticket: "alpha" };
+
+    const awaiting = await runGraphWorkflow({
+      definition,
+      input: startInput,
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(awaiting.status, "awaiting_activity");
+
+    const bad = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input: { ticket: "beta" },
+      nodeId: "work",
+      outcome: { ok: true, result: { ticket: "beta" } },
+    });
+    assert.equal(bad.status, "failed");
+    assert.equal(bad.code, "SUBMIT_VALIDATION_ERROR");
   });
 
   it("yields inside parallel branch with parallelSpan; submit requires matching context", async () => {

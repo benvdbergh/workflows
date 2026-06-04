@@ -193,6 +193,96 @@ export function findLatestNonCheckpointEvent(rows) {
   return undefined;
 }
 
+/** Node types completed via host `submitActivityOutcome` (step / llm_call / tool_call). */
+const HOST_ACTIVITY_NODE_TYPES = new Set(["step", "llm_call", "tool_call"]);
+
+/**
+ * Host-mediated submit (or in-process crash recovery for placeholder activities) left
+ * `ActivityCompleted` without a matching `CompleteNode` for a step/llm_call/tool_call node.
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {(nodeId: string) => string | undefined} [resolveNodeType] maps node id to workflow node `type`
+ * @returns {boolean}
+ */
+export function isPendingActivityCompletionContinuation(rows, resolveNodeType) {
+  const last = findLatestNonCheckpointEvent(rows);
+  if (!last || last.kind !== "event" || last.name !== "ActivityCompleted") {
+    return false;
+  }
+  const nodeId = typeof last.payload?.nodeId === "string" ? last.payload.nodeId : "";
+  if (!nodeId) {
+    return false;
+  }
+  if (isParallelSpanPayload(last.payload?.parallelSpan)) {
+    return false;
+  }
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind !== "event" || row.name !== "ActivityRequested" || row.payload?.nodeId !== nodeId) {
+      continue;
+    }
+    if (isParallelSpanPayload(row.payload?.parallelSpan)) {
+      return false;
+    }
+    break;
+  }
+  const nodeType =
+    typeof last.payload?.nodeType === "string"
+      ? last.payload.nodeType
+      : resolveNodeType?.(nodeId);
+  if (!nodeType || !HOST_ACTIVITY_NODE_TYPES.has(nodeType)) {
+    return false;
+  }
+  const hasCompleteNode = rows.some(
+    (r) =>
+      r.kind === "command" &&
+      r.name === "CompleteNode" &&
+      r.payload?.nodeId === nodeId &&
+      r.seq > last.seq
+  );
+  return !hasCompleteNode;
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {Record<string, unknown>} input
+ * @returns {{ ok: true } | { ok: false; error: string }}
+ */
+export function verifyHostContinuationInput(rows, input) {
+  const started = rows.find((r) => r.kind === "event" && r.name === "ExecutionStarted");
+  if (!started) {
+    return { ok: true };
+  }
+  const rawKeys = started.payload?.inputKeys;
+  if (!Array.isArray(rawKeys)) {
+    return { ok: true };
+  }
+  const expectedKeys = [...rawKeys].map(String).sort();
+  const actualKeys = Object.keys(input).sort();
+  if (expectedKeys.join("\0") !== actualKeys.join("\0")) {
+    return {
+      ok: false,
+      error: "Submit input keys do not match ExecutionStarted.inputKeys for this execution.",
+    };
+  }
+  const firstState = rows.find((r) => r.kind === "event" && r.name === "StateUpdated");
+  const genesis =
+    firstState?.payload?.state && typeof firstState.payload.state === "object" && !Array.isArray(firstState.payload.state)
+      ? /** @type {Record<string, unknown>} */ (firstState.payload.state)
+      : undefined;
+  if (genesis) {
+    for (const key of expectedKeys) {
+      if (key in genesis && key in input && JSON.stringify(input[key]) !== JSON.stringify(genesis[key])) {
+        return {
+          ok: false,
+          error: `Submit input key "${key}" does not match workflow start state for this execution.`,
+        };
+      }
+    }
+  }
+  return { ok: true };
+}
+
 /**
  * @param {unknown} span
  * @returns {span is import("./workflow-node-execution.mjs").ParallelSpanPayload}

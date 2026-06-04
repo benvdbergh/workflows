@@ -38,9 +38,11 @@ import {
   expectedCommandIdentity,
   findLatestNonCheckpointEvent,
   isParallelSpanPayload,
+  isPendingActivityCompletionContinuation,
   latestPrimaryEvent,
   latestStateFromHistory,
   parallelSpansEqual,
+  verifyHostContinuationInput,
   resolveCheckpointConfig,
   throwIfStateInvalid,
   verifyCallerDefinitionMatchesCheckpoint,
@@ -304,16 +306,73 @@ export async function runGraphWorkflow(options) {
   });
 
   try {
-    appendEvt("ExecutionStarted", {
-      workflowName: definition.document?.name,
-      workflowVersion: definition.document?.version,
-      inputKeys: Object.keys(input),
-    });
+    /** @type {string} */
+    let current;
+    const pendingActivityContinuation = isPendingActivityCompletionContinuation(existingRows, (nodeId) =>
+      byId.get(nodeId)?.type
+    );
 
-    throwIfStateInvalid(validateState, state, "Initial state invalid vs state_schema");
+    if (pendingActivityContinuation) {
+      const inputCheck = verifyHostContinuationInput(existingRows, input);
+      if (!inputCheck.ok) {
+        return { status: "failed", error: inputCheck.error, code: "SUBMIT_VALIDATION_ERROR" };
+      }
 
-    const startOut = outgoing.get("__start__") ?? [];
-    let current = startOut[0];
+      commandCursor = replay.commands.length;
+      const histState = latestStateFromHistory(existingRows);
+      state = histState ? { ...histState } : { ...input };
+
+      const lastCompleted = findLatestNonCheckpointEvent(existingRows);
+      const activityNodeId =
+        lastCompleted && typeof lastCompleted.payload?.nodeId === "string" ? lastCompleted.payload.nodeId : "";
+      const activityNode = activityNodeId ? byId.get(activityNodeId) : undefined;
+      if (!activityNode || !PLACEHOLDER_TYPES.has(activityNode.type)) {
+        throw new Error(`Cannot continue: pending activity node "${activityNodeId}" is missing or invalid.`);
+      }
+
+      const rawResult = lastCompleted?.payload?.result;
+      /** @type {Record<string, unknown>} */
+      const output =
+        rawResult && typeof rawResult === "object" && !Array.isArray(rawResult)
+          ? /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(rawResult)))
+          : {};
+
+      state = /** @type {Record<string, unknown>} */ (
+        applyOutputWithReducers(state, output, definition.state_schema)
+      );
+      throwIfStateInvalid(validateState, state, `State invalid after activity "${activityNodeId}"`);
+
+      appendCmd("CompleteNode", { nodeId: activityNodeId, output });
+      const activityStateSeq = appendEvt("StateUpdated", {
+        nodeId: activityNodeId,
+        state: JSON.parse(JSON.stringify(state)),
+      });
+      appendCheckpoint(activityNodeId, state, activityStateSeq);
+
+      const activityOuts = outgoing.get(activityNodeId) ?? [];
+      if (activityOuts.length !== 1) {
+        throw new Error(
+          `Node "${activityNodeId}" must have exactly one outgoing edge after activity completion; found ${activityOuts.length}.`
+        );
+      }
+      current = activityOuts[0];
+    } else {
+      const hasExecutionStarted = existingRows.some(
+        (r) => r.kind === "event" && r.name === "ExecutionStarted"
+      );
+      if (!hasExecutionStarted) {
+        appendEvt("ExecutionStarted", {
+          workflowName: definition.document?.name,
+          workflowVersion: definition.document?.version,
+          inputKeys: Object.keys(input),
+        });
+      }
+
+      throwIfStateInvalid(validateState, state, "Initial state invalid vs state_schema");
+
+      const startOut = outgoing.get("__start__") ?? [];
+      current = startOut[0];
+    }
 
     while (true) {
       const node = byId.get(current);
@@ -1452,10 +1511,20 @@ export async function submitActivityOutcome(options) {
     rawResult && typeof rawResult === "object" && !Array.isArray(rawResult)
       ? /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(rawResult)))
       : {};
+  const completedNode = validateWorkflowDefinition(definition).ok
+    ? /** @type {{ nodes?: Array<{ id: string; type: string }> }} */ (definition).nodes?.find((n) => n.id === nodeId)
+    : undefined;
+  const pendingSpan = isParallelSpanPayload(reqSpan) ? reqSpan : undefined;
   store.append(executionId, {
     kind: "event",
     name: "ActivityCompleted",
-    payload: { executionId, nodeId, result: resultObj },
+    payload: {
+      executionId,
+      nodeId,
+      ...(completedNode?.type ? { nodeType: completedNode.type } : {}),
+      ...(pendingSpan ? { parallelSpan: { ...pendingSpan } } : {}),
+      result: resultObj,
+    },
   });
 
   return runGraphWorkflow({

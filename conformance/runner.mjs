@@ -68,6 +68,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *           expected?: { name?: string; nodeId?: string };
  *           actual?: { name?: string; nodeId?: string };
  *         };
+ *         eventCardinality?: Record<string, number | Record<string, number>>;
  *       };
  * }} ConformanceVector
  */
@@ -302,6 +303,37 @@ async function runReplayVector(vector) {
             actualTail: tailCommands,
           },
         };
+      }
+    }
+  }
+
+  if (expect.eventCardinality && typeof expect.eventCardinality === "object") {
+    const events = allRows.filter((row) => row.kind === "event");
+    for (const [eventName, expectedCount] of Object.entries(expect.eventCardinality)) {
+      if (typeof expectedCount === "number") {
+        const actual = events.filter((row) => row.name === eventName).length;
+        if (actual !== expectedCount) {
+          return {
+            passed: false,
+            reason: `Event cardinality mismatch for "${eventName}": expected ${expectedCount}, got ${actual}.`,
+            context: { definition: vector.definition, eventName, expectedCount, actual },
+          };
+        }
+        continue;
+      }
+      if (expectedCount && typeof expectedCount === "object") {
+        for (const [nodeId, perNodeExpected] of Object.entries(expectedCount)) {
+          const actual = events.filter(
+            (row) => row.name === eventName && row.payload?.nodeId === nodeId
+          ).length;
+          if (actual !== perNodeExpected) {
+            return {
+              passed: false,
+              reason: `Event cardinality mismatch for "${eventName}" node "${nodeId}": expected ${perNodeExpected}, got ${actual}.`,
+              context: { definition: vector.definition, eventName, nodeId, expectedCount: perNodeExpected, actual },
+            };
+          }
+        }
       }
     }
   }

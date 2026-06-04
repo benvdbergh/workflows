@@ -165,7 +165,15 @@ export async function runPlaceholderActivityStep(args) {
   const replayedOutput = scheduled.replayed ? replay.replayResults.get(node.id) : undefined;
   if (replayedOutput) {
     const output = JSON.parse(JSON.stringify(replayedOutput));
-    appendEvt("ActivityCompleted", { nodeId: node.id, result: output, replayed: true });
+    const hostSubmittedAlready = replay.events.some(
+      (row) =>
+        row.name === "ActivityCompleted" &&
+        row.payload?.nodeId === node.id &&
+        row.payload?.replayed !== true
+    );
+    if (!hostSubmittedAlready) {
+      appendEvt("ActivityCompleted", { nodeId: node.id, result: output, replayed: true });
+    }
     return { kind: "completed", output };
   }
 
