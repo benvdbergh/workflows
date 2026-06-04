@@ -1,0 +1,22 @@
+{
+  "id": "parity.integrity.duplicate_execution_id",
+  "description": "Second workflow_start with same execution_id returns DUPLICATE_EXECUTION_ID unless allow_existing_execution_id.",
+  "kind": "parity",
+  "definition": "examples/conformance-host-activity-linear.workflow.json",
+  "executionId": "parity-dup-exec-integrity",
+  "steps": [
+    {
+      "op": "start",
+      "input": {},
+      "activityExecutionMode": "host_mediated",
+      "expect": { "status": "awaiting_activity", "node_id": "work" }
+    },
+    {
+      "op": "start",
+      "input": {},
+      "activityExecutionMode": "host_mediated",
+      "expectError": true,
+      "expectErrorCode": "DUPLICATE_EXECUTION_ID"
+    }
+  ]
+}

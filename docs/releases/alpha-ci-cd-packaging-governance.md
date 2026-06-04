@@ -48,9 +48,12 @@ No job currently requires:
 
 Release packaging and publish reuse the same core quality gate commands contributors run locally:
 
-1. `npm run validate-workflows`
-2. `npm run conformance`
-3. `npm test`
+1. `npm run check-schema-breaking-change` (PR/push; ack via `SCHEMA_BREAKING_CHANGE_ACK` or `schemas/.schema-breaking-change-ack`)
+2. `npm audit --audit-level=high`
+3. `npm run check-threat-model-touch` (when MCP/walker sensitive paths change)
+4. `npm run validate-workflows`
+5. `npm run conformance`
+6. `npm test`
 4. `npm pack --dry-run`
 5. `npm pack`
 

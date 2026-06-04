@@ -6,6 +6,7 @@ import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { runLinearWorkflow } from "../src/orchestrator/linear-runner.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
 import {
+  assertMcpCommandAllowed,
   callMcpToolStdio,
   mapMcpCallToolResultToActivityResult,
   mapMcpClientThrownError,
@@ -53,6 +54,29 @@ describe("mapMcpCallToolResultToActivityResult", () => {
     });
     assert.equal(r.ok, true);
     if (r.ok) assert.deepEqual(r.output, { a: 1 });
+  });
+});
+
+describe("assertMcpCommandAllowed", () => {
+  it("denies unknown commands when env allowlist is unset", () => {
+    const r = assertMcpCommandAllowed("/usr/bin/custom-mcp", null);
+    assert.equal(r.ok, false);
+  });
+
+  it("allows node basename by default", () => {
+    const r = assertMcpCommandAllowed(process.execPath, null);
+    assert.equal(r.ok, true);
+  });
+
+  it("callMcpToolStdio returns MCP_COMMAND_NOT_ALLOWED before spawn", async () => {
+    const r = await callMcpToolStdio(
+      { command: "/bin/evil", args: [], env: {} },
+      "echo",
+      {},
+      { commandAllowlist: null }
+    );
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.equal(r.code, "MCP_COMMAND_NOT_ALLOWED");
   });
 });
 

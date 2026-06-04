@@ -1,53 +1,45 @@
 # Workflows repository — planning manifest
 #
-# Override: canonical epics/stories live in GitHub issues + Project #4, not local
-# markdown. Generic project-planning defaults (epics_dir/stories_dir as the write
-# target) do NOT apply here.
+# Backlog SSOT: Linear (delivery_tracker: linear). Generic project-planning
+# defaults (Epics/ and Stories/ markdown) do NOT apply here.
 #
-# Full policy: .claude/skills/wf-plan/references/workflows-github-backlog-override.md
+# Full policy: .claude/skills/wf-plan/references/workflows-linear-backlog-override.md
+# Global skill: project-planning (references/linear-adoption.md when delivery_tracker: linear)
 
 version: 1
 
-planning_canonical_store: github
+delivery_tracker: linear
 
+linear:
+  project_name: workflows
+  project_id: 6196e3df-0c5a-4bb3-92fd-c537255d8ac0
+  project_url: https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview
+  team_key: BEN
+  mcp_server: plugin-linear-linear
+
+# Requirements and contract docs stay in-repo (RFC, poc-scope, ADRs).
+source_globs:
+  - ROADMAP.md
+  - "docs/**/*.md"
+  - "docs/architecture/adr/**/*.md"
+
+# Community code intake (bugs, security, small docs PRs) remains on GitHub — not the planning backlog.
 github:
   repo: benvdbergh/workflows
-  project_number: 4
-  project_url: https://github.com/users/benvdbergh/projects/4
+  role: community_intake_and_prs
 
-# Example GitHub CLI usage (from repo root; requires `gh auth login`).
-# Adjust flags to match your labels and milestones.
+# Example Linear MCP usage (Cursor: plugin-linear-linear; authenticate with mcp_auth if needed).
+# Tool schemas: Cursor MCP descriptors for plugin-linear-linear.
 #
-# Avoid scratch/issue bodies as --body-file under the repo root (untracked junk / commit risk).
-# Prefer stdin (gh … --body-file -), bash/PowerShell here-doc or here-string, or a temp path
-# outside the clone. See .claude/skills/wf-plan/references/github-tooling-guide.md.
+# Inspect project:
+#   get_project — query "workflows"
+#   list_milestones — project "workflows"
+#   list_issues — project "workflows"
 #
-# Open issues:
-#   gh issue list --repo benvdbergh/workflows --state open
+# Read/update backlog narrative:
+#   get_issue — id or identifier (e.g. BEN-123)
+#   save_issue — create or update description, milestone, labels, state
 #
-# View one issue (title, body, labels — body is the story/epic narrative):
-#   gh issue view 123 --repo benvdbergh/workflows
-#   gh issue view 123 --repo benvdbergh/workflows --json title,body,labels,state,number
+# Epic → milestone; story → issue; optional task → sub-issue (see linear-tooling-guide.md).
 #
-# Search by label (examples — use repo’s actual label names):
-#   gh issue list --repo benvdbergh/workflows --label "type:epic"
-#
-# Create or update issues (planning output lands here; use stdin or body-file outside repo):
-#   gh issue create --repo benvdbergh/workflows --title "..." --body-file -
-#   gh issue edit 123 --repo benvdbergh/workflows --body-file -
-#   gh issue edit N1 N2 --repo benvdbergh/workflows --milestone "R2 Beta - Full Core Orchestration"
-# Before any gh project … examples, refresh project token scopes (read + write project items):
-#   gh auth refresh -s read:project -s project
-# Project #4 fields (Type, Release, Horizon, Commitment, Runway, Area, Blocked) need those scopes:
-#   gh project item-add 4 --owner benvdbergh --url https://github.com/benvdbergh/workflows/issues/N
-#   gh project field-list 4 --owner benvdbergh   # then gh project item-edit ...
-#
-# Project (classic user project; field IDs may vary — use `gh project field-list`):
-#   gh project item-list 4 --owner benvdbergh --format json
-#   gh project view 4 --owner benvdbergh
-#
-# Parent/child (sub-issue) links: GitHub UI, or GraphQL addSubIssue / REST patterns in .claude/skills/wf-plan/references/github-tooling-guide.md (Appendix A).
-#
-# Historical per-epic/per-story markdown under docs/ was removed after GitHub backlog migration.
-legacy_markdown_mirror:
-  removed: true
+# Planning process: global project-planning skill + wf-plan/wf-design/wf-execute repo skills.

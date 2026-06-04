@@ -6,6 +6,26 @@
  * @typedef {import("./orchestrator/activity-executor.mjs").ActivityExecutor} ActivityExecutor
  */
 export * from "./validate.mjs";
+export { verifyDefinitionSignature, extractDefinitionSignature } from "./definition-signing.mjs";
+export {
+  redactSecretsInPayload,
+  isSecretPayloadKey,
+  SECRET_PAYLOAD_KEY_NAMES,
+  REDACTED_VALUE,
+} from "./persistence/secret-redaction.mjs";
+export { RedactingExecutionHistoryStore } from "./persistence/redacting-history-store.mjs";
+export {
+  MAX_MCP_WORKFLOW_JSON_BYTES,
+  assertMcpJsonWithinSizeLimit,
+  assertValidWorkflowDefinitionAtTransport,
+  validateWorkflowStartTransportPayload,
+  validateWorkflowResumeTransportPayload,
+} from "./adapters/mcp/transport-validation.mjs";
+export {
+  assertMcpCommandAllowed,
+  resolveMcpCommandAllowlistFromEnv,
+  DEFAULT_MCP_COMMAND_ALLOWLIST,
+} from "./orchestrator/mcp-stdio-activity-executor.mjs";
 export { RejectingActivityExecutor, StubActivityExecutor } from "./orchestrator/activity-executor.mjs";
 export {
   MockA2ADelegateExecutor,

@@ -18,7 +18,11 @@ import { createParallelJoinRuntime } from "./parallel-join-runtime.mjs";
 import { MockA2ADelegateExecutor } from "./delegate-executor.mjs";
 import { executeDelegateNode } from "./delegate-runtime.mjs";
 import { executeSubworkflowNode } from "./subworkflow-runtime.mjs";
-import { assertWorkflowGraphInvariants, buildOutgoing } from "./workflow-graph-invariants.mjs";
+import {
+  assertNoInterruptInParallelBranch,
+  assertWorkflowGraphInvariants,
+  buildOutgoing,
+} from "./workflow-graph-invariants.mjs";
 import {
   buildSetStateOutput,
   resolveSwitchTarget,
@@ -34,11 +38,14 @@ import {
   expectedCommandIdentity,
   findLatestNonCheckpointEvent,
   isParallelSpanPayload,
+  isPendingActivityCompletionContinuation,
   latestPrimaryEvent,
   latestStateFromHistory,
   parallelSpansEqual,
+  verifyHostContinuationInput,
   resolveCheckpointConfig,
   throwIfStateInvalid,
+  verifyCallerDefinitionMatchesCheckpoint,
 } from "./workflow-graph-walker-support.mjs";
 
 const require = createRequire(import.meta.url);
@@ -113,7 +120,14 @@ export async function runGraphWorkflow(options) {
   const v = validateWorkflowDefinition(definition);
   if (!v.ok) {
     const msg = v.errors?.map((e) => `${e.instancePath || "/"} ${e.message}`).join("; ") ?? "schema validation failed";
-    return { status: "failed", error: msg };
+    const profileCode = v.errors?.find(
+      (e) => e.params && typeof e.params === "object" && typeof e.params.code === "string"
+    )?.params?.code;
+    return {
+      status: "failed",
+      error: msg,
+      code: profileCode ?? "VALIDATION_ERROR",
+    };
   }
 
   try {
@@ -141,12 +155,27 @@ export async function runGraphWorkflow(options) {
 
   try {
     assertWorkflowGraphInvariants(nodes, outgoing);
+    assertNoInterruptInParallelBranch(definition);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { status: "failed", error: msg };
+    const code = e instanceof Error && "code" in e && typeof e.code === "string" ? e.code : undefined;
+    return { status: "failed", error: msg, ...(code ? { code } : {}) };
   }
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const existingRows = store.listByExecution(executionId);
+  assertHistoryReadableByEngine(existingRows);
+  if (existingRows.length > 0) {
+    const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, existingRows);
+    if (!definitionBind.ok) {
+      return {
+        status: "failed",
+        error: definitionBind.error,
+        code: "SUBMIT_VALIDATION_ERROR",
+      };
+    }
+  }
+
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   const definitionMeta = checkpointDefinitionMeta(definition);
   const validateState = ajv.compile(stateSchemaForValidation(definition.state_schema));
@@ -281,16 +310,73 @@ export async function runGraphWorkflow(options) {
   });
 
   try {
-    appendEvt("ExecutionStarted", {
-      workflowName: definition.document?.name,
-      workflowVersion: definition.document?.version,
-      inputKeys: Object.keys(input),
-    });
+    /** @type {string} */
+    let current;
+    const pendingActivityContinuation = isPendingActivityCompletionContinuation(existingRows, (nodeId) =>
+      byId.get(nodeId)?.type
+    );
 
-    throwIfStateInvalid(validateState, state, "Initial state invalid vs state_schema");
+    if (pendingActivityContinuation) {
+      const inputCheck = verifyHostContinuationInput(existingRows, input);
+      if (!inputCheck.ok) {
+        return { status: "failed", error: inputCheck.error, code: "SUBMIT_VALIDATION_ERROR" };
+      }
 
-    const startOut = outgoing.get("__start__") ?? [];
-    let current = startOut[0];
+      commandCursor = replay.commands.length;
+      const histState = latestStateFromHistory(existingRows);
+      state = histState ? { ...histState } : { ...input };
+
+      const lastCompleted = findLatestNonCheckpointEvent(existingRows);
+      const activityNodeId =
+        lastCompleted && typeof lastCompleted.payload?.nodeId === "string" ? lastCompleted.payload.nodeId : "";
+      const activityNode = activityNodeId ? byId.get(activityNodeId) : undefined;
+      if (!activityNode || !PLACEHOLDER_TYPES.has(activityNode.type)) {
+        throw new Error(`Cannot continue: pending activity node "${activityNodeId}" is missing or invalid.`);
+      }
+
+      const rawResult = lastCompleted?.payload?.result;
+      /** @type {Record<string, unknown>} */
+      const output =
+        rawResult && typeof rawResult === "object" && !Array.isArray(rawResult)
+          ? /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(rawResult)))
+          : {};
+
+      state = /** @type {Record<string, unknown>} */ (
+        applyOutputWithReducers(state, output, definition.state_schema)
+      );
+      throwIfStateInvalid(validateState, state, `State invalid after activity "${activityNodeId}"`);
+
+      appendCmd("CompleteNode", { nodeId: activityNodeId, output });
+      const activityStateSeq = appendEvt("StateUpdated", {
+        nodeId: activityNodeId,
+        state: JSON.parse(JSON.stringify(state)),
+      });
+      appendCheckpoint(activityNodeId, state, activityStateSeq);
+
+      const activityOuts = outgoing.get(activityNodeId) ?? [];
+      if (activityOuts.length !== 1) {
+        throw new Error(
+          `Node "${activityNodeId}" must have exactly one outgoing edge after activity completion; found ${activityOuts.length}.`
+        );
+      }
+      current = activityOuts[0];
+    } else {
+      const hasExecutionStarted = existingRows.some(
+        (r) => r.kind === "event" && r.name === "ExecutionStarted"
+      );
+      if (!hasExecutionStarted) {
+        appendEvt("ExecutionStarted", {
+          workflowName: definition.document?.name,
+          workflowVersion: definition.document?.version,
+          inputKeys: Object.keys(input),
+        });
+      }
+
+      throwIfStateInvalid(validateState, state, "Initial state invalid vs state_schema");
+
+      const startOut = outgoing.get("__start__") ?? [];
+      current = startOut[0];
+    }
 
     while (true) {
       const node = byId.get(current);
@@ -370,7 +456,12 @@ export async function runGraphWorkflow(options) {
           };
         }
         if (pr.kind === "failed") {
-          return { status: "failed", error: pr.error, finalState: state };
+          return {
+            status: "failed",
+            error: pr.error,
+            finalState: state,
+            ...(pr.code !== undefined ? { code: pr.code } : {}),
+          };
         }
         appendCmd("CompleteNode", { nodeId: current, output: {} });
         const pStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
@@ -674,7 +765,14 @@ export async function resumeGraphWorkflow(options) {
   const v = validateWorkflowDefinition(definition);
   if (!v.ok) {
     const msg = v.errors?.map((e) => `${e.instancePath || "/"} ${e.message}`).join("; ") ?? "schema validation failed";
-    return { status: "failed", error: msg };
+    const profileCode = v.errors?.find(
+      (e) => e.params && typeof e.params === "object" && typeof e.params.code === "string"
+    )?.params?.code;
+    return {
+      status: "failed",
+      error: msg,
+      code: profileCode ?? "VALIDATION_ERROR",
+    };
   }
 
   try {
@@ -703,6 +801,10 @@ export async function resumeGraphWorkflow(options) {
    */
   function failResume(reason, code, finalState) {
     return { status: "failed", error: reason, ...(finalState ? { finalState } : {}), code };
+  }
+  const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, rows);
+  if (!definitionBind.ok) {
+    return failResume(definitionBind.error, RESUME_FAILURE_CODE.VALIDATION_FAILED, latestStateFromHistory(rows));
   }
   const lastRow = latestPrimaryEvent(rows);
   if (!lastRow || lastRow.name !== "InterruptRaised") {
@@ -736,6 +838,7 @@ export async function resumeGraphWorkflow(options) {
 
   try {
     assertWorkflowGraphInvariants(nodes, outgoing);
+    assertNoInterruptInParallelBranch(definition);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return failResume(msg, RESUME_FAILURE_CODE.NOT_ALLOWED, latestStateFromHistory(rows));
@@ -1016,7 +1119,12 @@ export async function resumeGraphWorkflow(options) {
           };
         }
         if (pr.kind === "failed") {
-          return { status: "failed", error: pr.error, finalState: state };
+          return {
+            status: "failed",
+            error: pr.error,
+            finalState: state,
+            ...(pr.code !== undefined ? { code: pr.code } : {}),
+          };
         }
         appendCmd("CompleteNode", { nodeId: current, output: {} });
         const pStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
@@ -1341,6 +1449,11 @@ export async function submitActivityOutcome(options) {
     };
   }
 
+  const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, rows);
+  if (!definitionBind.ok) {
+    return { status: "failed", error: definitionBind.error, code: "SUBMIT_VALIDATION_ERROR" };
+  }
+
   const last = findLatestNonCheckpointEvent(rows);
   if (!last || last.kind !== "event" || last.name !== "ActivityRequested") {
     return {
@@ -1406,10 +1519,20 @@ export async function submitActivityOutcome(options) {
     rawResult && typeof rawResult === "object" && !Array.isArray(rawResult)
       ? /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(rawResult)))
       : {};
+  const completedNode = validateWorkflowDefinition(definition).ok
+    ? /** @type {{ nodes?: Array<{ id: string; type: string }> }} */ (definition).nodes?.find((n) => n.id === nodeId)
+    : undefined;
+  const pendingSpan = isParallelSpanPayload(reqSpan) ? reqSpan : undefined;
   store.append(executionId, {
     kind: "event",
     name: "ActivityCompleted",
-    payload: { executionId, nodeId, result: resultObj },
+    payload: {
+      executionId,
+      nodeId,
+      ...(completedNode?.type ? { nodeType: completedNode.type } : {}),
+      ...(pendingSpan ? { parallelSpan: { ...pendingSpan } } : {}),
+      result: resultObj,
+    },
   });
 
   return runGraphWorkflow({

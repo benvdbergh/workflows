@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
+import { RedactingExecutionHistoryStore } from "../persistence/redacting-history-store.mjs";
 
 const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "InterruptRaised"]);
 
@@ -10,6 +11,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {object} definition
  * @property {Record<string, unknown>} input
  * @property {"in_process" | "host_mediated"} [activityExecutionMode]
+ * @property {boolean} [allowExistingExecutionId] When true, `workflow_start` may target an execution id that already has history (replay/idempotency). Default false rejects duplicates.
  */
 
 /**
@@ -256,7 +258,11 @@ function buildStatusResponse(executionId, rows, body) {
  * Optional `delegateExecutor` runs `agent_delegate` nodes; omit to use the mock A2A delegate executor.
  */
 export function createWorkflowApplicationPort(deps) {
-  const { store, activityExecutor, delegateExecutor } = deps;
+  const store =
+    deps.store instanceof RedactingExecutionHistoryStore
+      ? deps.store
+      : new RedactingExecutionHistoryStore(deps.store);
+  const { activityExecutor, delegateExecutor } = deps;
 
   return {
     /**
@@ -268,6 +274,16 @@ export function createWorkflowApplicationPort(deps) {
         typeof request.executionId === "string" && request.executionId.trim() !== ""
           ? request.executionId
           : randomUUID();
+
+      const existingRows = store.listByExecution(executionId);
+      assertHistoryReadableByEngine(existingRows);
+      if (existingRows.length > 0 && request.allowExistingExecutionId !== true) {
+        const err = new Error(
+          `Execution "${executionId}" already exists. Pass allowExistingExecutionId to continue or replay against existing history.`
+        );
+        err.code = "DUPLICATE_EXECUTION_ID";
+        throw err;
+      }
 
       const runResult = await runGraphWorkflow({
         definition: request.definition,

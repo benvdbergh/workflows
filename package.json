@@ -9,6 +9,9 @@
   "scripts": {
     "sync-engine-poc-schema": "node scripts/sync-engine-poc-schema.mjs",
     "check-engine-poc-schema-sync": "node scripts/sync-engine-poc-schema.mjs --check",
+    "check-schema-breaking-change": "node scripts/check-schema-breaking-change.mjs",
+    "check-threat-model-touch": "node scripts/check-threat-model-touch.mjs",
+    "check-arc42-export-drift": "node scripts/check-arc42-export-drift.mjs",
     "validate-workflows": "node scripts/validate-workflows.mjs",
     "engine:validate": "node packages/engine/src/cli.mjs validate",
     "engine:mcp-manifest:validate": "node packages/engine/src/cli.mjs mcp-manifest validate",

@@ -43,10 +43,12 @@ MCP guides default to **operator setup** (published `@agent-workflow/engine` via
 
 ## Planning and Roadmap Artifacts
 
-- Backlog, epics, and stories: [github.com/benvdbergh/workflows](https://github.com/benvdbergh/workflows) (see repository `CONTRIBUTING.md` and `.project-planning.yaml` for Project conventions).
+- Backlog, epics, and stories: [Linear workflows project](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview) (see `.project-planning.yaml`, `delivery_tracker: linear`, and `.claude/skills/wf-plan/`).
+- Community intake (bugs, features, questions): [GitHub issues](https://github.com/benvdbergh/workflows/issues) per `CONTRIBUTING.md` and `SUPPORT.md` — not the planning backlog.
 - Spec and architecture governance (design-first): [governance/spec-architecture-governance.md](governance/spec-architecture-governance.md)
-- GitHub metadata tracking checklist: [repository-metadata-checklist.md](repository-metadata-checklist.md)
-- GitHub project operating model: [releases/github-project-operating-model.md](releases/github-project-operating-model.md)
+- Repository metadata tracking checklist: [repository-metadata-checklist.md](repository-metadata-checklist.md)
+- Linear project operating model: [releases/linear-project-operating-model.md](releases/linear-project-operating-model.md)
+- Legacy GitHub Project pointer: [releases/github-project-operating-model.md](releases/github-project-operating-model.md) (deprecated)
 - Workflow agent skills:
   - [../.claude/skills/wf-plan/](../.claude/skills/wf-plan/)
   - [../.claude/skills/wf-execute/](../.claude/skills/wf-execute/)

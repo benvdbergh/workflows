@@ -11,12 +11,73 @@
  * @see docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md
  */
 
+import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 
+/** Basenames allowed when WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS is unset. */
+export const DEFAULT_MCP_COMMAND_ALLOWLIST = new Set(["node", "npx"]);
+
 /** Default for MCP initialize + tools/call (ms). Conservative for automation/CI. */
 export const DEFAULT_MCP_ACTIVITY_TOOL_TIMEOUT_MS = 45_000;
+
+/**
+ * @param {string} command
+ * @returns {string}
+ */
+export function mcpCommandBasename(command) {
+  const base = path.basename(command);
+  return base.replace(/\.exe$/i, "");
+}
+
+/**
+ * Allowlist from WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS (comma-separated basenames or paths).
+ * When unset, returns null and {@link DEFAULT_MCP_COMMAND_ALLOWLIST} applies.
+ *
+ * @returns {Set<string> | null}
+ */
+export function resolveMcpCommandAllowlistFromEnv(env = process.env) {
+  const raw = env.WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS;
+  if (raw === undefined || String(raw).trim() === "") {
+    return null;
+  }
+  return new Set(
+    String(raw)
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+  );
+}
+
+/**
+ * @param {string} command Manifest `command` field.
+ * @param {Set<string> | null} [allowlistFromEnv]
+ * @returns {{ ok: true } | { ok: false; error: string }}
+ */
+export function assertMcpCommandAllowed(command, allowlistFromEnv = resolveMcpCommandAllowlistFromEnv()) {
+  if (typeof command !== "string" || command.trim() === "") {
+    return { ok: false, error: "MCP server command must be a non-empty string" };
+  }
+  const trimmed = command.trim();
+  const basename = mcpCommandBasename(trimmed);
+  if (allowlistFromEnv === null) {
+    if (DEFAULT_MCP_COMMAND_ALLOWLIST.has(basename)) {
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      error: `MCP command "${basename}" is not in the default allowlist (node, npx). Set WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS to permit additional commands.`,
+    };
+  }
+  if (allowlistFromEnv.has(trimmed) || allowlistFromEnv.has(basename)) {
+    return { ok: true };
+  }
+  return {
+    ok: false,
+    error: `MCP command "${trimmed}" is not listed in WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS.`,
+  };
+}
 
 /**
  * Maps thrown errors from MCP client / stdio transport to ActivityFailed-compatible results.
@@ -97,6 +158,10 @@ export function mapMcpCallToolResultToActivityResult(result) {
  * @returns {Promise<import("./activity-executor.mjs").ActivityExecutorResult>}
  */
 export async function callMcpToolStdio(serverDef, toolName, toolArguments, options = {}) {
+  const commandCheck = assertMcpCommandAllowed(serverDef.command, options.commandAllowlist);
+  if (!commandCheck.ok) {
+    return { ok: false, error: commandCheck.error, code: "MCP_COMMAND_NOT_ALLOWED" };
+  }
   const timeoutMs = options.timeoutMs ?? DEFAULT_MCP_ACTIVITY_TOOL_TIMEOUT_MS;
   const client = new Client(
     {

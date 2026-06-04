@@ -7,16 +7,16 @@ description: >-
   planning and execution.
 metadata:
   author: workflows project
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # wf-design
 
 Process-first design router for work entering the repository.
 
-## Project override — GitHub canonical backlog
+## Project override — Linear canonical backlog
 
-For **`benvdbergh/workflows`**, executable planning artifacts are **GitHub issues** (not local epic/story markdown under `docs`). After design handoff, decomposition and acceptance criteria land in issue bodies and relationships. See `../wf-plan/references/workflows-github-backlog-override.md` and root `.project-planning.yaml`.
+For **`benvdbergh/workflows`**, executable planning artifacts are **Linear issues** on the [workflows project](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview) (not local epic/story markdown under `docs`). After design handoff, decomposition and acceptance criteria land in issue descriptions, milestones, and relations. See `../wf-plan/references/workflows-linear-backlog-override.md` and root `.project-planning.yaml`.
 
 ## Scope
 
@@ -95,7 +95,7 @@ Trigger phrases: "ready for stories", "handoff for implementation", "plan this w
 
 Actions:
 - Produce a complete design output contract (defined below).
-- Route to `project-planning` for decomposition into epics/stories, dependency ordering, and readiness checks—**realized as GitHub issues** per `../wf-plan/references/workflows-github-backlog-override.md`.
+- Route to `project-planning` for decomposition into epics/stories, dependency ordering, and readiness checks—**realized as Linear milestones/issues** per `../wf-plan/references/workflows-linear-backlog-override.md`.
 - Escalate to `specification` when a formal spec/PRD/technical plan is required for governance, cross-team alignment, or execution safety.
 
 ### Triggered interaction
@@ -103,23 +103,23 @@ Actions:
 - "ready this for implementation"
 - "create design handoff package"
 
-## GitHub Interaction Workflows
+## Linear interaction workflows
 
 ### DesignFromIssueThread
 
-Trigger phrases: "design from issue #", "turn this issue into design options"
+Trigger phrases: "design from Linear issue", "turn this issue into design options"
 
 Actions:
-- Read issue context, labels, milestone, and project fields.
-- Capture design intent and constraints in an issue comment.
-- Add recommended target `Release` and `Commitment` confidence.
+- Read issue context, labels, milestone, and description via Linear MCP or UI.
+- Capture design intent and constraints in a Linear comment.
+- Add recommended target release and commitment confidence in description or comment.
 
 ### DesignDecisionLogOnIssue
 
 Trigger phrases: "log design decision", "document option rationale"
 
 Actions:
-- Post concise option comparison and selected direction on the issue.
+- Post concise option comparison and selected direction on the Linear issue.
 - Record dependencies, risks, and unresolved questions.
 - Link to relevant roadmap/RFC references.
 
@@ -129,8 +129,8 @@ Trigger phrases: "handoff design to planning", "convert design to executable pla
 
 Actions:
 - Confirm design output contract completeness.
-- Update issue status/labels for planning readiness.
-- Hand off to `project-planning` with explicit decomposition request (backlog = GitHub issues, not markdown epics/stories).
+- Update Linear issue state/labels for planning readiness.
+- Hand off to `project-planning` with explicit decomposition request (backlog = Linear, not markdown epics/stories).
 
 ## Escalation Rules
 
@@ -140,7 +140,7 @@ Actions:
 - `specification`: Use when formal specification artifacts are needed (PRD, formal spec, technical plan) before execution starts.
 
 Detailed ownership boundaries and escalation matrix: `references/skill-escalation.md`.
-Tool-level repository/project interaction rules: `references/github-tooling-guide.md`.
+Tool-level Linear interaction rules: `references/linear-tooling-guide.md`.
 
 ## Design Output Contract
 

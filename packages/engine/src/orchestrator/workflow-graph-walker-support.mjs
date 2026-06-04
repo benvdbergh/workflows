@@ -4,6 +4,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { canonicalJsonStringify } from "../canonical-json.mjs";
 
 export const NONDETERMINISM_ERROR_CODE = "NONDETERMINISM_DETECTED";
 
@@ -92,9 +93,49 @@ export function expectedCommandIdentity(name, payload) {
  */
 export function checkpointDefinitionMeta(definition) {
   const workflowVersion = typeof definition?.document?.version === "string" ? definition.document.version : undefined;
-  const canonical = JSON.stringify(definition);
+  const canonical = canonicalJsonStringify(definition);
   const definitionHash = createHash("sha256").update(canonical).digest("hex");
   return { workflowVersion, definitionHash };
+}
+
+/**
+ * Latest `definitionHash` from checkpoint history (newest `CheckpointWritten` wins).
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {string | undefined}
+ */
+export function latestCheckpointDefinitionHash(rows) {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind !== "event" || row.name !== "CheckpointWritten") continue;
+    const hash = row.payload?.definitionHash;
+    if (typeof hash === "string" && hash.length > 0) {
+      return hash;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * When history includes a checkpoint, caller `definition` must hash to the same `definitionHash`.
+ *
+ * @param {object} definition
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {{ ok: true } | { ok: false; error: string }}
+ */
+export function verifyCallerDefinitionMatchesCheckpoint(definition, rows) {
+  const bound = latestCheckpointDefinitionHash(rows);
+  if (!bound) {
+    return { ok: true };
+  }
+  const callerHash = checkpointDefinitionMeta(definition).definitionHash;
+  if (callerHash !== bound) {
+    return {
+      ok: false,
+      error: "Workflow definition does not match checkpoint definitionHash for this execution.",
+    };
+  }
+  return { ok: true };
 }
 
 /**
@@ -150,6 +191,96 @@ export function findLatestNonCheckpointEvent(rows) {
     return row;
   }
   return undefined;
+}
+
+/** Node types completed via host `submitActivityOutcome` (step / llm_call / tool_call). */
+const HOST_ACTIVITY_NODE_TYPES = new Set(["step", "llm_call", "tool_call"]);
+
+/**
+ * Host-mediated submit (or in-process crash recovery for placeholder activities) left
+ * `ActivityCompleted` without a matching `CompleteNode` for a step/llm_call/tool_call node.
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {(nodeId: string) => string | undefined} [resolveNodeType] maps node id to workflow node `type`
+ * @returns {boolean}
+ */
+export function isPendingActivityCompletionContinuation(rows, resolveNodeType) {
+  const last = findLatestNonCheckpointEvent(rows);
+  if (!last || last.kind !== "event" || last.name !== "ActivityCompleted") {
+    return false;
+  }
+  const nodeId = typeof last.payload?.nodeId === "string" ? last.payload.nodeId : "";
+  if (!nodeId) {
+    return false;
+  }
+  if (isParallelSpanPayload(last.payload?.parallelSpan)) {
+    return false;
+  }
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind !== "event" || row.name !== "ActivityRequested" || row.payload?.nodeId !== nodeId) {
+      continue;
+    }
+    if (isParallelSpanPayload(row.payload?.parallelSpan)) {
+      return false;
+    }
+    break;
+  }
+  const nodeType =
+    typeof last.payload?.nodeType === "string"
+      ? last.payload.nodeType
+      : resolveNodeType?.(nodeId);
+  if (!nodeType || !HOST_ACTIVITY_NODE_TYPES.has(nodeType)) {
+    return false;
+  }
+  const hasCompleteNode = rows.some(
+    (r) =>
+      r.kind === "command" &&
+      r.name === "CompleteNode" &&
+      r.payload?.nodeId === nodeId &&
+      r.seq > last.seq
+  );
+  return !hasCompleteNode;
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {Record<string, unknown>} input
+ * @returns {{ ok: true } | { ok: false; error: string }}
+ */
+export function verifyHostContinuationInput(rows, input) {
+  const started = rows.find((r) => r.kind === "event" && r.name === "ExecutionStarted");
+  if (!started) {
+    return { ok: true };
+  }
+  const rawKeys = started.payload?.inputKeys;
+  if (!Array.isArray(rawKeys)) {
+    return { ok: true };
+  }
+  const expectedKeys = [...rawKeys].map(String).sort();
+  const actualKeys = Object.keys(input).sort();
+  if (expectedKeys.join("\0") !== actualKeys.join("\0")) {
+    return {
+      ok: false,
+      error: "Submit input keys do not match ExecutionStarted.inputKeys for this execution.",
+    };
+  }
+  const firstState = rows.find((r) => r.kind === "event" && r.name === "StateUpdated");
+  const genesis =
+    firstState?.payload?.state && typeof firstState.payload.state === "object" && !Array.isArray(firstState.payload.state)
+      ? /** @type {Record<string, unknown>} */ (firstState.payload.state)
+      : undefined;
+  if (genesis) {
+    for (const key of expectedKeys) {
+      if (key in genesis && key in input && JSON.stringify(input[key]) !== JSON.stringify(genesis[key])) {
+        return {
+          ok: false,
+          error: `Submit input key "${key}" does not match workflow start state for this execution.`,
+        };
+      }
+    }
+  }
+  return { ok: true };
 }
 
 /**

@@ -18,7 +18,7 @@ The history **envelope** is the adapter’s row shape (columns, JSON payload wra
 2. **Row version newer than engine support:** `hydrateReplayContext`, `getWorkflowStatus`, and any path that loads full history **fail fast** with a clear error so hosts can upgrade the package rather than silently corrupting replay.
 3. **Row version ≤ engine support:** Readers **must** accept all versions the engine advertises support for (future: optional shims per version).
 
-Orchestration (`runPocWorkflow`, `resumePocWorkflow`) and the MCP application port **must not** embed SQL or storage-specific I/O; they only call `ExecutionHistoryStore`. Only adapters implement persistence.
+Orchestration (`runGraphWorkflow`, `resumeGraphWorkflow`) and the MCP application port **must not** embed SQL or storage-specific I/O; they only call `ExecutionHistoryStore`. Only adapters implement persistence.
 
 ## SQLite
 

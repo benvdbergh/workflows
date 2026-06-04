@@ -14,7 +14,7 @@ A specification, contract, and **POC engine** repository for the **Agent Workflo
 - `packages/engine/` — **`@agent-workflow/engine`** (npm org scope `@agent-workflow`): POC validation (CLI + library), append-only command/event history (SQLite or in-memory), linear runner, full POC walker with `switch` and `interrupt` / resume, and MCP stdio adapter (see `packages/engine/README.md`)
 - `scripts/validate-workflows.mjs` — repo-wide AJV validation used by CI and aligned with the engine's schema options
 - `scripts/sync-engine-poc-schema.mjs` — syncs the root `schemas/workflow-definition-poc.json` into `packages/engine/schemas/` (run automatically on `prepack`)
-- **GitHub issues** in `benvdbergh/workflows` (+ [Project #4](https://github.com/users/benvdbergh/projects/4)) — canonical epics/stories, acceptance criteria, and planning narrative (see `.project-planning.yaml` and `.claude/skills/wf-plan/references/workflows-github-backlog-override.md`)
+- **Linear** [workflows project](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview) — canonical epics/stories (milestones/issues), acceptance criteria, and planning narrative (see `.project-planning.yaml` and `.claude/skills/wf-plan/references/workflows-linear-backlog-override.md`). **GitHub issues** on `benvdbergh/workflows` remain for community intake (bugs, security, questions), not the planning backlog.
 - `docs/releases/` — release notes and versioning/CI governance docs for the alpha
 - `docs/architecture/` — arc42 baseline (`docs/architecture/arc42/`), linked assets under `docs/architecture/arc42-assets/` (diagrams, demos, operator runbooks); ADRs in `docs/architecture/adr/`
 - `ROADMAP.md` — post-alpha release plan (R2 Beta through GA and beyond)
@@ -89,9 +89,9 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `work
 
 ## Work item conventions
 
-**Canonical backlog:** GitHub issues (and parent/sub-issue relationships) hold epic/story intent, acceptance criteria, status, and links to RFC/`docs/poc-scope.md`/ADRs. Use the `wf-plan`, `wf-design`, and `wf-execute` skills and `.project-planning.yaml` for `gh`/Project conventions. The global `project-planning` skill still applies to **process** (decomposition, dependencies, readiness); this repository **overrides the artifact location** to GitHub per `workflows-github-backlog-override.md`.
+**Canonical backlog:** Linear milestones and issues on the workflows project hold epic/story intent, acceptance criteria, status, and links to RFC/`docs/poc-scope.md`/ADRs. Use the `wf-plan`, `wf-design`, and `wf-execute` skills and `.project-planning.yaml` (`delivery_tracker: linear`) for Linear MCP conventions. The global `project-planning` skill still applies to **process** (decomposition, dependencies, readiness); this repository **overrides the artifact location** to Linear per `workflows-linear-backlog-override.md`.
 
-**Legacy:** Historical per-epic and per-story markdown under `docs` was removed after GitHub became the planning store; do not recreate it.
+**Legacy:** Historical per-epic and per-story markdown under `docs` was removed after earlier backlog migrations; GitHub Project #4 is legacy for planning. Do not recreate planning markdown or duplicate backlog in GitHub issues.
 
 When changing the POC contract (scope note, schema, or fixtures), update all three together and bump `document.schema` in workflow instances.
 

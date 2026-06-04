@@ -170,22 +170,33 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
 
   if (step.op === "start") {
     if (surface === "port") {
-      const portResult = await port.startWorkflow({
-        executionId,
-        definition,
-        input: step.input ?? scenarioInput,
-        ...(activityMode ? { activityExecutionMode: activityMode } : {}),
-      });
-      const isError = portResult.status === "failed" && portResult.error !== undefined;
-      return {
-        snapshot: normalizePortSnapshot(
-          "start",
-          portResult,
+      try {
+        const portResult = await port.startWorkflow({
+          executionId,
+          definition,
+          input: step.input ?? scenarioInput,
+          ...(activityMode ? { activityExecutionMode: activityMode } : {}),
+        });
+        const isError = portResult.status === "failed" && portResult.error !== undefined;
+        return {
+          snapshot: normalizePortSnapshot(
+            "start",
+            portResult,
+            isError,
+            isError ? portResult.code ?? "ENGINE_FAILURE" : undefined
+          ),
           isError,
-          isError ? portResult.code ?? "ENGINE_FAILURE" : undefined
-        ),
-        isError,
-      };
+        };
+      } catch (error) {
+        const code =
+          error && typeof error === "object" && "code" in error && typeof error.code === "string"
+            ? error.code
+            : "ENGINE_FAILURE";
+        return {
+          snapshot: normalizePortSnapshot("start", {}, true, code),
+          isError: true,
+        };
+      }
     }
     const mcpResult = await handlers.workflow_start({
       execution_id: executionId,
@@ -286,12 +297,23 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
  * @param {ParityVector} vector
  * @param {string} repoRoot
  */
+const allowPending =
+  process.env.CONFORMANCE_ALLOW_PENDING === "1" || process.env.CONFORMANCE_ALLOW_PENDING === "true";
+
 export async function runParityVector(vector, repoRoot) {
   if (vector.pending) {
+    const reason = vector.pendingReason ?? "Scenario pending implementation";
+    if (allowPending) {
+      return {
+        passed: true,
+        category: "parity-pending",
+        reason,
+      };
+    }
     return {
-      passed: true,
+      passed: false,
       category: "parity-pending",
-      reason: vector.pendingReason ?? "Scenario pending implementation",
+      reason: `Pending parity vector must not pass release gate: ${reason}`,
     };
   }
 

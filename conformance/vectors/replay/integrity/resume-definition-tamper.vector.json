@@ -1,0 +1,35 @@
+{
+  "id": "replay.integrity.resume_definition_tamper",
+  "description": "Resume with definition tamper fails when checkpoint binds definitionHash (INVALID_RESUME_PAYLOAD).",
+  "kind": "replay",
+  "definition": "examples/lighthouse-customer-routing.workflow.json",
+  "resumePayload": { "intent": "billing" },
+  "resumeDefinitionTamper": {
+    "document": {
+      "schema": "https://agent-workflow.dev/schemas/workflow-definition/v1.json",
+      "name": "lighthouse-customer-routing",
+      "version": "9.9.9"
+    }
+  },
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "CheckpointWritten",
+      "payload": {
+        "policy": "after_each_node",
+        "definitionHash": "4a45c28979800d8d70aa75375d01f359817e0946cf56fc83308a978ca1c33a00",
+        "lastAppliedEventSeq": 1,
+        "nodeId": "human_review",
+        "stateRef": { "kind": "inline_state", "state": { "ticket_text": "API 500" } }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "InterruptRaised",
+      "payload": { "nodeId": "human_review", "prompt": "Route this ticket?" }
+    }
+  ],
+  "expect": {
+    "status": "failed"
+  }
+}

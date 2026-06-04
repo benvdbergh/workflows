@@ -12,6 +12,12 @@ Contributor pre-PR gate (run from repository root):
 npm run conformance
 ```
 
+Optional (local only): allow `pending: true` parity vectors to pass:
+
+```bash
+CONFORMANCE_ALLOW_PENDING=1 npm run conformance
+```
+
 Expected behavior:
 
 - Exit code `0` when all vectors match expected outcomes.
@@ -96,8 +102,9 @@ Replay fields:
 - `historyPrefix`: fixed persisted rows injected before replay; append order defines deterministic replay cursor.
 - `expect.status`: expected terminal status (`completed`, `failed`, `interrupted`, or `awaiting_activity` when no successful continuation ran).
 - `expect.tailCommands` (optional): exact post-prefix command tail (type/order + stable identity fields like `nodeId`).
+- `expect.eventCardinality` (optional): assert event counts after the run (e.g. `{ "ExecutionStarted": 1, "ActivityCompleted": { "work": 1 } }`). Use on host-mediated submit continuation vectors to guard against duplicate genesis replay events.
 - `expect.mismatch` (optional): expected deterministic mismatch diagnostics (message fragment and expected/actual command identity).
-- `activityExecutionMode` (optional): `"in_process"` (default) or `"host_mediated"` for `runPocWorkflow` after prefix injection. **In-process** is the same activity port the engine uses for engine-direct execution (MCP or other `ActivityExecutor`); **host_mediated** yields at `ActivityRequested` until a submit.
+- `activityExecutionMode` (optional): `"in_process"` (default) or `"host_mediated"` for `runGraphWorkflow` after prefix injection. **In-process** is the same activity port the engine uses for engine-direct execution (MCP or other `ActivityExecutor`); **host_mediated** yields at `ActivityRequested` until a submit.
 - `assertNoActivityExecutorInvocation` (optional): when `true`, the harness wires a `RejectingActivityExecutor` that fails any `executeActivity` call. Use with `activityExecutionMode: "in_process"` and a `historyPrefix` that already records `ActivityRequested` / `ActivityCompleted` for every `tool_call` the tail will revisit, so the run proves **tail replay does not re-invoke the activity port** (no duplicate “external” calls; deterministic stub). Ordering is still asserted via `expect.tailCommands` (command stream), matching host-mediated replay vectors that omit this flag.
 - `activitySubmissions` (optional): ordered `submitActivityOutcome` steps after the initial run. Each entry has `nodeId`, `outcome`, optional `expectedParallelSpan` when the pending `ActivityRequested` carries `parallelSpan`, and optional `expectFailure: { code }` to assert a failed submit without continuing (e.g. `ACTIVITY_SUBMIT_NODE_MISMATCH`, `ACTIVITY_SUBMIT_PARALLEL_MISMATCH`, `ACTIVITY_SUBMIT_NOT_AWAITING`).
 
@@ -133,10 +140,12 @@ The matrix below maps RFC-08 section `8.2 Conformance tests` areas to the curren
 | Replay (inject history, deterministic tail stream) | Implemented | Prefix/tail vectors under `conformance/vectors/replay/prefix-tail/` (lighthouse, R2 `join all` / `any` / `n_of_m`); mismatch diagnostics in `conformance/vectors/replay/mismatch/` (lighthouse route + R2 parallel branch order) |
 | Reducers (append/merge/overwrite matrices) | Deferred | No dedicated reducer matrix vectors yet (behavior covered indirectly by fixtures) |
 | Parallel joins (`all`, `any`, `n_of_m`) | Partial | R2 reference engine implements join policies; harness covers deterministic replay through a parallel fork/join tail (`r2-research-prefix-after-plan`); dedicated join-policy matrix vectors still deferred |
-| Interrupt resume (validation failure vs success) | Partial | Replay vectors exercise resume cursor behavior; lighthouse happy-path coverage is active, while dedicated interrupt resume conformance vectors are still deferred |
+| Interrupt resume (validation failure vs success) | Partial | Replay vectors exercise resume cursor behavior; `replay/integrity/resume-definition-tamper` covers definitionHash mismatch on resume; dedicated success/failure matrix still deferred |
 | MCP tool mapping roundtrip (mock server) | Deferred | MCP adapter conformance vectors not yet implemented in harness |
 | Cross-surface adapter parity (port vs MCP, in-process) | Implemented | `conformance/vectors/parity/*.vector.json`; matrix in `docs/architecture/arc42-assets/contracts/integration-parity-matrix.md` |
 | Host-mediated activity replay / submit | Implemented | `vectors/replay/host-activity/` (linear + parallel branch correlation, replay-safe `ActivityCompleted` in prefix, duplicate and mismatch submits) |
+| Definition hash mismatch (submit / resume) | Implemented | `vectors/replay/integrity/submit-definition-tamper.vector.json`, `resume-definition-tamper.vector.json` |
+| Interrupt in parallel branch (profile refusal) | Implemented | `vectors/schema/invalid/interrupt-in-parallel-branch.vector.json` |
 | Engine-direct (in-process) activity replay — no duplicate activity port calls | Implemented | `vectors/replay/engine-direct-activity/` (`assertNoActivityExecutorInvocation` + `ActivityCompleted` in prefix; linear + parallel `tool_call`) |
 
 ## Deferral register (out-of-scope or pending)
@@ -174,9 +183,16 @@ Cross-surface parity runs the same scenario script twice (application port metho
 }
 ```
 
-- `pending: true` — skipped with category `parity-pending` (R3 delegate/subworkflow placeholders; must not false-green).
+- `pending: true` — category `parity-pending`. **CI fails** on pending vectors (release gate). Local dev may set `CONFORMANCE_ALLOW_PENDING=1` to skip without failing the harness summary.
 - `expect` — partial match on the normalized snapshot after port/MCP equivalence is established.
 - `expectError` / `expectErrorCode` — negative paths using MCP adapter error codes.
+
+**R3 composition parity (active):** vectors under `conformance/vectors/parity/r3-*-status-correlation.vector.json` assert **`workflow_status`** correlation after terminal runs:
+
+| File | Vector id | Asserts |
+|------|-----------|---------|
+| `r3-delegate-status-correlation.vector.json` | `parity.r3.delegate_status_correlation` | `delegate_correlation_id` after `agent_delegate` |
+| `r3-subworkflow-status-correlation.vector.json` | `parity.r3.subworkflow_status_correlation` | `child_execution_id`, `parent_execution_id` after nested `subworkflow` |
 
 Contract matrix: `docs/architecture/arc42-assets/contracts/integration-parity-matrix.md`.
 

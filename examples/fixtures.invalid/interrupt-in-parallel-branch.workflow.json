@@ -1,0 +1,42 @@
+{
+  "document": {
+    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "name": "interrupt-in-parallel-branch-invalid",
+    "version": "0.0.0"
+  },
+  "state_schema": {
+    "type": "object"
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "fork",
+      "type": "parallel",
+      "config": {
+        "join": "all",
+        "branches": [{ "name": "human", "entry": "ask" }]
+      }
+    },
+    {
+      "id": "ask",
+      "type": "interrupt",
+      "config": {
+        "prompt": "Approve?",
+        "resume_schema": { "type": "object", "properties": { "approved": { "type": "boolean" } } }
+      }
+    },
+    {
+      "id": "after_join",
+      "type": "step",
+      "config": { "handler": "noop" }
+    },
+    { "id": "end", "type": "end" }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "start" },
+    { "source": "start", "target": "fork" },
+    { "source": "fork", "target": "after_join" },
+    { "source": "ask", "target": "after_join" },
+    { "source": "after_join", "target": "end" }
+  ]
+}

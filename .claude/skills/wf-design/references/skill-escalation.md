@@ -12,7 +12,7 @@
 
 - Deep architecture analysis or architecture decision documentation as a final deliverable.
 - Product portfolio strategy, multi-release prioritization, or roadmap rebalancing as final authority.
-- Backlog decomposition into full epics/stories and delivery sequencing as final planning artifact (in this repo: **`project-planning` outputs are GitHub issues**, not markdown under `docs`; see `../wf-plan/references/workflows-github-backlog-override.md`).
+- Backlog decomposition into full epics/stories and delivery sequencing as final planning artifact (in this repo: **`project-planning` outputs are Linear milestones/issues**, not markdown under `docs`; see `../wf-plan/references/workflows-linear-backlog-override.md`).
 - Formal spec/PRD/technical plan authoring when governance requires formal documents.
 - Code implementation, testing, or release operations.
 
