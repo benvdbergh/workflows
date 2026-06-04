@@ -6,6 +6,11 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertNoInterruptInParallelBranch,
+  InterruptInParallelBranchError,
+  interruptInParallelBranchToValidationErrors,
+} from "./orchestrator/workflow-graph-invariants.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -83,5 +88,20 @@ export function compileWorkflowValidator() {
  * @returns {{ ok: true } | { ok: false, errors: import("ajv").ErrorObject[] }}
  */
 export function validateWorkflowDefinition(data) {
-  return compileWorkflowValidator()(data);
+  const schemaResult = compileWorkflowValidator()(data);
+  if (!schemaResult.ok) {
+    return schemaResult;
+  }
+  try {
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      assertNoInterruptInParallelBranch(/** @type {{ nodes?: unknown[]; edges?: unknown[] }} */ (data));
+    }
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof InterruptInParallelBranchError) {
+      const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+      return { ok: false, errors: interruptInParallelBranchToValidationErrors(e, nodes) };
+    }
+    throw e;
+  }
 }

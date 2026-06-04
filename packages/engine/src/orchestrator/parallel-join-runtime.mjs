@@ -5,6 +5,7 @@
  */
 
 import { applyOutputWithReducers } from "./linear-runner.mjs";
+import { INTERRUPT_IN_PARALLEL_BRANCH_CODE } from "./workflow-graph-invariants.mjs";
 
 /**
  * @typedef {'all' | 'any' | 'n_of_m'} ParallelJoin
@@ -46,7 +47,7 @@ export function createParallelJoinRuntime(params) {
    * @param {{ parallelNodeId: string; joinTargetId: string; branchName: string; branchEntryNodeId: string }} branchCtx
    * @returns {Promise<
    *   | { kind: 'ok' }
-   *   | { kind: 'failed'; error: string }
+   *   | { kind: 'failed'; error: string; code?: string }
    *   | { kind: 'interrupt'; nodeId: string; state: Record<string, unknown> }
    *   | { kind: 'awaiting_activity'; nodeId: string; state: Record<string, unknown>; parallelSpan?: Record<string, unknown> }
    * >}
@@ -105,17 +106,15 @@ export function createParallelJoinRuntime(params) {
       }
 
       if (node.type === "interrupt") {
-        const cfg = node.config && typeof node.config === "object" ? /** @type {{ prompt?: string }} */ (node.config) : {};
-        const promptSummary =
-          typeof cfg.prompt === "string" ? (cfg.prompt.length > 200 ? `${cfg.prompt.slice(0, 200)}…` : cfg.prompt) : "";
-        hooks.appendCmd("RaiseInterrupt", { nodeId: cur, prompt: promptSummary });
-        const interruptSeq = hooks.appendEvt("InterruptRaised", { nodeId: cur, prompt: promptSummary });
-        hooks.appendCheckpoint(cur, hooks.getState(), interruptSeq, parallelSpan);
-        return {
-          kind: "interrupt",
+        const msg = `${INTERRUPT_IN_PARALLEL_BRANCH_CODE}: node "${cur}" (interrupt) is not allowed inside a parallel branch.`;
+        hooks.appendCmd("FailNode", {
           nodeId: cur,
-          state: JSON.parse(JSON.stringify(hooks.getState())),
-        };
+          reason: "interrupt_in_parallel_branch",
+          message: msg,
+          code: INTERRUPT_IN_PARALLEL_BRANCH_CODE,
+        });
+        hooks.appendEvt("ExecutionFailed", { error: msg, code: INTERRUPT_IN_PARALLEL_BRANCH_CODE });
+        return { kind: "failed", error: msg, code: INTERRUPT_IN_PARALLEL_BRANCH_CODE };
       }
 
       if (node.type === "parallel") {
@@ -291,7 +290,7 @@ export function createParallelJoinRuntime(params) {
    * @param {string} joinTargetId
    * @returns {Promise<
    *   | { kind: 'ok' }
-   *   | { kind: 'failed'; error: string }
+   *   | { kind: 'failed'; error: string; code?: string }
    *   | { kind: 'interrupt'; nodeId: string; state: Record<string, unknown> }
    *   | { kind: 'awaiting_activity'; nodeId: string; state: Record<string, unknown>; parallelSpan?: Record<string, unknown> }
    * >}

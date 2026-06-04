@@ -1,0 +1,15 @@
+{
+  "id": "schema.invalid.interrupt-in-parallel-branch",
+  "description": "interrupt inside a parallel branch must be rejected by profile validation (INTERRUPT_IN_PARALLEL_BRANCH).",
+  "kind": "schema",
+  "definition": "examples/fixtures.invalid/interrupt-in-parallel-branch.workflow.json",
+  "expect": {
+    "ok": false,
+    "diagnostics": [
+      {
+        "keyword": "profile",
+        "messageIncludes": "INTERRUPT_IN_PARALLEL_BRANCH"
+      }
+    ]
+  }
+}

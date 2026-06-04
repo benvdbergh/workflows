@@ -24,6 +24,20 @@ describe("validateWorkflowDefinition", () => {
     assert.ok(result.errors && result.errors.length > 0);
   });
 
+  it("rejects interrupt inside parallel branch (profile invariant)", () => {
+    const file = path.join(
+      repoRoot,
+      "examples",
+      "fixtures.invalid",
+      "interrupt-in-parallel-branch.workflow.json"
+    );
+    const data = JSON.parse(readFileSync(file, "utf8"));
+    const result = validateWorkflowDefinition(data);
+    assert.equal(result.ok, false);
+    const joined = (result.errors ?? []).map((e) => e.message ?? "").join(" ");
+    assert.match(joined, /INTERRUPT_IN_PARALLEL_BRANCH/);
+  });
+
   it("compileWorkflowValidator returns reusable validator with stable outcomes", () => {
     const validate = compileWorkflowValidator();
     const file = path.join(repoRoot, "examples", "lighthouse-customer-routing.workflow.json");

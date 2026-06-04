@@ -18,7 +18,11 @@ import { createParallelJoinRuntime } from "./parallel-join-runtime.mjs";
 import { MockA2ADelegateExecutor } from "./delegate-executor.mjs";
 import { executeDelegateNode } from "./delegate-runtime.mjs";
 import { executeSubworkflowNode } from "./subworkflow-runtime.mjs";
-import { assertWorkflowGraphInvariants, buildOutgoing } from "./workflow-graph-invariants.mjs";
+import {
+  assertNoInterruptInParallelBranch,
+  assertWorkflowGraphInvariants,
+  buildOutgoing,
+} from "./workflow-graph-invariants.mjs";
 import {
   buildSetStateOutput,
   resolveSwitchTarget,
@@ -113,7 +117,10 @@ export async function runGraphWorkflow(options) {
   const v = validateWorkflowDefinition(definition);
   if (!v.ok) {
     const msg = v.errors?.map((e) => `${e.instancePath || "/"} ${e.message}`).join("; ") ?? "schema validation failed";
-    return { status: "failed", error: msg };
+    const profileCode = v.errors?.find(
+      (e) => e.params && typeof e.params === "object" && typeof e.params.code === "string"
+    )?.params?.code;
+    return { status: "failed", error: msg, ...(profileCode ? { code: profileCode } : {}) };
   }
 
   try {
@@ -141,9 +148,11 @@ export async function runGraphWorkflow(options) {
 
   try {
     assertWorkflowGraphInvariants(nodes, outgoing);
+    assertNoInterruptInParallelBranch(definition);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { status: "failed", error: msg };
+    const code = e instanceof Error && "code" in e && typeof e.code === "string" ? e.code : undefined;
+    return { status: "failed", error: msg, ...(code ? { code } : {}) };
   }
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -370,7 +379,12 @@ export async function runGraphWorkflow(options) {
           };
         }
         if (pr.kind === "failed") {
-          return { status: "failed", error: pr.error, finalState: state };
+          return {
+            status: "failed",
+            error: pr.error,
+            finalState: state,
+            ...(pr.code !== undefined ? { code: pr.code } : {}),
+          };
         }
         appendCmd("CompleteNode", { nodeId: current, output: {} });
         const pStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
@@ -674,7 +688,10 @@ export async function resumeGraphWorkflow(options) {
   const v = validateWorkflowDefinition(definition);
   if (!v.ok) {
     const msg = v.errors?.map((e) => `${e.instancePath || "/"} ${e.message}`).join("; ") ?? "schema validation failed";
-    return { status: "failed", error: msg };
+    const profileCode = v.errors?.find(
+      (e) => e.params && typeof e.params === "object" && typeof e.params.code === "string"
+    )?.params?.code;
+    return { status: "failed", error: msg, ...(profileCode ? { code: profileCode } : {}) };
   }
 
   try {
@@ -736,6 +753,7 @@ export async function resumeGraphWorkflow(options) {
 
   try {
     assertWorkflowGraphInvariants(nodes, outgoing);
+    assertNoInterruptInParallelBranch(definition);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return failResume(msg, RESUME_FAILURE_CODE.NOT_ALLOWED, latestStateFromHistory(rows));
@@ -1016,7 +1034,12 @@ export async function resumeGraphWorkflow(options) {
           };
         }
         if (pr.kind === "failed") {
-          return { status: "failed", error: pr.error, finalState: state };
+          return {
+            status: "failed",
+            error: pr.error,
+            finalState: state,
+            ...(pr.code !== undefined ? { code: pr.code } : {}),
+          };
         }
         appendCmd("CompleteNode", { nodeId: current, output: {} });
         const pStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
