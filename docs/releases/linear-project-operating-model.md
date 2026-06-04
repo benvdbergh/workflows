@@ -19,9 +19,10 @@ Issues are grouped **by milestone** (flat list per release). **GitHub source lin
 ## What is in place
 
 - Linear project **workflows** on team **BEN** (see project overview for status).
-- Milestones (examples; list live set via MCP `list_milestones` or UI):
-  - **R4 GA 1.0 - Protocol and Runtime Stabilization**
-  - **R5 1.1 - Scale and Operations**
+- Milestones (list live set via MCP `list_milestones` or UI; as of 2026-06-04):
+  - **R4 GA 1.0 - Protocol and Runtime Stabilization** (0% — all issues Backlog)
+  - **R5 1.1 - Scale and Operations** (0% — all issues Backlog)
+- **POC / R2 / R3** delivery status lives in `ROADMAP.md` and `docs/releases/alpha-release-notes.md`, not as Linear milestones.
 - R4–R5 open GitHub planning issues migrated into Linear with GitHub URLs preserved in descriptions.
 - Repository governance for **code** unchanged:
   - `.github/ISSUE_TEMPLATE/*` — community intake (bugs, features, docs), not epic/story backlog
