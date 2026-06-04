@@ -162,3 +162,5 @@ The Lighthouse demo workflow (`examples/lighthouse-customer-routing.workflow.jso
 Updates to this file **SHOULD** be paired with schema bundle version bumps and fixture updates (track in the repository issue backlog).
 
 **Machine-readable contract:** [schemas/workflow-definition-poc.json](../schemas/workflow-definition-poc.json) (see [schemas/README.md](../schemas/README.md)).
+
+**v1 profile (core vs optional, GA prep):** [docs/releases/v1-profile-model.md](releases/v1-profile-model.md), [docs/releases/jq-conformance-subset.md](releases/jq-conformance-subset.md), [docs/releases/migration-alpha-to-ga.md](releases/migration-alpha-to-ga.md).

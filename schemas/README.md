@@ -9,7 +9,7 @@ Machine-readable contract for the **POC workflow definition** subset. Human-read
 
 | Artifact | Role |
 |----------|------|
-| [workflow-definition-poc.json](./workflow-definition-poc.json) | **Entry schema** (`$id`: `https://example.org/agent-workflow/poc/v1/workflow-definition`). Validates canonical **JSON** documents; internal `$defs` hold node shapes. |
+| [workflow-definition-poc.json](./workflow-definition-poc.json) | **Entry schema** (`$id`: `https://agent-workflow.dev/schemas/workflow-definition/v1.json`). Validates canonical **JSON** documents; internal `$defs` hold node shapes. See [v1 profile model](../docs/releases/v1-profile-model.md). |
 
 **JSON Schema dialect:** [Draft 2020-12](https://json-schema.org/draft/2020-12/json-schema-core.html) (`$schema` on the entry file).
 
