@@ -16,6 +16,17 @@ Activity nodes (`step`, `llm_call`, `tool_call`) require non-deterministic I/O (
 2. **Orchestration remains graph-driven**: the next node is determined by the workflow definition and state (for example `switch` jq), not by a free-form agent loop—same integration shape as agent hosts, **deterministic control flow**.
 3. **Hybrid (in-process activity executor)** remains valid for demos, tests, or embedded profiles; it is **not** the default assumption for assistant hosts.
 
+### Reference engine API default (explicit opt-in)
+
+The **deployment posture** above (assistant-class hosts **should** run activities out of process) is separate from the **library/MCP parameter default**:
+
+| Surface | Default `activityExecutionMode` / `activity_execution_mode` | Rationale |
+|---------|--------------------------------------------------------------|-----------|
+| `runGraphWorkflow`, `resumeGraphWorkflow`, `submitActivityOutcome` | `"in_process"` | Backward-compatible POC demos, unit tests, and engine-direct profiles without extra host wiring. |
+| `workflow_start`, `workflow_resume`, `workflow_submit_activity` | omitted ⇒ `"in_process"` | Same as library; MCP stdio smoke and no-install `npx` flows keep working without manifest changes. |
+
+**Assistant-class MCP hosts MUST opt in** by passing **`activity_execution_mode: "host_mediated"`** on start, resume, and submit when they own tools/credentials. That yields **`awaiting_activity`** after **`ActivityRequested`** and requires **`workflow_submit_activity`** (or port **`submitWorkflowActivity`**) before the walker continues. Changing the runtime default to `"host_mediated"` would be a breaking semver change and is **out of scope** for the alpha line unless explicitly approved in a release note.
+
 ## Considered options
 
 | Option | Summary | Why not primary |

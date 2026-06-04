@@ -97,7 +97,7 @@ Replay fields:
 - `expect.status`: expected terminal status (`completed`, `failed`, `interrupted`, or `awaiting_activity` when no successful continuation ran).
 - `expect.tailCommands` (optional): exact post-prefix command tail (type/order + stable identity fields like `nodeId`).
 - `expect.mismatch` (optional): expected deterministic mismatch diagnostics (message fragment and expected/actual command identity).
-- `activityExecutionMode` (optional): `"in_process"` (default) or `"host_mediated"` for `runPocWorkflow` after prefix injection. **In-process** is the same activity port the engine uses for engine-direct execution (MCP or other `ActivityExecutor`); **host_mediated** yields at `ActivityRequested` until a submit.
+- `activityExecutionMode` (optional): `"in_process"` (default) or `"host_mediated"` for `runGraphWorkflow` after prefix injection. **In-process** is the same activity port the engine uses for engine-direct execution (MCP or other `ActivityExecutor`); **host_mediated** yields at `ActivityRequested` until a submit.
 - `assertNoActivityExecutorInvocation` (optional): when `true`, the harness wires a `RejectingActivityExecutor` that fails any `executeActivity` call. Use with `activityExecutionMode: "in_process"` and a `historyPrefix` that already records `ActivityRequested` / `ActivityCompleted` for every `tool_call` the tail will revisit, so the run proves **tail replay does not re-invoke the activity port** (no duplicate “external” calls; deterministic stub). Ordering is still asserted via `expect.tailCommands` (command stream), matching host-mediated replay vectors that omit this flag.
 - `activitySubmissions` (optional): ordered `submitActivityOutcome` steps after the initial run. Each entry has `nodeId`, `outcome`, optional `expectedParallelSpan` when the pending `ActivityRequested` carries `parallelSpan`, and optional `expectFailure: { code }` to assert a failed submit without continuing (e.g. `ACTIVITY_SUBMIT_NODE_MISMATCH`, `ACTIVITY_SUBMIT_PARALLEL_MISMATCH`, `ACTIVITY_SUBMIT_NOT_AWAITING`).
 
@@ -174,9 +174,16 @@ Cross-surface parity runs the same scenario script twice (application port metho
 }
 ```
 
-- `pending: true` — skipped with category `parity-pending` (R3 delegate/subworkflow placeholders; must not false-green).
+- `pending: true` — skipped with category `parity-pending` (reserved for vectors not yet ready; must not false-green).
 - `expect` — partial match on the normalized snapshot after port/MCP equivalence is established.
 - `expectError` / `expectErrorCode` — negative paths using MCP adapter error codes.
+
+**R3 composition parity (active):** vectors under `conformance/vectors/parity/r3-*-status-correlation.vector.json` assert **`workflow_status`** correlation after terminal runs:
+
+| File | Vector id | Asserts |
+|------|-----------|---------|
+| `r3-delegate-status-correlation.vector.json` | `parity.r3.delegate_status_correlation` | `delegate_correlation_id` after `agent_delegate` |
+| `r3-subworkflow-status-correlation.vector.json` | `parity.r3.subworkflow_status_correlation` | `child_execution_id`, `parent_execution_id` after nested `subworkflow` |
 
 Contract matrix: `docs/architecture/arc42-assets/contracts/integration-parity-matrix.md`.
 

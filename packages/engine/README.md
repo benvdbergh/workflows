@@ -29,6 +29,12 @@ See `docs/architecture/arc42-assets/contracts/mcp-operator-manifest.md` and expo
 Run from repository root:
 
 ```bash
+npm run engine:mcp:stdio
+```
+
+Or from the engine workspace:
+
+```bash
 npm run mcp:stdio --workspace=@agent-workflow/engine
 ```
 
@@ -139,7 +145,7 @@ The package exports:
 - `validateWorkflowDefinition(data)` — returns `{ ok: true }` or `{ ok: false, errors }` where `errors` is AJV’s `ErrorObject[]` (includes `instancePath`, `keyword`, `schemaPath`, etc.).
 - `compileWorkflowValidator()` — returns a reusable `(data) => { ok: true } | { ok: false, errors }` function; the compiled schema is cached per process.
 - `findWorkflowRepoRoot(startDir?)` — locates the **workflows** monorepo root (lighthouse fixture + root `package.json` named `workflows`) for tests and examples; schema loading prefers the bundled `packages/engine/schemas/workflow-definition-poc.json` when present.
-- `runPocWorkflow(...)` / `resumePocWorkflow(...)` — general graph walker with `switch` and `interrupt` (see **General graph orchestration** below).
+- `runGraphWorkflow(...)` / `resumeGraphWorkflow(...)` / `submitActivityOutcome(...)` — general graph walker with `switch`, `interrupt`, parallel joins, and composition nodes (see **General graph orchestration** below).
 
 ### Linear orchestration
 
@@ -165,21 +171,31 @@ Phases: **validate** (bundled workflow schema + reject `state_schema.properties.
 
 ### General graph orchestration
 
-**API:** `runPocWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })` and `resumePocWorkflow({ definition, executionId, store, resumePayload, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })`. **`activityExecutionMode`** defaults to `"in_process"` (run `ActivityExecutor` immediately). With **`"host_mediated"`**, the walker returns `{ status: 'awaiting_activity', nodeId, state, parallelSpan? }` after `ActivityRequested` (see ADR-0002). Continue by appending the outcome and calling `runPocWorkflow` again, or use **`submitActivityOutcome({ definition, executionId, store, input, nodeId, outcome, expectedParallelSpan?, ... })`** (also exported) which validates the pending request and re-enters the walker. Parallel branches attach **`parallelSpan`** to `ActivityRequested`; submits for those nodes must pass the same **`expectedParallelSpan`**.
+**API:** `runGraphWorkflow({ definition, input, executionId, store, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })` and `resumeGraphWorkflow({ definition, executionId, store, resumePayload, stubActivityOutputs?, activityExecutor?, activityExecutionMode? })`. **`activityExecutionMode`** defaults to `"in_process"` (run `ActivityExecutor` immediately). With **`"host_mediated"`**, the walker returns `{ status: 'awaiting_activity', nodeId, state, parallelSpan? }` after `ActivityRequested` (assistant-class hosts opt in explicitly — see ADR-0002). Continue by appending the outcome and calling `runGraphWorkflow` again, or use **`submitActivityOutcome({ definition, executionId, store, input, nodeId, outcome, expectedParallelSpan?, ... })`** (also exported) which validates the pending request and re-enters the walker. Parallel branches attach **`parallelSpan`** to `ActivityRequested`; submits for those nodes must pass the same **`expectedParallelSpan`**.
 
-`runPocWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, `set_state`, `agent_delegate`, and `subworkflow`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumePocWorkflow` runs.
+`runGraphWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, `set_state`, `agent_delegate`, and `subworkflow`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumeGraphWorkflow` runs.
 
 **`switch` routing:** Successors come **only** from `config.cases` (first jq match wins; jq input root is the **current workflow state object**, same as the linear runner) and `config.default` when no case matches. If any `cases` exist and none match and `default` is omitted, the run fails with a clear error. **Static `edges` whose `source` is the switch node id are ignored for routing** (they may exist in documents; the engine does not follow them). This matches the routing guidance in `docs/poc-scope.md` (avoid duplicate routing channels).
 
 **Static `edges` (non-switch):** Exactly one outgoing edge from `__start__`, and from each of `start`, `step`, `llm_call`, `tool_call`, and `interrupt`; none from `end`. The walker does not require outgoing edges from `switch` nodes.
 
-**Resume:** `resumePocWorkflow` loads history, takes the latest `StateUpdated` payload `state`, validates `resumePayload` with Ajv against the interrupt node’s `config.resume_schema` (reducer annotations stripped the same way as workflow `state_schema`), merges resume fields into state (overwrite keys), then continues from the **single** static successor of the interrupt node. Invalid resume appends `FailNode` (`reason: "resume_validation_failed"` when schema fails) and `ExecutionFailed`. If the last event is not `InterruptRaised`, resume fails with `FailNode` / `ExecutionFailed` and `reason: "resume_not_allowed"`.
+**Resume:** `resumeGraphWorkflow` loads history, takes the latest `StateUpdated` payload `state`, validates `resumePayload` with Ajv against the interrupt node’s `config.resume_schema` (reducer annotations stripped the same way as workflow `state_schema`), merges resume fields into state (overwrite keys), then continues from the **single** static successor of the interrupt node. Invalid resume appends `FailNode` (`reason: "resume_validation_failed"` when schema fails) and `ExecutionFailed`. If the last event is not `InterruptRaised`, resume fails with `FailNode` / `ExecutionFailed` and `reason: "resume_not_allowed"`.
 
-**Checkpoint policy:** the graph walker emits `CheckpointWritten` events at deterministic `after_each_node` boundaries:
-- after each `StateUpdated` event (normal node completion and switch completion),
-- and after `InterruptRaised` (so interrupted runs have a recovery-safe boundary).
+**Checkpoint policy:** checkpointing is **on by default** (`definition.checkpointing` omitted ⇒ `after_each_node`). Disable or tune via `definition.checkpointing.strategy` (alias `policy`):
 
-Each checkpoint payload includes `executionId`, `workflowVersion`, `definitionHash` (SHA-256 of **canonical JSON** with lexicographically sorted object keys at every nesting level; see `packages/engine/src/canonical-json.mjs` and RFC-03), `lastAppliedEventSeq`, `nodeId`, and `stateRef` (currently `inline_state` snapshot). Resume, activity submit, and graph continuation verify caller `definition` against the latest checkpoint hash when a checkpoint exists. This links each checkpoint to a concrete history boundary (`lastAppliedEventSeq`) while keeping room for future blob indirection.
+| Strategy | Effect |
+|----------|--------|
+| `after_each_node` (default) | Emit `CheckpointWritten` on each eligible boundary below. |
+| `every_n_nodes` / `interval` | Emit every *n* eligible boundaries (`n` or `interval` integer ≥ 1). |
+| `disabled` / `off` / `none` | No `CheckpointWritten` events. |
+
+Eligible boundaries (when enabled and the interval counter allows):
+
+- after each `StateUpdated` (activity nodes, `switch`, `parallel` branch progress, `wait`, `set_state`, `agent_delegate`, `subworkflow`, and post-resume continuation),
+- after `InterruptRaised`,
+- after `InterruptResumed` state is recorded.
+
+Parallel branches may attach **`parallelSpan`** on the checkpoint payload. Each checkpoint includes `workflowVersion`, `definitionHash` (SHA-256 of **canonical JSON** with lexicographically sorted object keys; see `packages/engine/src/canonical-json.mjs` and RFC-03), `lastAppliedEventSeq`, `nodeId`, and `stateRef` (`inline_state` snapshot today). Resume, activity submit, and graph continuation verify caller `definition` against the latest checkpoint hash when a checkpoint exists.
 
 **Recovery loading:** `hydrateReplayContext({ startMode: "safe_point" })` prefers the latest valid `CheckpointWritten` boundary and starts replay from `lastAppliedEventSeq + 1`. If checkpoints are absent or invalid, hydration falls back to genesis replay (`startSeq = 1`).
 
