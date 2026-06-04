@@ -43,6 +43,7 @@ import {
   parallelSpansEqual,
   resolveCheckpointConfig,
   throwIfStateInvalid,
+  verifyCallerDefinitionMatchesCheckpoint,
 } from "./workflow-graph-walker-support.mjs";
 
 const require = createRequire(import.meta.url);
@@ -156,6 +157,19 @@ export async function runGraphWorkflow(options) {
   }
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const existingRows = store.listByExecution(executionId);
+  assertHistoryReadableByEngine(existingRows);
+  if (existingRows.length > 0) {
+    const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, existingRows);
+    if (!definitionBind.ok) {
+      return {
+        status: "failed",
+        error: definitionBind.error,
+        code: "SUBMIT_VALIDATION_ERROR",
+      };
+    }
+  }
+
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   const definitionMeta = checkpointDefinitionMeta(definition);
   const validateState = ajv.compile(stateSchemaForValidation(definition.state_schema));
@@ -720,6 +734,10 @@ export async function resumeGraphWorkflow(options) {
    */
   function failResume(reason, code, finalState) {
     return { status: "failed", error: reason, ...(finalState ? { finalState } : {}), code };
+  }
+  const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, rows);
+  if (!definitionBind.ok) {
+    return failResume(definitionBind.error, RESUME_FAILURE_CODE.VALIDATION_FAILED, latestStateFromHistory(rows));
   }
   const lastRow = latestPrimaryEvent(rows);
   if (!lastRow || lastRow.name !== "InterruptRaised") {
@@ -1362,6 +1380,11 @@ export async function submitActivityOutcome(options) {
       error: `Execution "${executionId}" was not found.`,
       code: "ACTIVITY_SUBMIT_NOT_AWAITING",
     };
+  }
+
+  const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, rows);
+  if (!definitionBind.ok) {
+    return { status: "failed", error: definitionBind.error, code: "SUBMIT_VALIDATION_ERROR" };
   }
 
   const last = findLatestNonCheckpointEvent(rows);

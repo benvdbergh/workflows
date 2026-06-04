@@ -1,0 +1,58 @@
+{
+  "id": "replay.integrity.submit_definition_tamper",
+  "description": "Activity submit with definition tamper fails SUBMIT_VALIDATION_ERROR when checkpoint binds definitionHash.",
+  "kind": "replay",
+  "definition": "examples/conformance-host-activity-linear.workflow.json",
+  "input": {},
+  "activityExecutionMode": "host_mediated",
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": { "workflowName": "conformance-host-linear", "workflowVersion": "1.0.0", "inputKeys": [] }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "CheckpointWritten",
+      "payload": {
+        "policy": "after_each_node",
+        "definitionHash": "9d836701a9074d3bacc69af2282e8c45438b501802d9fa84279d7cd977b8ff58",
+        "lastAppliedEventSeq": 2,
+        "nodeId": "start",
+        "stateRef": { "kind": "inline_state", "state": {} }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": { "nodeId": "work", "nodeType": "tool_call" }
+    }
+  ],
+  "activitySubmissions": [
+    {
+      "nodeId": "work",
+      "outcome": { "ok": true, "result": { "out": "tampered" } },
+      "definitionTamper": {
+        "document": {
+          "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+          "name": "conformance-host-linear",
+          "version": "9.9.9"
+        }
+      },
+      "expectFailure": { "code": "SUBMIT_VALIDATION_ERROR" }
+    }
+  ],
+  "expect": {
+    "status": "awaiting_activity"
+  }
+}

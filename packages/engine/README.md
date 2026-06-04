@@ -90,9 +90,9 @@ Security, credentials, and trust boundaries for this profile are documented in [
 ### MCP tool contracts (minimum set)
 
 - `workflow_start`
-  - args: `{ execution_id?: string, definition: object, input: object, activity_execution_mode?: "in_process" | "host_mediated" }`
+  - args: `{ execution_id?: string, definition: object, input: object, activity_execution_mode?: "in_process" | "host_mediated", allow_existing_execution_id?: boolean }`
   - returns: `{ execution_id, status, final_state?, result?, error?, node_id?, state?, parallel_span? }`
-  - notes: if `execution_id` is omitted, the engine generates a stable UUID and returns it for follow-up calls. With **`activity_execution_mode: "host_mediated"`**, the engine returns `status: "awaiting_activity"` after recording `ActivityRequested` for the next activity node; the host completes it via `workflow_submit_activity`.
+  - notes: if `execution_id` is omitted, the engine generates a stable UUID and returns it for follow-up calls. Reusing an `execution_id` that already has persisted history is rejected with **`DUPLICATE_EXECUTION_ID`** unless **`allow_existing_execution_id: true`** (replay/idempotency continuation). With **`activity_execution_mode: "host_mediated"`**, the engine returns `status: "awaiting_activity"` after recording `ActivityRequested` for the next activity node; the host completes it via `workflow_submit_activity`.
 - `workflow_status`
   - args: `{ execution_id: string }`
   - returns: `{ execution_id, phase, current_node_id?, last_error? }`
@@ -104,13 +104,14 @@ Security, credentials, and trust boundaries for this profile are documented in [
 - `workflow_submit_activity`
   - args: `{ execution_id: string, definition: object, input: object, node_id: string, outcome: { ok: true, result?: object } | { ok: false, error: string, code?: string }, parallel_span?: object, activity_execution_mode?: "in_process" | "host_mediated" }`
   - returns: same shape as `workflow_resume` results, plus optional `code` when `status` is `failed` from submit validation (usually surfaced as a tool error instead).
-  - notes: append activity success/failure after a host-mediated yield; **`definition` and `input` must match** the original `workflow_start` (replay). For activities under a `parallel` branch, pass **`parallel_span`** matching the `parallel_span` returned from `workflow_start` / prior submit.
+  - notes: append activity success/failure after a host-mediated yield; **`definition` must match** the canonical hash bound at the latest `CheckpointWritten` (`definitionHash`); mismatch returns **`SUBMIT_VALIDATION_ERROR`**. **`input` must match** the original `workflow_start` (replay). For activities under a `parallel` branch, pass **`parallel_span`** matching the `parallel_span` returned from `workflow_start` / prior submit.
 
 Structured adapter error codes:
 
 - `VALIDATION_ERROR` — MCP request payload fails contract validation.
 - `EXECUTION_NOT_FOUND` — requested execution id has no persisted history (`workflow_status` / store lookups).
-- `INVALID_RESUME_PAYLOAD` — resume payload fails schema or resume is stale/not allowed.
+- `DUPLICATE_EXECUTION_ID` — `workflow_start` reused an `execution_id` that already has history without `allow_existing_execution_id: true`.
+- `INVALID_RESUME_PAYLOAD` — resume payload fails schema, definition hash mismatch vs latest checkpoint, or resume is stale/not allowed.
 - `ACTIVITY_SUBMIT_NOT_AWAITING` — cannot submit: execution missing or last event is not `ActivityRequested`.
 - `ACTIVITY_SUBMIT_NODE_MISMATCH` — `node_id` does not match the pending activity.
 - `ACTIVITY_SUBMIT_PARALLEL_MISMATCH` — `parallel_span` missing or does not match the pending `ActivityRequested`.
@@ -178,7 +179,7 @@ Phases: **validate** (bundled workflow schema + reject `state_schema.properties.
 - after each `StateUpdated` event (normal node completion and switch completion),
 - and after `InterruptRaised` (so interrupted runs have a recovery-safe boundary).
 
-Each checkpoint payload includes `executionId`, `workflowVersion`, `definitionHash` (sha256 of canonical definition JSON), `lastAppliedEventSeq`, `nodeId`, and `stateRef` (currently `inline_state` snapshot). This links each checkpoint to a concrete history boundary (`lastAppliedEventSeq`) while keeping room for future blob indirection.
+Each checkpoint payload includes `executionId`, `workflowVersion`, `definitionHash` (SHA-256 of **canonical JSON** with lexicographically sorted object keys at every nesting level; see `packages/engine/src/canonical-json.mjs` and RFC-03), `lastAppliedEventSeq`, `nodeId`, and `stateRef` (currently `inline_state` snapshot). Resume, activity submit, and graph continuation verify caller `definition` against the latest checkpoint hash when a checkpoint exists. This links each checkpoint to a concrete history boundary (`lastAppliedEventSeq`) while keeping room for future blob indirection.
 
 **Recovery loading:** `hydrateReplayContext({ startMode: "safe_point" })` prefers the latest valid `CheckpointWritten` boundary and starts replay from `lastAppliedEventSeq + 1`. If checkpoints are absent or invalid, hydration falls back to genesis replay (`startSeq = 1`).
 

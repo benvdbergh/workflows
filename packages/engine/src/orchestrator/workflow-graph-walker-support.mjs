@@ -4,6 +4,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { canonicalJsonStringify } from "../canonical-json.mjs";
 
 export const NONDETERMINISM_ERROR_CODE = "NONDETERMINISM_DETECTED";
 
@@ -92,9 +93,49 @@ export function expectedCommandIdentity(name, payload) {
  */
 export function checkpointDefinitionMeta(definition) {
   const workflowVersion = typeof definition?.document?.version === "string" ? definition.document.version : undefined;
-  const canonical = JSON.stringify(definition);
+  const canonical = canonicalJsonStringify(definition);
   const definitionHash = createHash("sha256").update(canonical).digest("hex");
   return { workflowVersion, definitionHash };
+}
+
+/**
+ * Latest `definitionHash` from checkpoint history (newest `CheckpointWritten` wins).
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {string | undefined}
+ */
+export function latestCheckpointDefinitionHash(rows) {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind !== "event" || row.name !== "CheckpointWritten") continue;
+    const hash = row.payload?.definitionHash;
+    if (typeof hash === "string" && hash.length > 0) {
+      return hash;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * When history includes a checkpoint, caller `definition` must hash to the same `definitionHash`.
+ *
+ * @param {object} definition
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {{ ok: true } | { ok: false; error: string }}
+ */
+export function verifyCallerDefinitionMatchesCheckpoint(definition, rows) {
+  const bound = latestCheckpointDefinitionHash(rows);
+  if (!bound) {
+    return { ok: true };
+  }
+  const callerHash = checkpointDefinitionMeta(definition).definitionHash;
+  if (callerHash !== bound) {
+    return {
+      ok: false,
+      error: "Workflow definition does not match checkpoint definitionHash for this execution.",
+    };
+  }
+  return { ok: true };
 }
 
 /**

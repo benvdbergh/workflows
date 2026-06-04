@@ -174,6 +174,9 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
           definition: parsed.definition,
           input: parsed.input,
           ...(parsed.activity_execution_mode ? { activityExecutionMode: parsed.activity_execution_mode } : {}),
+          ...(parsed.allow_existing_execution_id === true
+            ? { allowExistingExecutionId: true }
+            : {}),
         });
 
         if (response.status === "failed" && response.error) {

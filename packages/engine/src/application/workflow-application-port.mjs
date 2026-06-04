@@ -10,6 +10,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {object} definition
  * @property {Record<string, unknown>} input
  * @property {"in_process" | "host_mediated"} [activityExecutionMode]
+ * @property {boolean} [allowExistingExecutionId] When true, `workflow_start` may target an execution id that already has history (replay/idempotency). Default false rejects duplicates.
  */
 
 /**
@@ -268,6 +269,16 @@ export function createWorkflowApplicationPort(deps) {
         typeof request.executionId === "string" && request.executionId.trim() !== ""
           ? request.executionId
           : randomUUID();
+
+      const existingRows = store.listByExecution(executionId);
+      assertHistoryReadableByEngine(existingRows);
+      if (existingRows.length > 0 && request.allowExistingExecutionId !== true) {
+        const err = new Error(
+          `Execution "${executionId}" already exists. Pass allowExistingExecutionId to continue or replay against existing history.`
+        );
+        err.code = "DUPLICATE_EXECUTION_ID";
+        throw err;
+      }
 
       const runResult = await runGraphWorkflow({
         definition: request.definition,

@@ -1,6 +1,7 @@
 export const MCP_ADAPTER_ERROR = {
   VALIDATION_ERROR: "VALIDATION_ERROR",
   EXECUTION_NOT_FOUND: "EXECUTION_NOT_FOUND",
+  DUPLICATE_EXECUTION_ID: "DUPLICATE_EXECUTION_ID",
   INVALID_RESUME_PAYLOAD: "INVALID_RESUME_PAYLOAD",
   /** Host activity submit rejected: execution missing, not awaiting activity, or parallel/node mismatch (see engine submitActivityOutcome). */
   ACTIVITY_SUBMIT_NOT_AWAITING: "ACTIVITY_SUBMIT_NOT_AWAITING",
@@ -39,6 +40,9 @@ export function normalizeMcpAdapterError(error) {
   }
   if (typeof error?.code === "string" && error.code === "EXECUTION_NOT_FOUND") {
     return new McpAdapterError(MCP_ADAPTER_ERROR.EXECUTION_NOT_FOUND, message);
+  }
+  if (typeof error?.code === "string" && error.code === MCP_ADAPTER_ERROR.DUPLICATE_EXECUTION_ID) {
+    return new McpAdapterError(MCP_ADAPTER_ERROR.DUPLICATE_EXECUTION_ID, message);
   }
   return new McpAdapterError(MCP_ADAPTER_ERROR.INTERNAL_ERROR, "Unexpected internal error in MCP adapter.", {
     cause: message,

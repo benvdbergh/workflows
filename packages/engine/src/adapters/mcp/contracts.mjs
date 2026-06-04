@@ -11,6 +11,8 @@ export const workflowStartArgsSchema = z.object({
   definition: z.object({}).passthrough(),
   input: z.object({}).passthrough(),
   activity_execution_mode: activityExecutionModeSchema.optional(),
+  /** When true, start may target an execution id that already has persisted history (replay continuation). */
+  allow_existing_execution_id: z.boolean().optional(),
 });
 
 export const workflowStatusArgsSchema = z.object({

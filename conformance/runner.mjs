@@ -45,7 +45,9 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *       branchEntryNodeId: string;
  *     };
  *     expectFailure?: { code: string };
+ *     definitionTamper?: Record<string, unknown>;
  *   }>;
+ *   resumeDefinitionTamper?: Record<string, unknown>;
  *   expect:
  *     | {
  *         ok: boolean;
@@ -105,6 +107,17 @@ export function discoverVectors() {
 /**
  * @param {ConformanceVector} vector
  */
+/**
+ * @param {object} definition
+ * @param {Record<string, unknown> | undefined} tamper
+ */
+function definitionWithTamper(definition, tamper) {
+  if (!tamper || typeof tamper !== "object") {
+    return definition;
+  }
+  return JSON.parse(JSON.stringify({ ...definition, ...tamper }));
+}
+
 function runSchemaVector(vector) {
   const definitionPath = path.resolve(repoRoot, vector.definition);
   const definition = JSON.parse(readFileSync(definitionPath, "utf8"));
@@ -196,8 +209,9 @@ async function runReplayVector(vector) {
   });
 
   for (const step of activitySubmissions) {
+    const submitDefinition = definitionWithTamper(definition, step.definitionTamper);
     const sub = await submitActivityOutcome({
-      definition,
+      definition: submitDefinition,
       executionId,
       store,
       input: vector.input ?? {},
@@ -223,8 +237,12 @@ async function runReplayVector(vector) {
   }
 
   if (vector.resumePayload && typeof vector.resumePayload === "object" && !Array.isArray(vector.resumePayload)) {
-    run = await resumeGraphWorkflow({
+    const resumeDefinition = definitionWithTamper(
       definition,
+      /** @type {{ resumeDefinitionTamper?: Record<string, unknown> }} */ (vector).resumeDefinitionTamper
+    );
+    run = await resumeGraphWorkflow({
+      definition: resumeDefinition,
       executionId,
       store,
       resumePayload: vector.resumePayload,
