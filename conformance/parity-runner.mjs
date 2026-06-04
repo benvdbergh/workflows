@@ -297,12 +297,23 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
  * @param {ParityVector} vector
  * @param {string} repoRoot
  */
+const allowPending =
+  process.env.CONFORMANCE_ALLOW_PENDING === "1" || process.env.CONFORMANCE_ALLOW_PENDING === "true";
+
 export async function runParityVector(vector, repoRoot) {
   if (vector.pending) {
+    const reason = vector.pendingReason ?? "Scenario pending implementation";
+    if (allowPending) {
+      return {
+        passed: true,
+        category: "parity-pending",
+        reason,
+      };
+    }
     return {
-      passed: true,
+      passed: false,
       category: "parity-pending",
-      reason: vector.pendingReason ?? "Scenario pending implementation",
+      reason: `Pending parity vector must not pass release gate: ${reason}`,
     };
   }
 

@@ -65,5 +65,5 @@ Implemented node categories (representative—not duplicating schema tables here
 
 **Improvement candidates**
 
-1. **Single generated module graph** from `src/` imports to catch drift vs this table during PRs (optional scripted).
+1. **Export drift stub** — `npm run check-arc42-export-drift` compares tier-1 exports in `index.mjs` to this table (informational; set `CHECK_ARC42_EXPORT_DRIFT=fail` to hard-fail).
 2. **Clarify public vs internal orchestrator APIs**: today everything is reachable via `index.mjs`; consider documenting **tier-1 stable** imports only.

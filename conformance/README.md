@@ -12,6 +12,12 @@ Contributor pre-PR gate (run from repository root):
 npm run conformance
 ```
 
+Optional (local only): allow `pending: true` parity vectors to pass:
+
+```bash
+CONFORMANCE_ALLOW_PENDING=1 npm run conformance
+```
+
 Expected behavior:
 
 - Exit code `0` when all vectors match expected outcomes.
@@ -134,10 +140,12 @@ The matrix below maps RFC-08 section `8.2 Conformance tests` areas to the curren
 | Replay (inject history, deterministic tail stream) | Implemented | Prefix/tail vectors under `conformance/vectors/replay/prefix-tail/` (lighthouse, R2 `join all` / `any` / `n_of_m`); mismatch diagnostics in `conformance/vectors/replay/mismatch/` (lighthouse route + R2 parallel branch order) |
 | Reducers (append/merge/overwrite matrices) | Deferred | No dedicated reducer matrix vectors yet (behavior covered indirectly by fixtures) |
 | Parallel joins (`all`, `any`, `n_of_m`) | Partial | R2 reference engine implements join policies; harness covers deterministic replay through a parallel fork/join tail (`r2-research-prefix-after-plan`); dedicated join-policy matrix vectors still deferred |
-| Interrupt resume (validation failure vs success) | Partial | Replay vectors exercise resume cursor behavior; lighthouse happy-path coverage is active, while dedicated interrupt resume conformance vectors are still deferred |
+| Interrupt resume (validation failure vs success) | Partial | Replay vectors exercise resume cursor behavior; `replay/integrity/resume-definition-tamper` covers definitionHash mismatch on resume; dedicated success/failure matrix still deferred |
 | MCP tool mapping roundtrip (mock server) | Deferred | MCP adapter conformance vectors not yet implemented in harness |
 | Cross-surface adapter parity (port vs MCP, in-process) | Implemented | `conformance/vectors/parity/*.vector.json`; matrix in `docs/architecture/arc42-assets/contracts/integration-parity-matrix.md` |
 | Host-mediated activity replay / submit | Implemented | `vectors/replay/host-activity/` (linear + parallel branch correlation, replay-safe `ActivityCompleted` in prefix, duplicate and mismatch submits) |
+| Definition hash mismatch (submit / resume) | Implemented | `vectors/replay/integrity/submit-definition-tamper.vector.json`, `resume-definition-tamper.vector.json` |
+| Interrupt in parallel branch (profile refusal) | Implemented | `vectors/schema/invalid/interrupt-in-parallel-branch.vector.json` |
 | Engine-direct (in-process) activity replay — no duplicate activity port calls | Implemented | `vectors/replay/engine-direct-activity/` (`assertNoActivityExecutorInvocation` + `ActivityCompleted` in prefix; linear + parallel `tool_call`) |
 
 ## Deferral register (out-of-scope or pending)
@@ -175,7 +183,7 @@ Cross-surface parity runs the same scenario script twice (application port metho
 }
 ```
 
-- `pending: true` — skipped with category `parity-pending` (reserved for vectors not yet ready; must not false-green).
+- `pending: true` — category `parity-pending`. **CI fails** on pending vectors (release gate). Local dev may set `CONFORMANCE_ALLOW_PENDING=1` to skip without failing the harness summary.
 - `expect` — partial match on the normalized snapshot after port/MCP equivalence is established.
 - `expectError` / `expectErrorCode` — negative paths using MCP adapter error codes.
 

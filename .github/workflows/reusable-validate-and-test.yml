@@ -47,6 +47,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: npm audit (high and critical)
+        run: npm audit --audit-level=high
+
+      - name: Fetch comparison ref for compatibility gates
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+          else
+            git fetch --no-tags origin master || git fetch --no-tags origin main
+          fi
+
+      - name: Check POC schema breaking changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npm run check-schema-breaking-change -- --base-ref "origin/${{ github.base_ref }}"
+          else
+            npm run check-schema-breaking-change -- --base-ref origin/master
+          fi
+
+      - name: Threat-model checklist touch gate
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npm run check-threat-model-touch -- --base-ref "origin/${{ github.base_ref }}"
+          else
+            npm run check-threat-model-touch -- --base-ref origin/master
+          fi
+
       - name: Verify engine bundled POC schema matches canonical
         run: npm run check-engine-poc-schema-sync
 
