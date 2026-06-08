@@ -54,7 +54,7 @@ jobs:
           ref: ${{ github.event.inputs.release_ref }}
 
       - name: Set up Node.js for npm registry
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
@@ -78,7 +78,7 @@ jobs:
         if: >-
           ${{ github.event.inputs.also_point_latest_dist_tag
           && github.event.inputs.dist_tag != 'latest' }}
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
