@@ -42,4 +42,4 @@ Canonical prose lives in:
 2. Trigger **Docs publish (manual)** with `release_ref` set to a release tag (e.g. `v0.1.2`).
 3. Use `promote_latest: true` for baseline cuts.
 
-Versioning uses [mike](https://github.com/jimporter/mike).
+Versioning uses [mike](https://github.com/jimporter/mike). The authoritative version list lives on the **`gh-pages`** branch after deploy; `versions.json` on `main` is an informational snapshot only.

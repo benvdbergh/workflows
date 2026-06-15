@@ -50,22 +50,23 @@ MCP operator quickstart for end users: [docs/user/mcp-operator-guide.md](user/mc
 
 - [whitepaper/agent-workflow-protocol.md](whitepaper/agent-workflow-protocol.md) — readable overview for evaluators and architects (not normative)
 - Supporting research: [research/analysis-brief.md](research/analysis-brief.md)
+- Extended evaluation narrative (optional): [research/Evaluating Agentic Workflow Architectures.md](research/Evaluating%20Agentic%20Workflow%20Architectures.md)
 
 ---
 
 ## Releases and governance
 
 - Spec and architecture governance: [governance/spec-architecture-governance.md](governance/spec-architecture-governance.md)
-- Release process overview (tag-triggered): [releases/README.md](releases/README.md)
-- Alpha release notes (changelog): [releases/alpha-release-notes.md](releases/alpha-release-notes.md)
-- Versioning and release commit flow: [releases/alpha-versioning-and-release-commit-flow.md](releases/alpha-versioning-and-release-commit-flow.md)
-- CI/CD packaging governance: [releases/alpha-ci-cd-packaging-governance.md](releases/alpha-ci-cd-packaging-governance.md)
-- Profile model (core vs optional): [releases/profile-model.md](releases/profile-model.md)
-- jq conformance subset: [releases/jq-conformance-subset.md](releases/jq-conformance-subset.md)
-- Migration alpha → GA: [releases/migration-alpha-to-ga.md](releases/migration-alpha-to-ga.md)
-- Linear operating model: [releases/linear-project-operating-model.md](releases/linear-project-operating-model.md)
+- Release process (tag-triggered): [governance/release-process.md](governance/release-process.md)
+- Alpha changelog: [releases/alpha-release-notes.md](releases/alpha-release-notes.md) (feeds GitHub Releases on tag push)
+- Versioning and release commit flow: [governance/alpha-versioning-and-release-commit-flow.md](governance/alpha-versioning-and-release-commit-flow.md)
+- CI/CD packaging governance: [governance/alpha-ci-cd-packaging-governance.md](governance/alpha-ci-cd-packaging-governance.md)
+- Profile model (core vs optional): [profile-model.md](profile-model.md)
+- jq conformance subset: [jq-conformance-subset.md](jq-conformance-subset.md)
+- Migration alpha → GA: [migration-alpha-to-ga.md](migration-alpha-to-ga.md)
+- Linear operating model: [.claude/skills/wf-plan/references/linear-project-operating-model.md](../.claude/skills/wf-plan/references/linear-project-operating-model.md)
 
-**Docs publishing:** trigger **Docs publish (manual)** workflow after release tags; see release checklist in alpha-versioning doc.
+**Docs publishing:** tag push triggers docs deploy via `release.yml`; break-glass **Docs publish (manual)** remains for recovery.
 
 ---
 

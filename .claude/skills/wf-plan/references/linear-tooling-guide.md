@@ -54,7 +54,7 @@ Use the **Linear UI** for bulk view edits or when MCP parameters are unclear.
 
 - Epic/story **narrative, acceptance criteria, and doc trace links** live in **Linear descriptions** (see `workflows-linear-backlog-override.md`).
 - Manifest and project URL: repository root `.project-planning.yaml`.
-- Operating model (milestones, labels, cadence): `docs/releases/linear-project-operating-model.md`.
+- Operating model (milestones, labels, cadence): `.claude/skills/wf-plan/references/linear-project-operating-model.md`.
 
 ## Descriptions without repo-root scratch files
 

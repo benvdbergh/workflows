@@ -61,7 +61,7 @@ Common supported patterns:
 - String literals with escaped quotes
 - Array/object literals where supported
 
-Full normative list: [jq conformance subset](https://github.com/benvdbergh/workflows/blob/main/docs/releases/jq-conformance-subset.md) (developer docs).
+Full normative list: [jq conformance subset](https://github.com/benvdbergh/workflows/blob/main/docs/jq-conformance-subset.md) (developer docs).
 
 ## Example: switch + set_state
 

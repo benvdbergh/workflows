@@ -4,7 +4,7 @@ Planning backlog for roadmap execution:
 
 - **Linear project:** [workflows](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview)
 - **Repository (code, RFC, conformance):** [benvdbergh/workflows](https://github.com/benvdbergh/workflows)
-- **Manifest:** [`.project-planning.yaml`](../../.project-planning.yaml) (`delivery_tracker: linear`)
+- **Manifest:** [`.project-planning.yaml`](../../../../.project-planning.yaml) (`delivery_tracker: linear`)
 
 ## Model
 
@@ -79,6 +79,6 @@ Configure in the Linear UI (names are suggestive):
 
 ## Agent and skill pointers
 
-- Override policy: [`.claude/skills/wf-plan/references/workflows-linear-backlog-override.md`](../../.claude/skills/wf-plan/references/workflows-linear-backlog-override.md)
-- MCP patterns: [`.claude/skills/wf-plan/references/linear-tooling-guide.md`](../../.claude/skills/wf-plan/references/linear-tooling-guide.md)
+- Override policy: [workflows-linear-backlog-override.md](./workflows-linear-backlog-override.md)
+- MCP patterns: [linear-tooling-guide.md](./linear-tooling-guide.md)
 - Skills: `wf-plan`, `wf-design`, `wf-execute` under `.claude/skills/`

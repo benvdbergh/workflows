@@ -5,7 +5,7 @@ Condensed operator checklist for running the reference engine in alpha. Full bas
 ## Before you deploy
 
 - [ ] Treat workflow definitions as **trusted code** — MCP stdio runs as the host OS user.
-- [ ] Pin engine version in MCP config (`@agent-workflow/engine@0.1.2`), not only `@alpha`, for production-like environments.
+- [ ] Pin engine version in MCP config (`@agent-workflow/engine@0.1.4`), not only `@alpha`, for production-like environments.
 - [ ] Never embed secrets in workflow JSON — use host secret stores and redacted config.
 - [ ] Review [SECURITY.md](https://github.com/benvdbergh/workflows/blob/main/SECURITY.md) for vulnerability reporting.
 

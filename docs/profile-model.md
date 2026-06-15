@@ -2,9 +2,9 @@
 
 **Last reviewed:** 2026-06-04  
 **Status:** Incremental R4 prep (BEN-8); not a GA contract freeze.  
-**Normative protocol:** [RFC-03](../../docs/RFC/rfc-03-workflow-definition-schema.md), [RFC-04](../../docs/RFC/rfc-04-execution-model.md).  
-**Engine profile (alpha):** [docs/engine-profile.md](../engine-profile.md).  
-**JSON Schema entry:** [schemas/workflow-definition.json](../../schemas/workflow-definition.json) (`$id`: `https://agent-workflow.dev/schemas/workflow-definition.json`).
+**Normative protocol:** [RFC-03](RFC/rfc-03-workflow-definition-schema.md), [RFC-04](RFC/rfc-04-execution-model.md).  
+**Engine profile (alpha):** [engine-profile.md](engine-profile.md).  
+**JSON Schema entry:** [schemas/workflow-definition.json](../schemas/workflow-definition.json) (`$id`: `https://agent-workflow.dev/schemas/workflow-definition.json`).
 
 This document formalizes what adopters **must** implement for **core profile** interoperability versus what remains **optional** or **host-dependent** in the reference engine today. It complements `docs/engine-profile.md` (authoritative engine subset) and will converge with the GA conformance tag.
 
@@ -25,7 +25,7 @@ This document formalizes what adopters **must** implement for **core profile** i
 
 **Core** = required for “passes v1 core profile” conformance once tagged. **Optional** = allowed in documents; engines **may** implement. **Refused** = schema may accept shape but reference engine **rejects** at validate or runtime with a stable code.
 
-| Feature | Tier | Reference engine (`@agent-workflow/engine@0.1.2`) | Notes |
+| Feature | Tier | Reference engine (`@agent-workflow/engine@0.1.4`) | Notes |
 |---------|------|---------------------------------------------------|--------|
 | Top-level `document`, `state_schema`, `nodes`, `edges` | Core | Supported | Root `additionalProperties: false`; no `extensions`. |
 | Node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt` | Core | Supported | Graph walker + linear runner (linear rejects `switch`/`interrupt`). |

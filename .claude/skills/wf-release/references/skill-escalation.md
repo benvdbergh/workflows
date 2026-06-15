@@ -17,4 +17,4 @@
 
 `wf-plan` (release slice) → feature work via `wf-execute` → **`wf-release`** (preflight → tag → postflight) → optional Linear milestone close via `wf-execute`.
 
-Policy detail: **`release-versioning`** for bump rules; repo docs under `docs/releases/` for governed automation map.
+Policy detail: **`release-versioning`** for bump rules; `docs/governance/` for release process and CI/CD map.

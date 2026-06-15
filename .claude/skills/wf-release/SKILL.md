@@ -23,7 +23,7 @@ metadata:
 - **Release identity:** annotated git tag `v*` on a green `master` commit (or short-lived `release/v0.y.z` tip for RC iterations)
 - **Automation trigger:** push tag → `.github/workflows/release.yml` (gates → pack → npm → docs → GitHub Release)
 - **Break-glass:** manual `release-packaging.yml`, `release-npm-publish.yml`, `docs-publish.yml`
-- **Policy docs:** `docs/releases/alpha-versioning-and-release-commit-flow.md`, `docs/releases/alpha-ci-cd-packaging-governance.md`
+- **Policy docs:** `docs/governance/alpha-versioning-and-release-commit-flow.md`, `docs/governance/alpha-ci-cd-packaging-governance.md`, `docs/governance/release-process.md`
 
 ## Scope
 

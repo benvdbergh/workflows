@@ -126,5 +126,5 @@ Every launch message should include:
 - Ensure `README.md`, `CONTRIBUTING.md`, `SUPPORT.md`, and `SECURITY.md` links are valid.
 - Confirm label set exists in GitHub repository settings.
 - Confirm issue forms/templates and Discussion settings (if used) are configured.
-- If a publish incident occurred, add a rollback or replacement notice in `docs/releases/alpha-release-notes.md` before posting.
+- If a publish incident occurred, add a rollback or replacement notice in `docs/releases/alpha-release-notes.md` (user-visible) and follow `docs/governance/release-process.md` / `wf-release` postflight before posting.
 - Publish channel posts in priority order and monitor feedback intake for the first 72 hours.

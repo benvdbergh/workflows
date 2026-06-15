@@ -38,7 +38,7 @@ Before merge / release:
 |----------|------|
 | [RFC shards](../RFC/rfc-00-overview.md) | Normative protocol text |
 | [engine-profile.md](../engine-profile.md) | Reference engine subset |
-| [profile-model.md](../releases/profile-model.md) | Core vs optional matrix |
+| [profile-model.md](../profile-model.md) | Core vs optional matrix |
 | [schemas/workflow-definition.json](../../schemas/workflow-definition.json) | Machine-readable contract |
 | [conformance/](../../conformance/README.md) | Deterministic behavior vectors |
 

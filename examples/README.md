@@ -21,7 +21,7 @@ Golden definitions and **trace companions** for the engine profile ([docs/engine
 | [lighthouse-customer-routing.trace.happy.json](./lighthouse-customer-routing.trace.happy.json) | Expected **command** and **event** prefixes for a happy-path technical route ([RFC-04](../docs/RFC/rfc-04-execution-model.md) §4.4–4.5). |
 | [lighthouse-customer-routing.trace.failure-and-retry.json](./lighthouse-customer-routing.trace.failure-and-retry.json) | **Retry** (failed `classify` activity) and **failure** (invalid interrupt resume) prefix narratives. |
 
-The folder [fixtures.invalid](./fixtures.invalid/) holds documents that **must not** validate (used by `npm run validate-workflows`).
+The folder [fixtures.invalid](./fixtures.invalid/) holds documents that **must not** validate. `npm run validate-workflows` rejects every file in that folder (schema and profile invariants). Additional invalid cases are covered by `npm run conformance` schema vectors.
 
 For the agentic intake fixture, routing semantics are intentionally split:
 

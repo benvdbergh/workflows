@@ -16,12 +16,12 @@ A vendor-neutral, declarative standard for **stateful, multi-step AI agent workf
 Use README for repository onboarding; use `docs/` for developer architecture, RFC, and governance content ([docs/README.md](docs/README.md)).
 
 - Quickstart validation commands: [Workflow schema and validation](#workflow-schema-and-validation)
-- Alpha release notes (highlights, caveats, known limitations): [docs/releases/alpha-release-notes.md](docs/releases/alpha-release-notes.md)
+- Alpha changelog (highlights, caveats, known limitations): [docs/releases/alpha-release-notes.md](docs/releases/alpha-release-notes.md)
 - No-install MCP quickstart: [GitHub Pages — Run with MCP](https://benvdbergh.github.io/workflows/latest/mcp-operator-guide/) (canonical) or [docs/user/mcp-operator-guide.md](docs/user/mcp-operator-guide.md)
 - MCP host wiring: **operator setup** (default) runs the published engine via `npx`; **development setup** points the host at `packages/engine/src/mcp-stdio-server.mjs` in a clone — [walkthrough](docs/architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md), [smoke runbook](docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md)
-- Alpha versioning and final release commit flow: [docs/releases/alpha-versioning-and-release-commit-flow.md](docs/releases/alpha-versioning-and-release-commit-flow.md)
-- Release process overview (tag-triggered automation): [docs/releases/README.md](docs/releases/README.md)
-- Alpha CI/CD packaging governance (workflow map, checks, permissions): [docs/releases/alpha-ci-cd-packaging-governance.md](docs/releases/alpha-ci-cd-packaging-governance.md)
+- Release process (tag-triggered): [docs/governance/release-process.md](docs/governance/release-process.md)
+- Alpha versioning and release commit flow: [docs/governance/alpha-versioning-and-release-commit-flow.md](docs/governance/alpha-versioning-and-release-commit-flow.md)
+- Alpha CI/CD packaging governance: [docs/governance/alpha-ci-cd-packaging-governance.md](docs/governance/alpha-ci-cd-packaging-governance.md)
 - Community launch playbook (channels, templates, triage SLAs): [docs/community-launch-playbook.md](docs/community-launch-playbook.md)
 - Security policy and disclosure process: [SECURITY.md](SECURITY.md)
 - Alpha security baseline posture and gap register: [docs/security/alpha-security-baseline.md](docs/security/alpha-security-baseline.md)
@@ -174,9 +174,9 @@ scripts/           # validate-workflows.mjs (AJV, CI-aligned)
 
 ## Workflow schema and validation
 
-The [`schemas/`](schemas/) directory contains the **workflow JSON Schema bundle** (Draft 2020-12) for the profile in [`docs/engine-profile.md`](docs/engine-profile.md), including `parallel`, `wait`, and `set_state`. `agent_delegate` and `subworkflow` are not in that profile yet; see [`ROADMAP.md`](ROADMAP.md).
+The [`schemas/`](schemas/) directory contains the **workflow JSON Schema bundle** (Draft 2020-12) for the profile in [`docs/engine-profile.md`](docs/engine-profile.md), including core orchestration (`parallel`, `wait`, `set_state`) and delegation/composition (`agent_delegate`, `subworkflow`). See [`ROADMAP.md`](ROADMAP.md) for post-alpha sequencing.
 
-Validate locally with Node.js **≥ 22.5.0** (see root `package.json` `engines`). **CI** uses Node.js **24** with `actions/checkout@v5` and `actions/setup-node@v5` per [GitHub’s Node 20 deprecation on runners](https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/).
+Validate locally with Node.js **≥ 22.5.0** (see root `package.json` `engines`). **CI** uses Node.js **24** with `actions/checkout@v6` and `actions/setup-node@v6`.
 
 ```bash
 npm ci
@@ -190,7 +190,7 @@ Before opening a PR, run the same conformance command used by CI from the reposi
 npm run conformance
 ```
 
-This validates every `*.workflow.json` under `examples/`, the minimal schema smoke instance, and asserts that a deliberately invalid fixture (containing the out-of-scope `extensions` field) is correctly rejected.
+This validates every `*.workflow.json` under `examples/`, the minimal schema smoke instance, and asserts that every document under `examples/fixtures.invalid/` is rejected (via `@agent-workflow/engine` validation — schema plus profile invariants). Run `npm run conformance` for the full deterministic vector matrix.
 
 The [`examples/`](examples/) directory contains the canonical lighthouse fixture and RFC-04 trace companions (happy path and failure/retry) used as golden test vectors.
 

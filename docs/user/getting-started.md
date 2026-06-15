@@ -9,7 +9,7 @@ This guide walks through validating a workflow and running the **lighthouse** de
 No repository clone required:
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.2 workflows-engine --help
+npx -y -p @agent-workflow/engine@0.1.4 workflows-engine --help
 ```
 
 Pin `@alpha` for the moving pre-release channel, or an exact version for reproducible demos.
@@ -23,7 +23,7 @@ npm ci
 npm run validate-workflows
 ```
 
-This validates every `examples/*.workflow.json`, the minimal schema example, and confirms invalid fixtures are rejected.
+This validates every `examples/*.workflow.json`, the minimal schema example, and confirms every file under `examples/fixtures.invalid/` is rejected (schema and profile invariants via the engine validator). For the full conformance matrix, run `npm run conformance`.
 
 Validate a single file:
 

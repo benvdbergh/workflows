@@ -1,23 +1,20 @@
 /**
- * Validates golden workflow JSON instances against schemas/workflow-definition.json (JSON Schema Draft 2020-12).
+ * Validates golden workflow JSON instances via @agent-workflow/engine (schema + profile invariants).
  * Run: npm run validate-workflows
+ *
+ * Profile invariants (e.g. interrupt-in-parallel) are enforced here — not by AJV alone.
+ * Runtime-only limits (e.g. reducer: "custom") are documented in docs/user/compatibility.md.
  */
-import Ajv2020 from "ajv/dist/2020.js";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateWorkflowDefinition } from "@agent-workflow/engine";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
-const schemaPath = path.join(root, "schemas", "workflow-definition.json");
-const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
-
-const ajv = new Ajv2020({ allErrors: true, strict: false });
-const validate = ajv.compile(schema);
-
 const examplesDir = path.join(root, "examples");
-/** Golden workflow definitions: every `*.workflow.json` directly under `examples/` (STORY-1-3). */
+/** Golden workflow definitions: every `*.workflow.json` directly under `examples/`. */
 const goldenWorkflows = readdirSync(examplesDir)
   .filter((name) => name.endsWith(".workflow.json"))
   .map((name) => path.join(examplesDir, name));
@@ -31,19 +28,17 @@ const additionalValid = [
   path.join(root, "schemas", "examples", "minimal-valid.workflow.json"),
 ];
 
-const invalidFixture = path.join(
-  root,
-  "examples",
-  "fixtures.invalid",
-  "extensions.workflow.json"
-);
+const invalidDir = path.join(root, "examples", "fixtures.invalid");
+const invalidFixtures = readdirSync(invalidDir)
+  .filter((name) => name.endsWith(".workflow.json"))
+  .map((name) => path.join(invalidDir, name));
 
 function checkValid(filePath) {
   const data = JSON.parse(readFileSync(filePath, "utf8"));
-  const ok = validate(data);
-  if (!ok) {
+  const result = validateWorkflowDefinition(data);
+  if (!result.ok) {
     console.error(`FAIL (expected valid): ${path.relative(root, filePath)}`);
-    console.error(validate.errors);
+    console.error(result.errors);
     process.exit(1);
   }
   console.log(`ok: ${path.relative(root, filePath)}`);
@@ -51,10 +46,10 @@ function checkValid(filePath) {
 
 function checkInvalid(filePath) {
   const data = JSON.parse(readFileSync(filePath, "utf8"));
-  const ok = validate(data);
-  if (ok) {
+  const result = validateWorkflowDefinition(data);
+  if (result.ok) {
     console.error(
-      `FAIL (expected invalid): ${path.relative(root, filePath)} — schema incorrectly accepted document`
+      `FAIL (expected invalid): ${path.relative(root, filePath)} — validation incorrectly accepted document`,
     );
     process.exit(1);
   }
@@ -67,6 +62,8 @@ for (const f of goldenWorkflows) {
 for (const f of additionalValid) {
   checkValid(f);
 }
-checkInvalid(invalidFixture);
+for (const f of invalidFixtures) {
+  checkInvalid(f);
+}
 
-console.log("All workflow schema checks passed.");
+console.log("All workflow validation checks passed.");

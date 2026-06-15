@@ -11,7 +11,7 @@ This runbook verifies the MCP stdio adapter from an MCP-capable host using a det
 ## Prerequisites
 
 - Node.js `>=22.5.0`
-- **Operator setup:** the host runs the published [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) via `npx` (no clone). Use **`0.1.0-alpha.4`** (or **`@alpha`**) for a build that bundles the current schema; see [No-install MCP quickstart](../../../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx).
+- **Operator setup:** the host runs the published [`@agent-workflow/engine`](https://www.npmjs.com/package/@agent-workflow/engine) via `npx` (no clone). See [MCP operator guide](../../../user/mcp-operator-guide.md) for wiring and version pins.
 - **Development setup:** clone this repository, then from the repo root:
 
 ```bash
@@ -59,7 +59,7 @@ Trust boundaries, secrets, and when to prefer host-mediated execution: [ADR-0003
 }
 ```
 
-Pin a version instead of `@alpha` when you need a fixed build ([release notes](../../../releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)).
+Pin a version instead of `@alpha` when you need a fixed build ([MCP operator guide](../../../user/mcp-operator-guide.md)).
 
 ### Development setup (local engine checkout)
 

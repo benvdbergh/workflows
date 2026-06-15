@@ -9,7 +9,7 @@ Machine-readable contract for the **reference engine workflow definition** profi
 
 | Artifact | Role |
 |----------|------|
-| [workflow-definition.json](./workflow-definition.json) | **Entry schema** (`$id`: `https://agent-workflow.dev/schemas/workflow-definition.json`). Validates canonical **JSON** documents; internal `$defs` hold node shapes. See [v1 profile model](../docs/releases/profile-model.md). |
+| [workflow-definition.json](./workflow-definition.json) | **Entry schema** (`$id`: `https://agent-workflow.dev/schemas/workflow-definition.json`). Validates canonical **JSON** documents; internal `$defs` hold node shapes. See [v1 profile model](../docs/profile-model.md). |
 
 **JSON Schema dialect:** [Draft 2020-12](https://json-schema.org/draft/2020-12/json-schema-core.html) (`$schema` on the entry file).
 
@@ -63,4 +63,4 @@ Published alongside end-user docs at [https://benvdbergh.github.io/workflows/](h
 | Latest | `https://benvdbergh.github.io/workflows/latest/schemas/<engine-version>/workflow-definition.json` |
 | Pinned example (`0.1.2`) | `https://benvdbergh.github.io/workflows/schemas/0.1.2/workflow-definition.json` |
 
-The canonical `$id` and suggested `document.schema` remain `https://agent-workflow.dev/schemas/workflow-definition.json` until GA registry publication ([profile-model.md](../docs/releases/profile-model.md)). Use the Pages URLs as **download mirrors** for validation and IDE setup.
+The canonical `$id` and suggested `document.schema` remain `https://agent-workflow.dev/schemas/workflow-definition.json` until GA registry publication ([profile-model.md](../docs/profile-model.md)). Use the Pages URLs as **download mirrors** for validation and IDE setup.

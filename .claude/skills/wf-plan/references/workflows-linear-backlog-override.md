@@ -12,7 +12,7 @@ Do **not** draft long planning narratives as untracked files under the repositor
 | **Stories** (feature slices, executable work) | **Linear issues** on that project | Issue description holds acceptance criteria, technical notes, links to `docs/RFC/`, `docs/engine-profile.md`, ADRs. |
 | **Optional tasks** | **Linear sub-issues** | Under the parent story issue when needed. |
 | **Sequencing blockers** | Issue relations (`blocks` / `blocked by`) | Keep the graph sparse—real blockers only. |
-| **Release / horizon / commitment** | Milestone assignment + issue labels / project fields | See `docs/releases/linear-project-operating-model.md`. |
+| **Release / horizon / commitment** | Milestone assignment + issue labels / project fields | See `.claude/skills/wf-plan/references/linear-project-operating-model.md`. |
 | **Protocol, engine profile contract, architecture** | **`docs/`** (RFC, `engine-profile`, arc42, ADRs) | Unchanged; Linear items **link** here—they do not duplicate the contract. |
 | **Community bugs / security / small intake** | **GitHub issues** on `benvdbergh/workflows` | Not the planning backlog; see `CONTRIBUTING.md` / `SUPPORT.md`. |
 

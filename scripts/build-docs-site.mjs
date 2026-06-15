@@ -3,9 +3,10 @@
  * Copy canonical doc sources into website/docs/ for MkDocs build.
  * Run from repository root: node scripts/build-docs-site.mjs [--version 0.1.2]
  */
-import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { USER_DOC_FILES } from "./docs-user-manifest.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -47,8 +48,10 @@ function rewriteForMkDocsSite(markdown) {
       .replace(/\]\(\.\.\/engine-profile\.md\)/g, `](${repoBase}/docs/engine-profile.md)`)
       .replace(/\]\(\.\.\/architecture\//g, `](${repoBase}/docs/architecture/`)
       .replace(/\]\(\.\.\/releases\//g, `](${repoBase}/docs/releases/`)
+      .replace(/\]\(\.\.\/governance\//g, `](${repoBase}/docs/governance/`)
       .replace(/\]\(\.\.\/README\.md\)/g, `](${repoBase}/docs/README.md)`)
-      .replace(/\]\(alpha-versioning-and-release-commit-flow\.md\)/g, `](${repoBase}/docs/releases/alpha-versioning-and-release-commit-flow.md)`)
+      .replace(/\]\(release-process\.md\)/g, `](${repoBase}/docs/governance/release-process.md)`)
+      .replace(/\]\(alpha-versioning-and-release-commit-flow\.md\)/g, `](${repoBase}/docs/governance/alpha-versioning-and-release-commit-flow.md)`)
       .replace(/\]\(\.\.\/research\//g, `](${repoBase}/docs/research/`)
       .replace(/\]\(\.\.\/RFC\//g, `](${repoBase}/docs/RFC/`)
       .replace(/\]\(\.\.\/conformance\//g, `](${repoBase}/conformance/`)
@@ -58,18 +61,8 @@ function rewriteForMkDocsSite(markdown) {
 }
 
 function stripMaintainerSections(markdown) {
-  const cutoffMarkers = [
-    "\n## Operator runbook (publish to announce)",
-    "\n## Early alpha rollback",
-    "\n## Upgrade caveats for upcoming stories",
-    "\n## Getting help and context",
-  ];
-  let cut = markdown.length;
-  for (const marker of cutoffMarkers) {
-    const idx = markdown.indexOf(marker);
-    if (idx !== -1 && idx < cut) cut = idx;
-  }
-  return markdown.slice(0, cut).trimEnd() + "\n";
+  // Changelog is user-facing only; no maintainer tail to strip (see docs/governance/release-process.md).
+  return markdown;
 }
 
 async function buildIndex(version, engineVersion) {
@@ -187,16 +180,7 @@ async function main() {
   await rm(SITE_DOCS, { recursive: true, force: true });
   await mkdir(SITE_DOCS, { recursive: true });
 
-  const userDocs = [
-    "getting-started.md",
-    "mcp-operator-guide.md",
-    "authoring-workflows.md",
-    "node-reference.md",
-    "state-jq-reducers.md",
-    "examples.md",
-    "compatibility.md",
-    "security-operators.md",
-  ];
+  const userDocs = USER_DOC_FILES;
   for (const doc of userDocs) {
     await copyUserDoc(doc);
   }

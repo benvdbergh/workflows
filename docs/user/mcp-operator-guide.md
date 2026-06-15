@@ -2,6 +2,8 @@
 
 This is the **canonical operator guide** for running `@agent-workflow/engine` through MCP stdio. Use a **development setup** (local `mcp-stdio-server.mjs` from a clone) only when modifying the engine or adapter.
 
+> **Read order:** start here for wiring and tools → [MCP stdio host smoke runbook](../architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md) (QA acceptance) → [Lighthouse MCP walkthrough](../architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md) (guided demo) → [operator manifest contract](../architecture/arc42-assets/contracts/mcp-operator-manifest.md) (JSON schema).
+
 ## Package and bins
 
 - npm scope: **`@agent-workflow`**
@@ -11,7 +13,7 @@ This is the **canonical operator guide** for running `@agent-workflow/engine` th
 The package exposes **two** bins. Always pass **`-p` / `--package`** with `npx` so npm resolves the executable:
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.2 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.4 workflows-engine-mcp
 ```
 
 Without `-p`, you may see `npm error could not determine executable to run`.
@@ -27,7 +29,7 @@ npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 **Pinned reproducible version:**
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.2 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@0.1.4 workflows-engine-mcp
 ```
 
 Use `@alpha` for fast feedback; pin an exact version for bug reports and demos.
@@ -44,7 +46,7 @@ Generic MCP client JSON:
       "args": [
         "-y",
         "-p",
-        "@agent-workflow/engine@0.1.2",
+        "@agent-workflow/engine@0.1.4",
         "workflows-engine-mcp"
       ]
     }
@@ -52,7 +54,7 @@ Generic MCP client JSON:
 }
 ```
 
-Replace `0.1.2` with your target version or `@alpha`.
+Replace `0.1.4` with your target version or `@alpha`.
 
 ### Optional environment
 

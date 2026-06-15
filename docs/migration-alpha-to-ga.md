@@ -1,11 +1,11 @@
-# Migration: alpha (`@agent-workflow/engine@0.1.2`) → GA v1
+# Migration: alpha (`@agent-workflow/engine@0.1.4`) → GA v1
 
-**Last reviewed:** 2026-06-04  
+**Last reviewed:** 2026-06-16  
 **Status:** Stub — expanded as R4 GA approaches.  
 **Profile model:** [profile-model.md](./profile-model.md)  
-**Alpha notes:** [alpha-release-notes.md](./alpha-release-notes.md)
+**Alpha changelog:** [releases/alpha-release-notes.md](releases/alpha-release-notes.md)
 
-This guide helps operators and workflow authors move from the **alpha reference engine** (`0.1.2` on npm `alpha`) to the **GA v1** contract (schema URI, conformance tag, and engine semver `1.x` when published).
+This guide helps operators and workflow authors move from the **alpha reference engine** to the **GA v1** contract (schema URI, conformance tag, and engine semver `1.x` when published).
 
 ---
 
@@ -51,9 +51,9 @@ Reference engine: in-process mock A2A for `protocol: "a2a"`; MCP/SDK paths may s
 
 | Step | Detail |
 |------|--------|
-| Pin version | Move from `@agent-workflow/engine@alpha` / `0.1.2` to GA `1.x` when released. |
+| Pin version | Move from `@agent-workflow/engine@alpha` / `0.x` to GA `1.x` when released. |
 | MCP config | Update `npx -p @agent-workflow/engine@<ga>` in MCP server definitions. |
-| Breaking checks | Review [alpha-release-notes.md](./alpha-release-notes.md) per release; GA will publish a compatibility matrix. |
+| Breaking checks | Review [alpha-release-notes.md](releases/alpha-release-notes.md) per release; GA will publish a compatibility matrix. |
 
 **Already in alpha (no GA re-work required for these):**
 

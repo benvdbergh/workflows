@@ -77,6 +77,12 @@ jobs:
       - name: Verify engine bundled workflow schema matches canonical
         run: npm run check-engine-schema-sync
 
+      - name: Verify end-user docs nav matches manifest
+        run: npm run check-docs-nav-sync
+
+      - name: Prepare end-user docs site sources (smoke)
+        run: npm run docs:prepare
+
       - name: Validate workflow JSON against schema
         run: npm run validate-workflows
 

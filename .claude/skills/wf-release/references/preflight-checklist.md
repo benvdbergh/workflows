@@ -15,7 +15,7 @@ gh run list --branch master --limit 3
 
 ## 2. Version intent (alpha `0.y.z`)
 
-Per `docs/releases/alpha-versioning-and-release-commit-flow.md`:
+Per `docs/governance/alpha-versioning-and-release-commit-flow.md`:
 
 | Commit signal | Default bump |
 |---------------|--------------|

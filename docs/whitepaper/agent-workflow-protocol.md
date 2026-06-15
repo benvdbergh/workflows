@@ -4,7 +4,7 @@
 **Audience:** Evaluators, architects, and product leaders  
 **Normative specification:** [RFC shards](https://github.com/benvdbergh/workflows/tree/main/docs/RFC) (implementers)  
 **Engine profile:** [engine-profile.md](https://github.com/benvdbergh/workflows/blob/main/docs/engine-profile.md)  
-**Reference engine:** `@agent-workflow/engine@0.1.2`
+**Reference engine:** `@agent-workflow/engine@0.1.4`
 
 ---
 
@@ -144,7 +144,7 @@ Hosts configure:
   "mcpServers": {
     "agent-workflow-engine": {
       "command": "npx",
-      "args": ["-y", "-p", "@agent-workflow/engine@0.1.2", "workflows-engine-mcp"]
+      "args": ["-y", "-p", "@agent-workflow/engine@0.1.4", "workflows-engine-mcp"]
     }
   }
 }

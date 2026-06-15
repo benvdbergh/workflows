@@ -1,6 +1,6 @@
 # Node types and orchestration
 
-Supported `type` values are fixed by the schema **`oneOf` union** — **unknown types are rejected**. Types not in the schema (e.g. reserved for future protocol versions such as `agent_delegate`, `subworkflow`) must not be used until your engine version explicitly supports them.
+Supported `type` values are fixed by the schema **`oneOf` union** — **unknown types are rejected**. The reference engine profile includes `agent_delegate` and `subworkflow` (see [engine-profile.md](../../../docs/engine-profile.md)); confirm your pinned `@agent-workflow/engine` version before using newer node types.
 
 ## Core nodes
 
