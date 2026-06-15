@@ -1,6 +1,6 @@
 {
   "document": {
-    "schema": "https://example.org/agent-workflow/v1",
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
     "name": "paperclip-read-parallel",
     "version": "1.0.0",
     "description": "Three Paperclip tool_calls in a parallel fork/join: each branch does tool_call then set_state to copy .text into projects_raw / goals_raw / issues_raw and clear .text so keys do not clobber. Join target runs once after all branches and builds a token-small report, then clears raw blobs. Note: the reference engine executes join-all branches in deterministic branch-list order (not OS-parallel); shared state accumulates across branches."

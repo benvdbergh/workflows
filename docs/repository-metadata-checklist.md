@@ -14,7 +14,7 @@ This checklist tracks discoverability settings that are configured in GitHub UI 
 
 ## Suggested description draft
 
-`Vendor-neutral agent workflow protocol and Node.js POC engine for deterministic, stateful AI workflow orchestration with replay, interrupts, and MCP-compatible tool integration (alpha).`
+`Vendor-neutral agent workflow protocol and Node.js reference engine for deterministic, stateful AI workflow orchestration with replay, interrupts, and MCP-compatible tool integration (alpha).`
 
 ## Suggested topic candidates
 

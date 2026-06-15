@@ -3,7 +3,7 @@
 **Last reviewed:** 2026-06-04  
 **Status:** Normative for `@agent-workflow/engine` replay and conformance until a fuller RFC-03 jq profile is frozen.  
 **Implementation:** [`jq-wasm`](https://www.npmjs.com/package/jq-wasm) via `loadJq()` in `packages/engine/src/orchestrator/workflow-graph-walker.mjs`.  
-**Profile context:** [v1-profile-model.md](./v1-profile-model.md), [docs/poc-scope.md](../poc-scope.md) §4.
+**Profile context:** [profile-model.md](./profile-model.md), [docs/engine-profile.md](../engine-profile.md) §4.
 
 ---
 

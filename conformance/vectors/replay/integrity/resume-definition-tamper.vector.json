@@ -6,7 +6,7 @@
   "resumePayload": { "intent": "billing" },
   "resumeDefinitionTamper": {
     "document": {
-      "schema": "https://agent-workflow.dev/schemas/workflow-definition/v1.json",
+      "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
       "name": "lighthouse-customer-routing",
       "version": "9.9.9"
     }

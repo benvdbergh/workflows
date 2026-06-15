@@ -85,7 +85,7 @@ After connect, discover tools and confirm the host exposes:
 
 ## Canonical workflow definition
 
-Use **one** parsed JSON object for every `definition` field in section 3: the **lighthouse golden fixture** in `examples/lighthouse-customer-routing.workflow.json` (same definition CI validates with `schemas/workflow-definition-poc.json`).
+Use **one** parsed JSON object for every `definition` field in section 3: the **lighthouse golden fixture** in `examples/lighthouse-customer-routing.workflow.json` (same definition CI validates with `schemas/workflow-definition.json`).
 
 | Context | How to obtain it |
 |--------|------------------|
@@ -160,7 +160,7 @@ Expected structured result shape:
 }
 ```
 
-With the default POC stub, `confidence` is deterministic for this fixture (see `packages/engine/test/workflow-graph-walker.test.mjs`). Assert `status` and `intent` first; treat numeric fields as stub-specific unless a real activity adapter is configured.
+With the default reference stub, `confidence` is deterministic for this fixture (see `packages/engine/test/workflow-graph-walker.test.mjs`). Assert `status` and `intent` first; treat numeric fields as stub-specific unless a real activity adapter is configured.
 
 ### 3.4 Optional — `workflow_submit_activity` (host-mediated)
 
@@ -173,7 +173,7 @@ Use a **minimal** workflow (single `tool_call` then `end`) so the run pauses aft
   "execution_id": "story-4-3-host-med-1",
   "definition": {
     "document": {
-      "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+      "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
       "name": "smoke-host-med",
       "version": "1.0.0"
     },
@@ -244,7 +244,7 @@ Expected tool error result (shape):
 
 Some MCP hosts surface the same failure as plain text; the required behavior is **`EXECUTION_NOT_FOUND`**, not the exact JSON wrapper.
 
-## POC security posture and deferred hardening
+## Alpha security posture and deferred hardening
 
 Current posture for this smoke path:
 
@@ -255,4 +255,4 @@ Current posture for this smoke path:
 Deferred hardening tracks to RFC-07:
 
 - `docs/RFC/rfc-07-security-model.md` for identity, policy enforcement, and secret handling expectations.
-- EPIC-level note on GitHub ([#21 — MCP stdio integration surface](https://github.com/benvdbergh/workflows/issues/21)) keeps auth hardening explicitly out of POC scope.
+- EPIC-level note on GitHub ([#21 — MCP stdio integration surface](https://github.com/benvdbergh/workflows/issues/21)) keeps auth hardening explicitly out of engine profile scope.

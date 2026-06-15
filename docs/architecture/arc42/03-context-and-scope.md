@@ -22,7 +22,7 @@ The system provides a **vendor-neutral declarative workflow** contract for AI ag
 | Area | Repository location |
 |------|---------------------|
 | RFC text | `docs/RFC/` |
-| Engine profile + schema | `docs/poc-scope.md`, `schemas/workflow-definition-poc.json`, synced `packages/engine/schemas/` |
+| Engine profile + schema | `docs/engine-profile.md`, `schemas/workflow-definition.json`, synced `packages/engine/schemas/` |
 | Reference engine package | `packages/engine/` (`src/index.mjs` public exports; bins `workflows-engine`, `workflows-engine-mcp`) |
 | Golden examples | `examples/` |
 | Deterministic conformance | `conformance/` (`run-conformance.mjs`, `runner.mjs`, `vectors/`) |
@@ -39,7 +39,7 @@ The system provides a **vendor-neutral declarative workflow** contract for AI ag
 Treat the repo concurrently as:
 
 1. **Protocol specification source** (`docs/RFC/`).
-2. **Engine profile contract + fixtures** (`docs/poc-scope.md`, `schemas/`, `examples/`).
+2. **Engine profile contract + fixtures** (`docs/engine-profile.md`, `schemas/`, `examples/`).
 3. **Executable reference package** (`packages/engine/`, **`@agent-workflow/engine`** on npm).
 4. **Regression gates**: deterministic conformance (`conformance/`) plus validation scripts and CI.
 

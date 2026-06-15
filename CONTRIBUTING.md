@@ -7,7 +7,7 @@ Thanks for helping improve the Agent Workflow Protocol project.
 ## Before you open an issue or PR
 
 - Read `README.md` for project scope and quickstart.
-- Check `docs/poc-scope.md` to confirm if a request is in or out of current POC scope.
+- Check `docs/engine-profile.md` to confirm if a request is in or out of current engine profile.
 - Search existing issues/PRs first to avoid duplicates.
 
 ## Contributor intake path
@@ -50,7 +50,7 @@ Escalation for critical findings is defined in `docs/community-launch-playbook.m
 During alpha, maintainers prioritize:
 
 - Protocol/specification correctness
-- POC schema and engine behavior
+- workflow schema and engine behavior
 - Documentation clarity and onboarding quality
 
 Maintainers may defer:

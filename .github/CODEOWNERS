@@ -3,7 +3,7 @@
 
 # Protocol and scope docs
 /docs/RFC/ @benvdbergh
-/docs/poc-scope.md @benvdbergh
+/docs/engine-profile.md @benvdbergh
 /ROADMAP.md @benvdbergh
 
 # Engine and schema

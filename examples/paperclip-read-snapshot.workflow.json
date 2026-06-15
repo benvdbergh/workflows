@@ -1,6 +1,6 @@
 {
   "document": {
-    "schema": "https://example.org/agent-workflow/v1",
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
     "name": "paperclip-read-snapshot",
     "version": "1.0.0",
     "description": "Demo: engine-direct tool_call chain against the Paperclip MCP (read-only). Linear sequence lists projects, goals, and issues; each MCP structuredContent or text payload merges into workflow state. Run workflows-engine-mcp with WORKFLOW_ENGINE_MCP_CONFIG pointing at a manifest whose mcpServers.paperclip entry matches your Paperclip stdio server (see examples/mcp-operator-paperclip.example.json)."

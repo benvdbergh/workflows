@@ -3,7 +3,7 @@
 | Term | Definition |
 |------|------------|
 | **Agent Workflow Protocol** | Specification family under `docs/RFC/` defining declarative workflows for agent systems |
-| **Engine profile** | Authoritative runtime subset documented in [`docs/poc-scope.md`](../../poc-scope.md) |
+| **Engine profile** | Authoritative runtime subset documented in [`docs/engine-profile.md`](../../engine-profile.md) |
 | **Workflow definition** | JSON document complying with the bundled workflow schema describing nodes, edges, state schema |
 | **Execution** | A single invocation of orchestration keyed by **`executionId`** |
 | **`workflows-engine`** | CLI bin for workflow validation/manifest tooling (`packages/engine/src/cli.mjs`) |

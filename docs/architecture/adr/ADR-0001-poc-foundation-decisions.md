@@ -17,7 +17,7 @@ At this stage, uncertainty was high and architecture choices needed rapid feedba
 Primary reference constraints:
 
 - Normative target contract: `docs/RFC/`
-- Active implementation boundary: `docs/poc-scope.md`
+- Active implementation boundary: `docs/engine-profile.md`
 - Release evolution path: `ROADMAP.md`
 
 ## Decision
@@ -35,11 +35,11 @@ For the POC alpha phase, the project adopts the following decision set:
    - Use replay/conformance as acceptance gates for behavior stability.
 4. **Bias for practical interoperability over broad platform breadth.**
    - Prioritize MCP stdio path for operator and host integration.
-   - Defer broader interface parity until roadmap phases after the active engine profile (see `docs/poc-scope.md`).
+   - Defer broader interface parity until roadmap phases after the active engine profile (see `docs/engine-profile.md`).
 
 ## Amendment (2026-05-05)
 
-The **authoritative** node and command/event boundary for the reference engine is always [`docs/poc-scope.md`](../poc-scope.md). That profile now includes **`parallel`**, **`wait`**, and **`set_state`** alongside the original core set. The **“Scope implications (historical)”** subsection below preserves the **original 2026-04-14** boundary text for context; it is **not** the current implementation truth.
+The **authoritative** node and command/event boundary for the reference engine is always [`docs/engine-profile.md`](../engine-profile.md). That profile now includes **`parallel`**, **`wait`**, and **`set_state`** alongside the original core set. The **“Scope implications (historical)”** subsection below preserves the **original 2026-04-14** boundary text for context; it is **not** the current implementation truth.
 
 ## Assumptions and reasoning
 
@@ -57,7 +57,7 @@ The **authoritative** node and command/event boundary for the reference engine i
 
 ## Scope implications (historical)
 
-*Recorded at ADR acceptance (2026-04-14); superseded for runtime truth by the amendment above and by `docs/poc-scope.md`.*
+*Recorded at ADR acceptance (2026-04-14); superseded for runtime truth by the amendment above and by `docs/engine-profile.md`.*
 
 In-scope profile **at that date** included:
 
@@ -85,7 +85,7 @@ The narrowed boundary was intentional and not a contradiction of RFC intent; it 
 
 ## Guardrails and compensating controls
 
-- Keep `docs/poc-scope.md` authoritative and explicit about out-of-scope elements.
+- Keep `docs/engine-profile.md` authoritative and explicit about out-of-scope elements.
 - Use conformance harness and CI as non-optional quality gates.
 - Require roadmap/RFC traceability in issue and PR templates.
 - Maintain an **as-is** architecture baseline in [`docs/architecture/arc42/README.md`](../arc42/README.md) plus [Sections **3**](../arc42/03-context-and-scope.md)–[**11**](../arc42/11-risks-and-technical-debt.md) (`docs/architecture/arc42/`), with runtime/deployment rationale concentrated in **[Section 6 (Runtime view)](../arc42/06-runtime-view.md)** and **[Section 7 (Deployment view)](../arc42/07-deployment-view.md)** alongside linked **Draw.io** views.
@@ -110,7 +110,7 @@ At that point, design-first governance and structured ADR sequencing become the 
 ## References
 
 - [ADR-0002: Host-mediated activity execution](ADR-0002-host-mediated-activity-execution.md)
-- `docs/poc-scope.md`
+- `docs/engine-profile.md`
 - `docs/RFC/rfc-00-overview.md`
 - `docs/RFC/rfc-04-execution-model.md`
 - `docs/RFC/rfc-08-reference-implementation.md`

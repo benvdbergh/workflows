@@ -236,10 +236,10 @@
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-36" value="examples/&#10;*.workflow.json&#10;*.trace.*.json (informative)" style="shape=folder;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-31" vertex="1">
                     <mxGeometry x="560" y="60" width="160" height="80" as="geometry"/>
                 </mxCell>
-                <mxCell id="OuT24w1vpQ-nGS25mSiP-37" value="schemas/&#10;workflow-definition-poc.json&#10;(JSON Schema Draft 2020-12)" style="shape=note;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-31" vertex="1">
+                <mxCell id="OuT24w1vpQ-nGS25mSiP-37" value="schemas/&#10;workflow-definition.json&#10;(JSON Schema Draft 2020-12)" style="shape=note;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-31" vertex="1">
                     <mxGeometry x="460" y="280" width="160" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="OuT24w1vpQ-nGS25mSiP-38" value="Out of scope for current engine profile&#10;(see docs/poc-scope.md §2.1):&#10;agent_delegate  |  subworkflow&#10;(R3+). R2 nodes run in reference engine." style="text;strokeColor=#cc0000;fillColor=#ffcccc;align=left;verticalAlign=middle;spacingLeft=10;overflow=hidden;fontSize=11;fontStyle=2;" parent="OuT24w1vpQ-nGS25mSiP-31" vertex="1">
+                <mxCell id="OuT24w1vpQ-nGS25mSiP-38" value="Out of scope for current engine profile&#10;(see docs/engine-profile.md §2.1):&#10;agent_delegate  |  subworkflow&#10;(R3+). R2 nodes run in reference engine." style="text;strokeColor=#cc0000;fillColor=#ffcccc;align=left;verticalAlign=middle;spacingLeft=10;overflow=hidden;fontSize=11;fontStyle=2;" parent="OuT24w1vpQ-nGS25mSiP-31" vertex="1">
                     <mxGeometry x="500" y="390" width="220" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-39" value="runs" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d6b656;fontSize=9;" parent="OuT24w1vpQ-nGS25mSiP-31" source="OuT24w1vpQ-nGS25mSiP-32" target="OuT24w1vpQ-nGS25mSiP-33" edge="1">

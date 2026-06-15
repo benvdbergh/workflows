@@ -235,7 +235,7 @@ describe("agent_delegate", () => {
     /** @type {object} */
     const definition = {
       document: {
-        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
         name: "delegate-after-interrupt",
         version: "1.0.0",
       },

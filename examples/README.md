@@ -1,6 +1,6 @@
 # Example workflow fixtures
 
-Golden definitions and **trace companions** for the engine profile ([docs/poc-scope.md](../docs/poc-scope.md), [schemas/](../schemas/)).
+Golden definitions and **trace companions** for the engine profile ([docs/engine-profile.md](../docs/engine-profile.md), [schemas/](../schemas/)).
 
 | File | Purpose |
 |------|---------|
@@ -23,7 +23,7 @@ Preferred: from the repository root run `npm ci` then `npm run validate-workflow
 One-off with [ajv-cli](https://github.com/ajv-validator/ajv-cli):
 
 ```bash
-npx --yes ajv-cli@5 validate -s schemas/workflow-definition-poc.json -d examples/lighthouse-customer-routing.workflow.json --spec=draft2020
+npx --yes ajv-cli@5 validate -s schemas/workflow-definition.json -d examples/lighthouse-customer-routing.workflow.json --spec=draft2020
 ```
 
 Trace companion files are informative and are **not** validated by the workflow schema.

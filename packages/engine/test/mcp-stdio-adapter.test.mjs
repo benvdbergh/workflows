@@ -19,7 +19,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function minimalValidWorkflowDefinition() {
   return {
     document: {
-      schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+      schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
       name: "mcp-mock",
       version: "1.0.0",
     },
@@ -38,7 +38,7 @@ function minimalValidWorkflowDefinition() {
 function hostMediatedLinearDefinition() {
   return {
     document: {
-      schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+      schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
       name: "mcp-host-med-linear",
       version: "1.0.0",
     },

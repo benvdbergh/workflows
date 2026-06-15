@@ -1,6 +1,6 @@
 {
   "document": {
-    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
     "name": "r3-unit-tests-child",
     "version": "1.0.0",
     "description": "Minimal child workflow for R3 subworkflow (urn:awp:wf:unit-tests)."

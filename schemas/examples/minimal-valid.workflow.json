@@ -1,6 +1,6 @@
 {
   "document": {
-    "schema": "https://example.org/agent-workflow/v1",
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
     "name": "minimal-poc-smoke",
     "version": "0.0.0"
   },

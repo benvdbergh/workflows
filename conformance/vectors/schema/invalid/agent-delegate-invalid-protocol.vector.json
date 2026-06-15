@@ -1,6 +1,6 @@
 {
   "id": "schema.invalid.agent_delegate_invalid_protocol",
-  "description": "agent_delegate with invalid protocol enum must be rejected by POC schema.",
+  "description": "agent_delegate with invalid protocol enum must be rejected by workflow schema.",
   "kind": "schema",
   "definition": "examples/fixtures.invalid/agent-delegate-invalid-protocol.workflow.json",
   "expect": {

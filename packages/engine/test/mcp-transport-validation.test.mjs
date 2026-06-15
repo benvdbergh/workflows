@@ -36,7 +36,7 @@ describe("MCP transport validation", () => {
     const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
     const invalidDefinition = {
       document: {
-        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
         name: "bad",
         version: "1",
       },

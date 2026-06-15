@@ -132,7 +132,7 @@ Output behavior:
 
 ## RFC-08 conformance coverage matrix (POC profile)
 
-The matrix below maps RFC-08 section `8.2 Conformance tests` areas to the current POC harness status.
+The matrix below maps RFC-08 section `8.2 Conformance tests` areas to the current conformance harness status.
 
 | RFC-08 conformance area | Status | Evidence |
 |---|---|---|

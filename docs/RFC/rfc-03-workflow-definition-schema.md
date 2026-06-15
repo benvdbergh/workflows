@@ -10,7 +10,7 @@
 
 - Workflow definitions **MUST** have a **canonical JSON** serialization suitable for validation, signing, and byte-stable hashing.
 - Authors **MAY** author in **YAML**; a conformant toolchain **MUST** define a deterministic YAML → JSON mapping (YAML 1.2, explicit tags as needed).
-- The document **MUST** declare a `document.schema` URI identifying the protocol version (e.g. `https://example.org/agent-workflow/v1` — final URI assigned by governance).
+- The document **MUST** declare a `document.schema` URI identifying the protocol version (e.g. `https://agent-workflow.dev/schemas/workflow-definition.json` — final URI assigned by governance).
 
 Authoring can start in several forms; all **MUST** normalize to the same canonical JSON before validation and execution (informative):
 
@@ -207,7 +207,7 @@ This RFC text is authoritative for semantics; schemas are authoritative for synt
 
 ```yaml
 document:
-  schema: "https://example.org/agent-workflow/v1"
+  schema: "https://agent-workflow.dev/schemas/workflow-definition.json"
   name: "customer-support"
   version: "1.0.0"
 state_schema:
@@ -266,7 +266,7 @@ edges:
 
 ```yaml
 document:
-  schema: "https://example.org/agent-workflow/v1"
+  schema: "https://agent-workflow.dev/schemas/workflow-definition.json"
   name: "research-summarize"
   version: "1.0.0"
 state_schema:
@@ -320,7 +320,7 @@ edges:
 
 ```yaml
 document:
-  schema: "https://example.org/agent-workflow/v1"
+  schema: "https://agent-workflow.dev/schemas/workflow-definition.json"
   name: "coding-task"
   version: "1.0.0"
 state_schema:
@@ -359,7 +359,7 @@ edges:
 
 ```yaml
 document:
-  schema: "https://example.org/agent-workflow/v1"
+  schema: "https://agent-workflow.dev/schemas/workflow-definition.json"
   name: "agentic-task-intake"
   version: "1.0.0"
 state_schema:

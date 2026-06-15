@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-A specification, contract, and **POC engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The alpha line is `@agent-workflow/engine@0.1.2` (prior publish: `0.1.1` on `latest` / `alpha`). Publish via the manual **Release npm publish** workflow after tagging `v0.1.2`.
+A specification, contract, and **reference engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The alpha line is `@agent-workflow/engine@0.1.2` (prior publish: `0.1.1` on `latest` / `alpha`). Publish via the manual **Release npm publish** workflow after tagging `v0.1.2`.
 
 - `docs/RFC/` — nine-section RFC defining the protocol (workflow definition schema, execution model, MCP/REST/SDK integration, security, governance)
-- `docs/poc-scope.md` — **authoritative engine profile**: which node types, commands/events, and reducers the reference engine must support (read this before implementing anything)
-- `schemas/workflow-definition-poc.json` — JSON Schema Draft 2020-12 entry schema; validates POC workflow documents
+- `docs/engine-profile.md` — **authoritative engine profile**: which node types, commands/events, and reducers the reference engine must support (read this before implementing anything)
+- `schemas/workflow-definition.json` — JSON Schema Draft 2020-12 entry schema; validates workflow documents
 - `examples/` — golden fixtures (workflow + happy-path and failure/retry trace companions) for the lighthouse demo, plus a prompt-improver fixture
 - `conformance/` — conformance harness (`run-conformance.mjs`) with deterministic vector discovery under `conformance/vectors/` (`schema/` and `replay/` subtrees)
-- `packages/engine/` — **`@agent-workflow/engine`** (npm org scope `@agent-workflow`): POC validation (CLI + library), append-only command/event history (SQLite or in-memory), linear runner, full POC walker with `switch` and `interrupt` / resume, and MCP stdio adapter (see `packages/engine/README.md`)
+- `packages/engine/` — **`@agent-workflow/engine`** (npm org scope `@agent-workflow`): definition validation (CLI + library), append-only command/event history (SQLite or in-memory), linear runner, graph walker with `switch` and `interrupt` / resume, and MCP stdio adapter (see `packages/engine/README.md`)
 - `scripts/validate-workflows.mjs` — repo-wide AJV validation used by CI and aligned with the engine's schema options
-- `scripts/sync-engine-poc-schema.mjs` — syncs the root `schemas/workflow-definition-poc.json` into `packages/engine/schemas/` (run automatically on `prepack`)
+- `scripts/sync-engine-schema.mjs` — syncs the root `schemas/workflow-definition.json` into `packages/engine/schemas/` (run automatically on `prepack`)
 - **Linear** [workflows project](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview) — canonical epics/stories (milestones/issues), acceptance criteria, and planning narrative (see `.project-planning.yaml` and `.claude/skills/wf-plan/references/workflows-linear-backlog-override.md`). **GitHub issues** on `benvdbergh/workflows` remain for community intake (bugs, security, questions), not the planning backlog.
 - `docs/releases/` — release notes and versioning/CI governance docs for the alpha
 - `docs/architecture/` — arc42 baseline (`docs/architecture/arc42/`), linked assets under `docs/architecture/arc42-assets/` (diagrams, demos, operator runbooks); ADRs in `docs/architecture/adr/`
@@ -29,19 +29,19 @@ From the repository root (after `npm install`):
 | `npm run conformance` | Run deterministic conformance harness vectors; emits JSON summary on stdout and readable diagnostics on stderr |
 | `npm run engine:validate -- path/to/workflow.json` | Validate a single file with the engine CLI (stderr lists AJV errors) |
 | `npm run engine:mcp:stdio` | Start the MCP stdio adapter (in-memory store; for development/testing) |
-| `npm run check-engine-poc-schema-sync` | Verify the bundled engine schema is in sync with the root schema (run in CI) |
+| `npm run check-engine-schema-sync` | Verify the bundled engine schema is in sync with the root schema (run in CI) |
 | `npm test` | Run engine package tests |
 
 One-off validation with **ajv-cli** (no `npm install` required):
 
 ```bash
-npx --yes ajv-cli@5 validate -s schemas/workflow-definition-poc.json -d path/to/workflow.json --spec=draft2020
+npx --yes ajv-cli@5 validate -s schemas/workflow-definition.json -d path/to/workflow.json --spec=draft2020
 ```
 
 Lighthouse fixture:
 
 ```bash
-npx --yes ajv-cli@5 validate -s schemas/workflow-definition-poc.json -d examples/lighthouse-customer-routing.workflow.json --spec=draft2020
+npx --yes ajv-cli@5 validate -s schemas/workflow-definition.json -d examples/lighthouse-customer-routing.workflow.json --spec=draft2020
 ```
 
 **CI:** `.github/workflows/validate-workflows.yml` runs the reusable `reusable-validate-and-test.yml` workflow (validate + conformance + test) on pushes and pull requests to `main` and `master`. Manual `release-packaging.yml` and `release-npm-publish.yml` workflows gate release artifacts and trusted npm publishes behind the same quality-gate reusable. All workflows run Node.js 24.
@@ -73,7 +73,7 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `work
 
 ## Key architectural decisions
 
-**Engine profile.** `docs/poc-scope.md` freezes the surface the reference engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, `set_state`, `agent_delegate`, and `subworkflow`. The schema enforces allowed `type` values via a `oneOf` discriminated union that rejects unknown `type` values.
+**Engine profile.** `docs/engine-profile.md` freezes the surface the reference engine must honor. Supported node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, `set_state`, `agent_delegate`, and `subworkflow`. The schema enforces allowed `type` values via a `oneOf` discriminated union that rejects unknown `type` values.
 
 **JSON Schema `additionalProperties: false`** on the workflow root means adding top-level fields (e.g. `extensions`) will fail validation by design.
 
@@ -81,7 +81,7 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `work
 
 **Workflow documents are canonical JSON** (YAML for human authoring is fine, but must be normalized to JSON before validation per RFC-03 §3.1).
 
-**Schema sync is enforced at pack time.** `scripts/sync-engine-poc-schema.mjs` runs as `prepack` to copy the root schema into `packages/engine/schemas/`. Use `npm run check-engine-poc-schema-sync` to verify they are in sync without modifying files.
+**Schema sync is enforced at pack time.** `scripts/sync-engine-schema.mjs` runs as `prepack` to copy the root schema into `packages/engine/schemas/`. Use `npm run check-engine-schema-sync` to verify they are in sync without modifying files.
 
 **MCP adapter is layered over a stable application port.** `createWorkflowApplicationPort` is the internal boundary. The MCP stdio server (`mcp-stdio-server.mjs`) maps MCP request DTOs to that port and translates engine failures into structured tool errors with stable error codes (`VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, activity-submit codes `ACTIVITY_SUBMIT_NOT_AWAITING`, `ACTIVITY_SUBMIT_NODE_MISMATCH`, `ACTIVITY_SUBMIT_PARALLEL_MISMATCH`, `SUBMIT_VALIDATION_ERROR`, `ENGINE_FAILURE`, `INTERNAL_ERROR`).
 
@@ -89,11 +89,11 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `work
 
 ## Work item conventions
 
-**Canonical backlog:** Linear milestones and issues on the workflows project hold epic/story intent, acceptance criteria, status, and links to RFC/`docs/poc-scope.md`/ADRs. Use the `wf-plan`, `wf-design`, and `wf-execute` skills and `.project-planning.yaml` (`delivery_tracker: linear`) for Linear MCP conventions. The global `project-planning` skill still applies to **process** (decomposition, dependencies, readiness); this repository **overrides the artifact location** to Linear per `workflows-linear-backlog-override.md`.
+**Canonical backlog:** Linear milestones and issues on the workflows project hold epic/story intent, acceptance criteria, status, and links to RFC/`docs/engine-profile.md`/ADRs. Use the `wf-plan`, `wf-design`, and `wf-execute` skills and `.project-planning.yaml` (`delivery_tracker: linear`) for Linear MCP conventions. The global `project-planning` skill still applies to **process** (decomposition, dependencies, readiness); this repository **overrides the artifact location** to Linear per `workflows-linear-backlog-override.md`.
 
 **Legacy:** Historical per-epic and per-story markdown under `docs` was removed after earlier backlog migrations; GitHub Project #4 is legacy for planning. Do not recreate planning markdown or duplicate backlog in GitHub issues.
 
-When changing the POC contract (scope note, schema, or fixtures), update all three together and bump `document.schema` in workflow instances.
+When changing the engine profile contract (scope note, schema, or fixtures), update all three together and bump `document.schema` in workflow instances.
 
 ## Post-alpha roadmap
 

@@ -5,10 +5,10 @@
 This repository implements the **Agent Workflow Protocol** as:
 
 1. A **normative specification** (`docs/RFC/`).
-2. An **authoritative engine profile** (`docs/poc-scope.md`) with JSON Schema (`schemas/workflow-definition-poc.json`).
+2. An **authoritative engine profile** (`docs/engine-profile.md`) with JSON Schema (`schemas/workflow-definition.json`).
 3. A **reference Node.js engine** (`@agent-workflow/engine`, `packages/engine/`) with validation CLI, MCP stdio integration, deterministic graph execution with replay semantics, and optional SQLite persistence.
 
-These arc42 sections (1–12) are the **as-is baseline** for future design increments, structured ADRs, release planning (`ROADMAP.md`), and onboarding. Normative protocol semantics remain in the RFC texts; **`docs/poc-scope.md`** is authoritative for **which** semantics the reference engine implements.
+These arc42 sections (1–12) are the **as-is baseline** for future design increments, structured ADRs, release planning (`ROADMAP.md`), and onboarding. Normative protocol semantics remain in the RFC texts; **`docs/engine-profile.md`** is authoritative for **which** semantics the reference engine implements.
 
 Primary **C4-style** diagram sources: [`../arc42-assets/diagrams/as-built-views.drawio`](../arc42-assets/diagrams/as-built-views.drawio) (context, deployment, building blocks); target sketches (not baseline evidence): [`../arc42-assets/archive/target-state/rfc-target-views.drawio`](../arc42-assets/archive/target-state/rfc-target-views.drawio).
 
@@ -28,13 +28,13 @@ Current architecture favors **deterministic replay** and a **narrow engine profi
 | Priority | Goal | Notes |
 |----------|------|-------|
 | 1 | **Determinism / replay fidelity** | Command/event progression must reconstruct next steps from history + definition. |
-| 2 | **Contract clarity** | Profile boundary in `docs/poc-scope.md`; schema rejects undefined node types (`additionalProperties: false` at workflow root—no undocumented extensions field). |
+| 2 | **Contract clarity** | Profile boundary in `docs/engine-profile.md`; schema rejects undefined node types (`additionalProperties: false` at workflow root—no undocumented extensions field). |
 | 3 | **Integration clarity** | `createWorkflowApplicationPort` separates orchestration from transport; MCP adapter maps typed failures to stable codes. |
 | 4 | **Regression safety** | Conformance harness (`conformance/`) + engine tests (`packages/engine/test/`). |
 
 ## 1.3 Out of scope for this baseline (documented explicitly elsewhere)
 
-Deferred or non-goals **for current profile**: full multi-surface SDK/REST parity; full RFC-08 breadth in conformance; production A2A adapters (reference engine ships mock A2A for `agent_delegate`). Native `subworkflow` and `agent_delegate` are in profile per [ADR-0004](../adr/ADR-0004-r3-delegation-and-subworkflow.md). Details: `docs/poc-scope.md`, `ROADMAP.md`.
+Deferred or non-goals **for current profile**: full multi-surface SDK/REST parity; full RFC-08 breadth in conformance; production A2A adapters (reference engine ships mock A2A for `agent_delegate`). Native `subworkflow` and `agent_delegate` are in profile per [ADR-0004](../adr/ADR-0004-r3-delegation-and-subworkflow.md). Details: `docs/engine-profile.md`, `ROADMAP.md`.
 
 ## 1.4 Next-phase documentation viewpoints (evolution)
 

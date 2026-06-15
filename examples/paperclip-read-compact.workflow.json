@@ -1,6 +1,6 @@
 {
   "document": {
-    "schema": "https://example.org/agent-workflow/v1",
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
     "name": "paperclip-read-compact",
     "version": "1.0.0",
     "description": "Same Paperclip read chain as paperclip-read-snapshot, then a set_state step that projects jq-derived summaries and clears the bulky raw tool payload so completed final_state and MCP payloads stay small (token-efficiency demo). Each jq assignment sees the full pre-step state; merge reducers apply after."

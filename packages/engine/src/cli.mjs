@@ -13,7 +13,7 @@ function usage() {
   process.stderr.write(
     "Usage:\n" +
       "  workflows-engine validate [<file>]\n" +
-      "    Validates a workflow JSON document against schemas/workflow-definition-poc.json.\n" +
+      "    Validates a workflow JSON document against schemas/workflow-definition.json.\n" +
       "    If <file> is omitted or `-`, reads JSON from stdin.\n" +
       "  workflows-engine mcp-manifest validate <file>\n" +
       "    Validates an operator MCP manifest (Cursor-style mcpServers subset).\n" +
@@ -70,7 +70,7 @@ async function cmdValidateWorkflow(rest) {
   }
   const result = validateWorkflowDefinition(data);
   if (result.ok) {
-    process.stdout.write("OK: document matches workflow schema (see docs/poc-scope.md).\n");
+    process.stdout.write("OK: document matches workflow schema (see docs/engine-profile.md).\n");
     return;
   }
   process.stderr.write("Validation failed:\n");

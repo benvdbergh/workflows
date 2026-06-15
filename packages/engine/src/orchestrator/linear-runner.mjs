@@ -27,7 +27,7 @@ export function assertNoCustomReducers(definition) {
   for (const [key, spec] of Object.entries(props)) {
     if (spec && typeof spec === "object" && spec.reducer === "custom") {
       throw new Error(
-        `Unsupported reducer "custom" on state_schema.properties.${key}. This engine profile only supports overwrite (default), append, and merge (see docs/poc-scope.md).`
+        `Unsupported reducer "custom" on state_schema.properties.${key}. This engine profile only supports overwrite (default), append, and merge (see docs/engine-profile.md).`
       );
     }
   }
@@ -199,7 +199,7 @@ function assertNoUnsupportedNodeTypes(nodes) {
   for (const n of nodes) {
     if (n.type === "switch" || n.type === "interrupt") {
       throw new Error(
-        `Node "${n.id}" has type "${n.type}", which is not supported by the linear runner (see docs/poc-scope.md).`
+        `Node "${n.id}" has type "${n.type}", which is not supported by the linear runner (see docs/engine-profile.md).`
       );
     }
   }

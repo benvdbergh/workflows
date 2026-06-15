@@ -1,6 +1,6 @@
 {
   "id": "schema.valid.r3_multi_agent_coding",
-  "description": "R3 multi-agent coding example (delegate + subworkflow + interrupt) validates against the POC schema.",
+  "description": "R3 multi-agent coding example (delegate + subworkflow + interrupt) validates against the workflow schema.",
   "kind": "schema",
   "definition": "examples/r3-multi-agent-coding.workflow.json",
   "expect": {

@@ -1,12 +1,12 @@
-# v1 profile model — core vs optional
+# Profile model — core vs optional
 
 **Last reviewed:** 2026-06-04  
 **Status:** Incremental R4 prep (BEN-8); not a GA contract freeze.  
 **Normative protocol:** [RFC-03](../../docs/RFC/rfc-03-workflow-definition-schema.md), [RFC-04](../../docs/RFC/rfc-04-execution-model.md).  
-**Engine profile (alpha):** [docs/poc-scope.md](../poc-scope.md).  
-**JSON Schema entry:** [schemas/workflow-definition-poc.json](../../schemas/workflow-definition-poc.json) (`$id`: `https://agent-workflow.dev/schemas/workflow-definition/v1.json`).
+**Engine profile (alpha):** [docs/engine-profile.md](../engine-profile.md).  
+**JSON Schema entry:** [schemas/workflow-definition.json](../../schemas/workflow-definition.json) (`$id`: `https://agent-workflow.dev/schemas/workflow-definition.json`).
 
-This document formalizes what adopters **must** implement for **v1 core** interoperability versus what remains **optional** or **host-dependent** in the reference engine today. It complements `docs/poc-scope.md` (authoritative engine subset) and will converge with the GA conformance tag.
+This document formalizes what adopters **must** implement for **core profile** interoperability versus what remains **optional** or **host-dependent** in the reference engine today. It complements `docs/engine-profile.md` (authoritative engine subset) and will converge with the GA conformance tag.
 
 ---
 
@@ -14,7 +14,7 @@ This document formalizes what adopters **must** implement for **v1 core** intero
 
 | Artifact | URI |
 |----------|-----|
-| JSON Schema `$id` | `https://agent-workflow.dev/schemas/workflow-definition/v1.json` |
+| JSON Schema `$id` | `https://agent-workflow.dev/schemas/workflow-definition.json` |
 | Suggested `document.schema` in instances | Same URI (legacy POC/example URIs remain valid during alpha→GA migration; see [migration-alpha-to-ga.md](./migration-alpha-to-ga.md)) |
 
 **Deferred (document only):** HTTP **version negotiation** (e.g. `Accept-Profile`, schema discovery registry, multi-profile servers). GA may add a registry publication step; the reference engine continues to bundle a single schema file validated at start.
@@ -34,7 +34,7 @@ This document formalizes what adopters **must** implement for **v1 core** intero
 | `switch` routing via `config.cases` / `default` (jq) | Core | Supported | Static edges from `switch` id ignored. |
 | State reducers: `overwrite`, `append`, `merge` | Core | Supported | `custom` rejected at validate. |
 | jq on `switch.when`, `set_state`, `end.output_mapping`, mappings | Core | Supported | Subset: [jq-conformance-subset.md](./jq-conformance-subset.md). |
-| Command/event subset in `docs/poc-scope.md` §6 | Core | Supported | Replay-oriented history. |
+| Command/event subset in `docs/engine-profile.md` §6 | Core | Supported | Replay-oriented history. |
 | `CheckpointWritten` + `definitionHash` binding | Core | Supported | Canonical JSON hash; resume/submit/continuation verify definition. See BEN-78. |
 | `interrupt` inside `parallel` branch | Refused | Validate + runtime refuse | Code `INTERRUPT_IN_PARALLEL_BRANCH`; invariant in `workflow-graph-invariants.mjs`. See BEN-77. |
 | `wait` `kind: signal` | Optional (host) | Runtime error without host | Requires host `workflow_signal`; not bare engine. |
@@ -43,7 +43,7 @@ This document formalizes what adopters **must** implement for **v1 core** intero
 | `tool_call` delegation bridge | Optional (legacy) | Supported | Prefer native `agent_delegate` for GA; see migration doc. |
 | Definition signing | Optional | Not implemented | R4 security story (BEN-10). |
 | REST / SDK parity with MCP | Optional | Partial | MCP stdio adapter is reference surface. |
-| Full RFC command taxonomy (`CancelTimer`, `EmitSignal`, …) | Optional | Out of profile | Listed in `docs/poc-scope.md` §6. |
+| Full RFC command taxonomy (`CancelTimer`, `EmitSignal`, …) | Optional | Out of profile | Listed in `docs/engine-profile.md` §6. |
 
 ---
 
@@ -68,4 +68,4 @@ This document formalizes what adopters **must** implement for **v1 core** intero
 
 ## Change control
 
-Update this matrix when `docs/poc-scope.md`, the schema bundle, or conformance tags change. Pair with [jq-conformance-subset.md](./jq-conformance-subset.md) and [migration-alpha-to-ga.md](./migration-alpha-to-ga.md) in the same PR when profile boundaries move.
+Update this matrix when `docs/engine-profile.md`, the schema bundle, or conformance tags change. Pair with [jq-conformance-subset.md](./jq-conformance-subset.md) and [migration-alpha-to-ga.md](./migration-alpha-to-ga.md) in the same PR when profile boundaries move.

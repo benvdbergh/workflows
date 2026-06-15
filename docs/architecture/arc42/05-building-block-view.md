@@ -7,7 +7,7 @@
 | **`@agent-workflow/engine`** | Validation, orchestration, persistence adapters, MCP server composition, exported library API | `packages/engine/` |
 | **Conformance harness** | Deterministic `schema` and `replay` vectors | `conformance/run-conformance.mjs`, `conformance/runner.mjs`, `conformance/vectors/` |
 | **Repo validation toolchain** | CI-scale AJV sweep over fixtures | `scripts/validate-workflows.mjs`, `npm run validate-workflows` |
-| **Contract artifacts** | Normative prose + schema | `docs/RFC/`, `schemas/workflow-definition-poc.json`, `docs/poc-scope.md` |
+| **Contract artifacts** | Normative prose + schema | `docs/RFC/`, `schemas/workflow-definition.json`, `docs/engine-profile.md` |
 
 **Diagram:** [`../arc42-assets/diagrams/as-built-views.drawio`](../arc42-assets/diagrams/as-built-views.drawio) — **`AS-IS Building Block View`**. See [`../arc42-assets/README.md`](../arc42-assets/README.md) for other asset kinds.
 

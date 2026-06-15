@@ -48,7 +48,7 @@ Informative command/event prefix narratives remain under `examples/*.trace.*.jso
 
 ## Deferred MCP tools (RFC-05 §5.2)
 
-Not in POC MCP adapter or parity matrix until committed: `workflow_cancel`, `workflow_signal`, `workflow_list`.
+Not in MCP adapter or parity matrix until committed: `workflow_cancel`, `workflow_signal`, `workflow_list`.
 
 ## Running parity checks
 

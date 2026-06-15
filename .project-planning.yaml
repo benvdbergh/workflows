@@ -17,7 +17,7 @@ linear:
   team_key: BEN
   mcp_server: plugin-linear-linear
 
-# Requirements and contract docs stay in-repo (RFC, poc-scope, ADRs).
+# Requirements and contract docs stay in-repo (RFC, engine-profile, ADRs).
 source_globs:
   - ROADMAP.md
   - "docs/**/*.md"

@@ -1,6 +1,6 @@
 {
   "document": {
-    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
     "name": "conformance-agent-delegate-linear",
     "version": "1.0.0",
     "description": "Linear graph: start → agent_delegate → end (conformance / replay)."

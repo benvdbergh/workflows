@@ -2,7 +2,7 @@
 
 **Last reviewed:** 2026-06-04  
 **Status:** Stub — expanded as R4 GA approaches.  
-**Profile model:** [v1-profile-model.md](./v1-profile-model.md)  
+**Profile model:** [profile-model.md](./profile-model.md)  
 **Alpha notes:** [alpha-release-notes.md](./alpha-release-notes.md)
 
 This guide helps operators and workflow authors move from the **alpha reference engine** (`0.1.2` on npm `alpha`) to the **GA v1** contract (schema URI, conformance tag, and engine semver `1.x` when published).
@@ -11,18 +11,18 @@ This guide helps operators and workflow authors move from the **alpha reference 
 
 ## 1. Schema and document metadata
 
-| Alpha (common today) | GA v1 target |
-|----------------------|--------------|
-| `document.schema`: `https://example.org/agent-workflow/poc/v1/workflow-definition` or `https://example.org/agent-workflow/v1` | `https://agent-workflow.dev/schemas/workflow-definition/v1.json` |
-| JSON Schema file `$id`: `https://example.org/agent-workflow/poc/v1/workflow-definition` | `https://agent-workflow.dev/schemas/workflow-definition/v1.json` |
+| Alpha (legacy URIs) | Current canonical URI |
+|----------------------|-------------------------|
+| `https://example.org/agent-workflow/poc/v1/workflow-definition` or `https://example.org/agent-workflow/v1` | `https://agent-workflow.dev/schemas/workflow-definition.json` |
+| JSON Schema file `$id` (legacy) | `https://agent-workflow.dev/schemas/workflow-definition.json` |
 
 **Actions:**
 
 1. Re-validate all workflow JSON against the bundled schema after upgrade (`npm run engine:validate -- path/to/workflow.json` or `npm run validate-workflows`).
-2. Update `document.schema` to the v1 URI in each workflow instance (bulk find/replace is safe if semantics unchanged).
-3. Run `npm run check-engine-poc-schema-sync` in CI to ensure the engine package copies the root schema.
+2. Update `document.schema` to the canonical URI in each workflow instance.
+3. Run `npm run check-engine-schema-sync` in CI to ensure the engine package copies the root schema.
 
-**Note:** GA does not require renaming the on-disk file `workflow-definition-poc.json` immediately; the stable **`$id`** is the interoperability anchor.
+**On-disk entry schema:** `schemas/workflow-definition.json` (bundled under `packages/engine/schemas/`).
 
 ---
 
@@ -40,7 +40,7 @@ Alpha milestones often modeled agent work as MCP-shaped **`tool_call`** nodes (`
 
 1. For each delegation `tool_call`, add an equivalent `agent_delegate` node with the same observable activity lifecycle (requested → completed/failed).
 2. Map `input_mapping` from prior argument shapes; reuse jq expressions where they already read parent state (see [jq-conformance-subset.md](./jq-conformance-subset.md)).
-3. Re-run conformance/replay fixtures; event prefixes should remain valid when lifecycle timing is preserved (`docs/poc-scope.md` §2.2).
+3. Re-run conformance/replay fixtures; event prefixes should remain valid when lifecycle timing is preserved (`docs/engine-profile.md` §2.2).
 4. Keep `tool_call` for non-agent tools (CRM, search, calculators); remove agent-shaped tools once hosts support delegate.
 
 Reference engine: in-process mock A2A for `protocol: "a2a"`; MCP/SDK paths may still use host-mediated activities.
@@ -76,7 +76,7 @@ Reference engine: in-process mock A2A for `protocol: "a2a"`; MCP/SDK paths may s
 ## 5. Validation checklist (pre-GA cutover)
 
 ```bash
-npm run check-engine-poc-schema-sync
+npm run check-engine-schema-sync
 npm run validate-workflows
 npm test
 npm run conformance
@@ -91,4 +91,4 @@ Record conformance summary JSON in release notes when tagging GA artifacts.
 - [ ] Published GA semver and npm dist-tag policy  
 - [ ] Conformance profile name and badge (`passes-v1-core`)  
 - [ ] Changelog entries for any breaking MCP error code changes  
-- [ ] HTTP version negotiation (deferred; see [v1-profile-model.md](./v1-profile-model.md))
+- [ ] HTTP version negotiation (deferred; see [profile-model.md](./profile-model.md))
