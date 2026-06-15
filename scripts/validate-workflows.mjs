@@ -1,5 +1,5 @@
 /**
- * Validates golden workflow JSON instances against schemas/workflow-definition-poc.json (JSON Schema Draft 2020-12).
+ * Validates golden workflow JSON instances against schemas/workflow-definition.json (JSON Schema Draft 2020-12).
  * Run: npm run validate-workflows
  */
 import Ajv2020 from "ajv/dist/2020.js";
@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
-const schemaPath = path.join(root, "schemas", "workflow-definition-poc.json");
+const schemaPath = path.join(root, "schemas", "workflow-definition.json");
 const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });

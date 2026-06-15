@@ -1,14 +1,14 @@
 {
   "name": "workflows",
   "private": true,
-  "description": "Agent Workflow Protocol — POC contracts, fixtures, and tooling",
+  "description": "Agent Workflow Protocol — contracts, fixtures, and tooling",
   "type": "module",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "sync-engine-poc-schema": "node scripts/sync-engine-poc-schema.mjs",
-    "check-engine-poc-schema-sync": "node scripts/sync-engine-poc-schema.mjs --check",
+    "sync-engine-schema": "node scripts/sync-engine-schema.mjs",
+    "check-engine-schema-sync": "node scripts/sync-engine-schema.mjs --check",
     "check-schema-breaking-change": "node scripts/check-schema-breaking-change.mjs",
     "check-threat-model-touch": "node scripts/check-threat-model-touch.mjs",
     "check-arc42-export-drift": "node scripts/check-arc42-export-drift.mjs",

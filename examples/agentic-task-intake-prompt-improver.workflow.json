@@ -1,6 +1,6 @@
 {
   "document": {
-    "schema": "https://example.org/agent-workflow/v1",
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
     "name": "agentic-task-intake-prompt-improver",
     "version": "1.0.0",
     "description": "POC-friendly agentic intake fixture with deterministic execution_mode routing between workflow publication and open-agentic execution bridge."

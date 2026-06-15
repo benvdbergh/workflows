@@ -6,7 +6,7 @@
 
 ## Context
 
-R2 delivered core orchestration (`parallel`, `wait`, `set_state`) on a flat `executionId` history spine. RFC-03 Example C and RFC-04 §4.9 require **native `agent_delegate`** and **`subworkflow`** nodes with auditable parent/child correlation—not `tool_call` shims. Epic [#5](https://github.com/benvdbergh/workflows/issues/5) promotes both types into the POC engine profile while preserving **append-only, replayable** history ([ADR-0001](ADR-0001-poc-foundation-decisions.md)).
+R2 delivered core orchestration (`parallel`, `wait`, `set_state`) on a flat `executionId` history spine. RFC-03 Example C and RFC-04 §4.9 require **native `agent_delegate`** and **`subworkflow`** nodes with auditable parent/child correlation—not `tool_call` shims. Epic [#5](https://github.com/benvdbergh/workflows/issues/5) promotes both types into the reference engine profile while preserving **append-only, replayable** history ([ADR-0001](ADR-0001-poc-foundation-decisions.md)).
 
 **Problems:**
 
@@ -33,7 +33,7 @@ R2 delivered core orchestration (`parallel`, `wait`, `set_state`) on a flat `exe
 2. **Separate port:** `DelegateExecutor` in `delegate-executor.mjs`—not overloaded onto `ActivityExecutor`.
 3. **History shape (R3 RC):** `ActivityRequested` / `ActivityCompleted` with `delegateCorrelationId`, `externalTaskId`, `nodeType: "agent_delegate"`.
 4. **R3 mock A2A:** In-process `MockA2ADelegateExecutor` (single-shot completed output for CI).
-5. **Bridge migration:** `docs/poc-scope.md` §2.2 maps `tool_call` agent tools → native node.
+5. **Bridge migration:** `docs/engine-profile.md` §2.2 maps `tool_call` agent tools → native node.
 6. **Replay:** Prefix `ActivityCompleted` skips delegate port invocation.
 
 ### 3. Cross-cutting
@@ -56,5 +56,5 @@ R2 delivered core orchestration (`parallel`, `wait`, `set_state`) on a flat `exe
 ## References
 
 - RFC-03, RFC-04 §4.9, RFC-06 §6.2
-- `docs/poc-scope.md`
+- `docs/engine-profile.md`
 - `subworkflow-runtime.mjs`, `delegate-runtime.mjs`, `delegate-executor.mjs`

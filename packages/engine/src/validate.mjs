@@ -19,7 +19,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @returns {string}
  */
 function bundledWorkflowSchemaPath() {
-  return path.join(__dirname, "..", "schemas", "workflow-definition-poc.json");
+  return path.join(__dirname, "..", "schemas", "workflow-definition.json");
 }
 
 /**
@@ -58,7 +58,7 @@ function loadWorkflowDefinitionSchema() {
   if (existsSync(bundled)) {
     return JSON.parse(readFileSync(bundled, "utf8"));
   }
-  const schemaPath = path.join(findWorkflowRepoRoot(__dirname), "schemas", "workflow-definition-poc.json");
+  const schemaPath = path.join(findWorkflowRepoRoot(__dirname), "schemas", "workflow-definition.json");
   return JSON.parse(readFileSync(schemaPath, "utf8"));
 }
 
@@ -83,7 +83,7 @@ export function compileWorkflowValidator() {
 }
 
 /**
- * Validates `data` against `schemas/workflow-definition-poc.json` (Draft 2020-12).
+ * Validates `data` against `schemas/workflow-definition.json` (Draft 2020-12).
  * @param {unknown} data Parsed JSON value (object).
  * @returns {{ ok: true } | { ok: false, errors: import("ajv").ErrorObject[] }}
  */

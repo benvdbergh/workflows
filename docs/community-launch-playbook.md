@@ -7,7 +7,7 @@ Purpose: launch alpha publicly with focused channels, clear calls-to-action, and
 
 ## Launch goals
 
-- Drive high-quality feedback on protocol clarity, POC scope, and engine usability.
+- Drive high-quality feedback on protocol clarity, engine profile, and engine usability.
 - Convert early external interest into structured issues and docs improvements.
 - Avoid maintainer overload via explicit intake rules, support boundaries, and SLA targets.
 
@@ -49,7 +49,7 @@ Template:
 
 Template:
 
-> Alpha deep-dive request: we are validating the POC execution contract and conformance harness for multi-step agent orchestration.  
+> Alpha deep-dive request: we are validating the reference execution contract and conformance harness for multi-step agent orchestration.  
 >  
 > If you evaluate it, please share:  
 > - one area that is underspecified,  
@@ -71,7 +71,7 @@ Template:
 > Best contributions right now:  
 > - docs clarity fixes,  
 > - reproducible bug reports,  
-> - conformance fixture proposals aligned to `docs/poc-scope.md`.  
+> - conformance fixture proposals aligned to `docs/engine-profile.md`.  
 >  
 > Repro command baseline:  
 > - channel: `npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp`  

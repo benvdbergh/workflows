@@ -13,10 +13,10 @@
 
 | Constraint | Rationale |
 |------------|-----------|
-| **Schema sync at pack (`prepack`)** | Bundled schema under `packages/engine/schemas/` must track root `schemas/workflow-definition-poc.json`; `npm run check-engine-poc-schema-sync` guards drift. |
+| **Schema sync at pack (`prepack`)** | Bundled schema under `packages/engine/schemas/` must track root `schemas/workflow-definition.json`; `npm run check-engine-schema-sync` guards drift. |
 | **ADRs for significant deviations** | `docs/architecture/adr/` anchors decisions with RFC / profile references. |
 
-## 2.3 Conventions enforcing the profile (`docs/poc-scope.md`)
+## 2.3 Conventions enforcing the profile (`docs/engine-profile.md`)
 
 - **Workflow document shape**: `document`, `state_schema`, `nodes`, `edges`; optional `checkpointing`; **no top-level `extensions`** in the engine profile.
 - **Node type set**: in-scope types include `parallel`, `wait`, `set_state`, `subworkflow`, `agent_delegate` ([ADR-0004](../adr/ADR-0004-r3-delegation-and-subworkflow.md)).

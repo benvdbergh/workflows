@@ -26,7 +26,7 @@
       "name": "CheckpointWritten",
       "payload": {
         "policy": "after_each_node",
-        "definitionHash": "9d836701a9074d3bacc69af2282e8c45438b501802d9fa84279d7cd977b8ff58",
+        "definitionHash": "5f97ff9cd98775195180a7e4615ab721ba72813fa14f5b025e5ed149cb2bb873",
         "lastAppliedEventSeq": 2,
         "nodeId": "start",
         "stateRef": { "kind": "inline_state", "state": {} }
@@ -44,7 +44,7 @@
       "outcome": { "ok": true, "result": { "out": "tampered" } },
       "definitionTamper": {
         "document": {
-          "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+          "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
           "name": "conformance-host-linear",
           "version": "9.9.9"
         }

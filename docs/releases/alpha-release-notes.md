@@ -24,7 +24,7 @@ Release policy and checklist reference: [alpha-versioning-and-release-commit-flo
 
 ### Docs
 
-- Release notes, `CLAUDE.md`, arc42 product sections, and `docs/poc-scope.md` scrubbed of stale “out of scope” delegation/composition language; capability terms replace release-milestone labels in product docs.
+- Release notes, `CLAUDE.md`, arc42 product sections, and `docs/engine-profile.md` scrubbed of stale “out of scope” delegation/composition language; capability terms replace release-milestone labels in product docs.
 
 ### Internal
 
@@ -37,7 +37,7 @@ Release policy and checklist reference: [alpha-versioning-and-release-commit-flo
 
 ### Validation run
 
-- `npm run check-engine-poc-schema-sync`
+- `npm run check-engine-schema-sync`
 - `npm run validate-workflows`
 - `npm run conformance`
 - `npm test`
@@ -84,7 +84,7 @@ Release policy and checklist reference: [alpha-versioning-and-release-commit-flo
 
 ### Validation run
 
-- `npm run check-engine-poc-schema-sync`
+- `npm run check-engine-schema-sync`
 - `npm run validate-workflows`
 - `npm run conformance`
 - `npm test`
@@ -106,16 +106,16 @@ These notes are for external evaluators and early adopters validating the curren
 ## Highlights for this alpha phase
 
 - Protocol-first repository with a structured RFC set under `docs/RFC/`.
-- JSON Schema contract in `schemas/workflow-definition-poc.json` for the **engine profile** in [`docs/poc-scope.md`](../poc-scope.md) (core orchestration, `parallel`, `wait`, `set_state`, **`agent_delegate`**, **`subworkflow`**).
+- JSON Schema contract in `schemas/workflow-definition.json` for the **engine profile** in [`docs/engine-profile.md`](../engine-profile.md) (core orchestration, `parallel`, `wait`, `set_state`, **`agent_delegate`**, **`subworkflow`**).
 - Golden workflow fixtures and trace companions in `examples/`, including parallel and research-style fixtures.
 - Deterministic conformance harness entrypoint via `npm run conformance` (schema, replay, host-activity, and engine-direct replay invariants).
 - Node.js engine package with validation, append-only execution history, `switch`, `interrupt`/resume, parallel join policies, `wait` duration/until, `set_state`, delegation and nested workflows, checkpoint policy hooks, **host-mediated** and **engine-direct** `tool_call` activity execution (see [ADR-0003](../architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md)), and MCP stdio adapter.
 
 ## Known limitations
 
-- **`agent_delegate`:** reference engine uses **mock A2A** only; production A2A/MCP/SDK adapters are not bundled (see `docs/poc-scope.md`, [ADR-0004](../architecture/adr/ADR-0004-r3-delegation-and-subworkflow.md)).
+- **`agent_delegate`:** reference engine uses **mock A2A** only; production A2A/MCP/SDK adapters are not bundled (see `docs/engine-profile.md`, [ADR-0004](../architecture/adr/ADR-0004-r3-delegation-and-subworkflow.md)).
 - **`subworkflow` workflow refs:** child definitions must be registered (e.g. `registerWorkflowRef`); built-in URNs load from `examples/` only in a monorepo checkout, not from the npm tarball ([engine README](../../packages/engine/README.md#workflow-references), [arc42 §8.8](../architecture/arc42/08-cross-cutting-concepts.md#88-workflow-reference-resolution-subworkflow)).
-- **Wait `signal`:** requires a host; the bare engine fails this path at runtime (see `docs/poc-scope.md`).
+- **Wait `signal`:** requires a host; the bare engine fails this path at runtime (see `docs/engine-profile.md`).
 - Some RFC sections describe long-term direction (e.g. REST/SDK parity, core binary) that extends beyond this Node.js reference package.
 - Trace companion files are illustrative execution narratives and are not schema-validated executable workflow inputs.
 - Contracts and naming are still pre-1.0 and may change with limited backward compatibility guarantees.

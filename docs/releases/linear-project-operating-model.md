@@ -59,7 +59,7 @@ Configure in the Linear UI (names are suggestive):
 
 ### Planning narrative (issue descriptions)
 
-- **Canonical epic/story content** (description, acceptance criteria, links to `docs/RFC/`, `docs/poc-scope.md`, ADRs) lives in the **Linear issue or milestone description**.
+- **Canonical epic/story content** (description, acceptance criteria, links to `docs/RFC/`, `docs/engine-profile.md`, ADRs) lives in the **Linear issue or milestone description**.
 - Keep **structural** sequencing in Linear **relations**, not only in markdown checklists.
 
 ### Hierarchy

@@ -74,5 +74,5 @@ Evidence expectations for changes touching engine-direct surfaces are aligned wi
 - [RFC-06 — Interoperability, §6.1](../../RFC/rfc-06-interoperability.md#61-composing-mcp)
 - [RFC-07 — Security model](../../RFC/rfc-07-security-model.md)
 - [`docs/architecture/arc42/04-solution-strategy.md`](../arc42/04-solution-strategy.md); [`docs/architecture/arc42/06-runtime-view.md`](../arc42/06-runtime-view.md); [`docs/architecture/arc42/07-deployment-view.md`](../arc42/07-deployment-view.md)
-- `docs/poc-scope.md`, `ROADMAP.md`
+- `docs/engine-profile.md`, `ROADMAP.md`
 - `docs/architecture/README.md`, [`docs/architecture/arc42/README.md`](../arc42/README.md)

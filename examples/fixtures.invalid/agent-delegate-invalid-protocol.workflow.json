@@ -1,6 +1,6 @@
 {
   "document": {
-    "schema": "https://example.org/agent-workflow/poc/v1/workflow-definition",
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
     "name": "invalid-agent-delegate-protocol",
     "version": "0.0.0"
   },

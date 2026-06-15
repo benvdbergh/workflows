@@ -76,7 +76,7 @@ This protocol fills that gap — sitting **between** atomic MCP tool calls and m
 
 ```yaml
 document:
-  schema: "https://example.org/agent-workflow/v1"
+  schema: "https://agent-workflow.dev/schemas/workflow-definition.json"
   name: "customer-support"
   version: "1.0.0"
 
@@ -141,7 +141,7 @@ Workflow definitions must be normalized to canonical JSON before validation or e
 
 ```
 docs/RFC/          # Full protocol specification (9 sections)
-docs/poc-scope.md  # Engine profile — normative subset for the reference engine + schema bundle
+docs/engine-profile.md  # Engine profile — normative subset for the reference engine + schema bundle
 schemas/           # JSON Schema Draft 2020-12 bundle for that profile
 examples/          # Golden fixtures: workflow + RFC-04 trace companions
 conformance/       # Conformance harness vectors + deterministic runner entrypoint
@@ -171,7 +171,7 @@ scripts/           # validate-workflows.mjs (AJV, CI-aligned)
 
 ## Workflow schema and validation
 
-The [`schemas/`](schemas/) directory contains the **workflow JSON Schema bundle** (Draft 2020-12) for the profile in [`docs/poc-scope.md`](docs/poc-scope.md), including `parallel`, `wait`, and `set_state`. `agent_delegate` and `subworkflow` are not in that profile yet; see [`ROADMAP.md`](ROADMAP.md).
+The [`schemas/`](schemas/) directory contains the **workflow JSON Schema bundle** (Draft 2020-12) for the profile in [`docs/engine-profile.md`](docs/engine-profile.md), including `parallel`, `wait`, and `set_state`. `agent_delegate` and `subworkflow` are not in that profile yet; see [`ROADMAP.md`](ROADMAP.md).
 
 Validate locally with Node.js **≥ 22.5.0** (see root `package.json` `engines`). **CI** uses Node.js **24** with `actions/checkout@v5` and `actions/setup-node@v5` per [GitHub’s Node 20 deprecation on runners](https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/).
 
@@ -208,7 +208,7 @@ The [`examples/`](examples/) directory contains the canonical lighthouse fixture
 
 ## Reference implementation
 
-**In this repository (Node.js):** [`packages/engine/`](packages/engine/README.md) (`@agent-workflow/engine`) implements definition validation for the profile in [`docs/poc-scope.md`](docs/poc-scope.md), an append-only command/event history (`SqliteExecutionHistoryStore` via `node:sqlite` or in-memory), orchestration including `parallel` / `wait` / `set_state`, `switch`, `interrupt` / resume, host-mediated and engine-direct `tool_call` activity paths, checkpoint policies, and the MCP stdio adapter. The [`conformance/`](conformance/) harness exercises schema and replay vectors in CI. Requires Node.js **≥ 22.5.0** (see root `package.json` `engines`).
+**In this repository (Node.js):** [`packages/engine/`](packages/engine/README.md) (`@agent-workflow/engine`) implements definition validation for the profile in [`docs/engine-profile.md`](docs/engine-profile.md), an append-only command/event history (`SqliteExecutionHistoryStore` via `node:sqlite` or in-memory), orchestration including `parallel` / `wait` / `set_state`, `switch`, `interrupt` / resume, host-mediated and engine-direct `tool_call` activity paths, checkpoint policies, and the MCP stdio adapter. The [`conformance/`](conformance/) harness exercises schema and replay vectors in CI. Requires Node.js **≥ 22.5.0** (see root `package.json` `engines`).
 
 **Longer term (RFC-08):** [RFC-08](docs/RFC/rfc-08-reference-implementation.md) describes a production-style program (multi-language core, Python SDK, REST/SDK parity). The monorepo already ships a Node reference engine; see the as-built note in RFC-08. Delegation and sub-workflows are on the roadmap; see [`ROADMAP.md`](ROADMAP.md).
 

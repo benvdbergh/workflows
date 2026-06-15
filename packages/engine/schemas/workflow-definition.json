@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://agent-workflow.dev/schemas/workflow-definition/v1.json",
+  "$id": "https://agent-workflow.dev/schemas/workflow-definition.json",
   "title": "Agent Workflow Protocol — reference engine workflow definition",
-  "description": "JSON Schema for the profile defined in docs/poc-scope.md (core orchestration, delegation, and nested subworkflows). Normative semantics: docs/RFC/rfc-03-workflow-definition-schema.md.",
+  "description": "JSON Schema for the profile defined in docs/engine-profile.md (core orchestration, delegation, and nested subworkflows). Normative semantics: docs/RFC/rfc-03-workflow-definition-schema.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["document", "state_schema", "nodes", "edges"],
@@ -20,7 +20,7 @@
     },
     "checkpointing": {
       "type": "object",
-      "description": "Optional checkpoint policy per RFC-03 §3.9; reference engine honors strategy/n (see docs/poc-scope.md §5).",
+      "description": "Optional checkpoint policy per RFC-03 §3.9; reference engine honors strategy/n (see docs/engine-profile.md §5).",
       "additionalProperties": true,
       "properties": {
         "strategy": {
@@ -62,7 +62,7 @@
     },
     "state_schema_blob": {
       "type": "object",
-      "description": "JSON Schema object describing workflow state. Reducer annotations must be overwrite, append, or merge only (see docs/poc-scope.md); rejecting 'custom' may require additional tooling beyond this schema.",
+      "description": "JSON Schema object describing workflow state. Reducer annotations must be overwrite, append, or merge only (see docs/engine-profile.md); rejecting 'custom' may require additional tooling beyond this schema.",
       "minProperties": 1
     },
     "edge": {
@@ -196,7 +196,7 @@
         "config": {
           "type": "object",
           "additionalProperties": true,
-          "description": "Model, prompts, output_schema, etc. per RFC-03 §3.7; POC allows minimal/stub configs."
+          "description": "Model, prompts, output_schema, etc. per RFC-03 §3.7; profile allows minimal/stub configs."
         },
         "retry": { "$ref": "#/$defs/retry_policy" },
         "timeout": { "$ref": "#/$defs/node_level_timeout" },

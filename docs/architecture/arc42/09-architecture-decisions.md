@@ -4,7 +4,7 @@ Significant architectural decisions live as **architecture decision records (ADR
 
 | ADR | Title | Topic |
 |-----|-------|-------|
-| [ADR-0001](../adr/ADR-0001-poc-foundation-decisions.md) | Engine profile foundation | Runtime scope anchored in `docs/poc-scope.md` |
+| [ADR-0001](../adr/ADR-0001-poc-foundation-decisions.md) | Engine profile foundation | Runtime scope anchored in `docs/engine-profile.md` |
 | [ADR-0002](../adr/ADR-0002-host-mediated-activity-execution.md) | Host-mediated activity execution | MCP host submits activity outcomes (`workflow_submit_activity`) |
 | [ADR-0003](../adr/ADR-0003-engine-direct-mcp-activity-execution.md) | Engine-direct MCP activity execution | Optional operator manifests for unattended profiles |
 | [ADR-0004](../adr/ADR-0004-r3-delegation-and-subworkflow.md) | Delegation and subworkflow | Native `agent_delegate` + `subworkflow`, replay invariants |
@@ -15,7 +15,7 @@ Lifecycle and conventions: [`../adr/README.md`](../adr/README.md).
 
 ### ADR bootstrap (themes from the current baseline)
 
-Fertile tension clusters for future ADRs—each record should cite **RFC** sections impacted, deltas to **`docs/poc-scope.md`**, and conformance/test hooks proving regressions cannot slip unnoticed:
+Fertile tension clusters for future ADRs—each record should cite **RFC** sections impacted, deltas to **`docs/engine-profile.md`**, and conformance/test hooks proving regressions cannot slip unnoticed:
 
 | Theme | Typical trigger |
 |-------|----------------|
@@ -28,7 +28,7 @@ Fertile tension clusters for future ADRs—each record should cite **RFC** secti
 Mandatory cross-links inside each ADR body:
 
 1. Supporting **RFC** sections (execution model, integrations, conformance expectations).
-2. **`docs/poc-scope.md`** impact statement (narrow/widen profile).
+2. **`docs/engine-profile.md`** impact statement (narrow/widen profile).
 3. **Conformance** additions (`conformance/vectors/**`) plus targeted **`packages/engine/test/**`** identifiers.
 
 ---

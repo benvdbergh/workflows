@@ -1,6 +1,6 @@
 {
   "document": {
-    "schema": "https://example.org/agent-workflow/v1",
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
     "name": "switch-precedence",
     "version": "1.0.0",
     "description": "Switch has static edges from sw plus cases; engine must follow cases/default only."

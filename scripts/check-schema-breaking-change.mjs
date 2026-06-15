@@ -1,5 +1,5 @@
 /**
- * Fails when the POC workflow schema changes in ways that break existing documents
+ * Fails when the workflow definition schema changes in ways that break existing documents
  * without an explicit acknowledgment (document.schema / $id bump policy).
  *
  * Usage:
@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..");
-const schemaPath = "schemas/workflow-definition-poc.json";
+const schemaPath = "schemas/workflow-definition.json";
 const ackEnv = process.env.SCHEMA_BREAKING_CHANGE_ACK === "1";
 const ackFile = join(repoRoot, "schemas", ".schema-breaking-change-ack");
 
@@ -130,19 +130,19 @@ for (const path of headRequired) {
 }
 
 if (violations.length === 0) {
-  console.log("POC schema breaking-change check: no breaking deltas detected.");
+  console.log("workflow schema breaking-change check: no breaking deltas detected.");
   process.exit(0);
 }
 
 if (hasAcknowledgment()) {
-  console.warn("POC schema breaking-change acknowledged; violations:");
+  console.warn("workflow schema breaking-change acknowledged; violations:");
   for (const v of violations) {
     console.warn(`  - ${v}`);
   }
   process.exit(0);
 }
 
-console.error("POC schema breaking-change gate failed:");
+console.error("workflow schema breaking-change gate failed:");
 for (const v of violations) {
   console.error(`  - ${v}`);
 }
@@ -150,5 +150,5 @@ console.error("");
 console.error("Breaking changes require an explicit bump policy:");
 console.error("  - Set document.schema / profile version in workflow instances, and");
 console.error("  - Acknowledge with SCHEMA_BREAKING_CHANGE_ACK=1 in CI, or");
-console.error(`  - Add ${schemaPath.replace("workflow-definition-poc.json", ".schema-breaking-change-ack")} with rationale.`);
+console.error(`  - Add ${schemaPath.replace("workflow-definition.json", ".schema-breaking-change-ack")} with rationale.`);
 process.exit(1);

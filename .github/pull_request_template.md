@@ -20,7 +20,7 @@
   - 
 - Architecture decision link (ADR/design note, if applicable):
   - 
-- [ ] Scope and constraints reviewed against `docs/poc-scope.md` and relevant `docs/RFC/*`
+- [ ] Scope and constraints reviewed against `docs/engine-profile.md` and relevant `docs/RFC/*`
 - [ ] If behavior/contract changed, corresponding spec/design docs were updated first or in this PR
 
 ## Architecture runway impact

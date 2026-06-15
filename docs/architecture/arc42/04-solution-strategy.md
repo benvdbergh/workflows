@@ -29,7 +29,7 @@
 |---------|-------|
 | **Hexagonal boundary** | Application port wraps graph operations; MCP is an adapter |
 | **Event sourcing lite** | Command/event streams as source for progression |
-| **Profile-driven narrowing** | `docs/poc-scope.md` is authoritative runtime subset |
+| **Profile-driven narrowing** | `docs/engine-profile.md` is authoritative runtime subset |
 
 ## 4.4 Activity execution positioning (implemented)
 

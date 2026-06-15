@@ -25,7 +25,7 @@
     "workflows-engine-mcp": "src/mcp-stdio-server.mjs"
   },
   "scripts": {
-    "prepack": "node ../../scripts/sync-engine-poc-schema.mjs",
+    "prepack": "node ../../scripts/sync-engine-schema.mjs",
     "test": "node --test test/*.mjs",
     "mcp:stdio": "node ./src/mcp-stdio-server.mjs"
   },

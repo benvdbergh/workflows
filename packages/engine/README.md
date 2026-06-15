@@ -1,6 +1,6 @@
 # `@agent-workflow/engine`
 
-Publishable npm package: **definition-time** validation for Agent Workflow Protocol workflow documents per [`docs/poc-scope.md`](../../docs/poc-scope.md), an **append-only execution history** port (SQLite or in-memory), a **linear graph runner**, and a **general graph walker** with `switch`, `interrupt` / resume, **parallel** join policies (`all` / `any` / `n_of_m`), **wait** (`duration` / `until`; `signal` needs a host), **set_state**, **`agent_delegate`** (in-process mock A2A), and **`subworkflow`** (nested runs with depth limit; register child defs via `registerWorkflowRef`).
+Publishable npm package: **definition-time** validation for Agent Workflow Protocol workflow documents per [`docs/engine-profile.md`](../../docs/engine-profile.md), an **append-only execution history** port (SQLite or in-memory), a **linear graph runner**, and a **general graph walker** with `switch`, `interrupt` / resume, **parallel** join policies (`all` / `any` / `n_of_m`), **wait** (`duration` / `until`; `signal` needs a host), **set_state**, **`agent_delegate`** (in-process mock A2A), and **`subworkflow`** (nested runs with depth limit; register child defs via `registerWorkflowRef`).
 
 ## Entrypoint (CLI)
 
@@ -144,7 +144,7 @@ The package exports:
 
 - `validateWorkflowDefinition(data)` — returns `{ ok: true }` or `{ ok: false, errors }` where `errors` is AJV’s `ErrorObject[]` (includes `instancePath`, `keyword`, `schemaPath`, etc.).
 - `compileWorkflowValidator()` — returns a reusable `(data) => { ok: true } | { ok: false, errors }` function; the compiled schema is cached per process.
-- `findWorkflowRepoRoot(startDir?)` — locates the **workflows** monorepo root (lighthouse fixture + root `package.json` named `workflows`) for tests and examples; schema loading prefers the bundled `packages/engine/schemas/workflow-definition-poc.json` when present.
+- `findWorkflowRepoRoot(startDir?)` — locates the **workflows** monorepo root (lighthouse fixture + root `package.json` named `workflows`) for tests and examples; schema loading prefers the bundled `packages/engine/schemas/workflow-definition.json` when present.
 - `runGraphWorkflow(...)` / `resumeGraphWorkflow(...)` / `submitActivityOutcome(...)` — general graph walker with `switch`, `interrupt`, parallel joins, and composition nodes (see **General graph orchestration** below).
 
 ### Linear orchestration
@@ -175,7 +175,7 @@ Phases: **validate** (bundled workflow schema + reject `state_schema.properties.
 
 `runGraphWorkflow` supports node types `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt`, `parallel`, `wait`, `set_state`, `agent_delegate`, and `subworkflow`. Phases and command/event names match the linear runner (`ExecutionStarted`, `ScheduleNode`, `NodeScheduled`, activity events, `CompleteNode`, `StateUpdated`, terminal `ExecutionCompleted` / `ExecutionFailed`), plus interrupt lifecycle: `RaiseInterrupt`, `InterruptRaised`, and on resume `ResumeInterrupt`, `InterruptResumed`. On entering an `interrupt` node the walker appends `RaiseInterrupt` / `InterruptRaised` (payload includes `nodeId` and a short `prompt` summary) and returns `{ status: 'interrupted', executionId, nodeId, state }` **without** `CompleteNode` for that node until `resumeGraphWorkflow` runs.
 
-**`switch` routing:** Successors come **only** from `config.cases` (first jq match wins; jq input root is the **current workflow state object**, same as the linear runner) and `config.default` when no case matches. If any `cases` exist and none match and `default` is omitted, the run fails with a clear error. **Static `edges` whose `source` is the switch node id are ignored for routing** (they may exist in documents; the engine does not follow them). This matches the routing guidance in `docs/poc-scope.md` (avoid duplicate routing channels).
+**`switch` routing:** Successors come **only** from `config.cases` (first jq match wins; jq input root is the **current workflow state object**, same as the linear runner) and `config.default` when no case matches. If any `cases` exist and none match and `default` is omitted, the run fails with a clear error. **Static `edges` whose `source` is the switch node id are ignored for routing** (they may exist in documents; the engine does not follow them). This matches the routing guidance in `docs/engine-profile.md` (avoid duplicate routing channels).
 
 **Static `edges` (non-switch):** Exactly one outgoing edge from `__start__`, and from each of `start`, `step`, `llm_call`, `tool_call`, and `interrupt`; none from `end`. The walker does not require outgoing edges from `switch` nodes.
 
@@ -265,10 +265,10 @@ history.close();
 
 ## Stable “valid definition” boundary (for later engine stories)
 
-- **Schema contract:** The engine validates against the same file as CI and `scripts/validate-workflows.mjs`: **`schemas/workflow-definition-poc.json`** (JSON Schema Draft 2020-12).
+- **Schema contract:** The engine validates against the same file as CI and `scripts/validate-workflows.mjs`: **`schemas/workflow-definition.json`** (JSON Schema Draft 2020-12).
 - **Ajv options:** `allErrors: true`, `strict: false` — identical to `scripts/validate-workflows.mjs` to avoid drift from “repo truth.”
 - **Engine-specific limits:** None beyond the schema and JSON parse rules. The engine does **not** enforce file size limits, `document.schema` version bumps, or trace companions; only the workflow **definition** JSON shape is checked.
-- **Resolution rule:** The engine loads `schemas/workflow-definition-poc.json` from the **published package** (`packages/engine/schemas/` next to `src/`, kept in sync with the repo canonical schema). In a full **workflows** monorepo checkout it can fall back to the root `schemas/` copy. `findWorkflowRepoRoot()` locates the monorepo root via `examples/lighthouse-customer-routing.workflow.json` and the root `package.json` named `workflows` (for tests and fixtures), not via schema path alone.
+- **Resolution rule:** The engine loads `schemas/workflow-definition.json` from the **published package** (`packages/engine/schemas/` next to `src/`, kept in sync with the repo canonical schema). In a full **workflows** monorepo checkout it can fall back to the root `schemas/` copy. `findWorkflowRepoRoot()` locates the monorepo root via `examples/lighthouse-customer-routing.workflow.json` and the root `package.json` named `workflows` (for tests and fixtures), not via schema path alone.
 
 ## Tests
 
@@ -288,6 +288,6 @@ Check that:
 
 - tarball metadata resolves to `@agent-workflow/engine` with the intended version/tag source,
 - both binaries are present: `src/cli.mjs` and `src/mcp-stdio-server.mjs`,
-- bundled workflow schema is present: `schemas/workflow-definition-poc.json`,
+- bundled workflow schema is present: `schemas/workflow-definition.json`,
 - runtime/library entrypoint is present: `src/index.mjs`,
 - payload is minimal (runtime `src/`, bundled `schemas/`, package docs), with no test fixtures or unrelated repository files.

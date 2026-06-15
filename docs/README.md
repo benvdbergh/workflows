@@ -19,7 +19,7 @@ This index makes the documentation information architecture explicit:
 - Contributor intake and support boundaries: [../CONTRIBUTING.md](../CONTRIBUTING.md), [../SUPPORT.md](../SUPPORT.md)
 - Alpha security baseline posture: [security/alpha-security-baseline.md](security/alpha-security-baseline.md)
 - Accepted security gaps register: [security/security-gap-register.md](security/security-gap-register.md)
-- Engine profile (normative subset for the reference engine): [poc-scope.md](poc-scope.md)
+- Engine profile (normative subset for the reference engine): [engine-profile.md](engine-profile.md)
 - Specification overview: [RFC/rfc-00-overview.md](RFC/rfc-00-overview.md)
 
 ## Architecture and Demo Walkthroughs

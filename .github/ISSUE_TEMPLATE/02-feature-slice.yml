@@ -43,7 +43,7 @@ body:
       description: Link the relevant RFC sections, scope notes, and design/ADR docs that define this slice.
       placeholder: |
         RFC trace:
-        POC scope impact:
+        engine profile impact:
         Design/ADR link:
     validations:
       required: true

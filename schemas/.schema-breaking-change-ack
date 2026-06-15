@@ -1,4 +1,4 @@
-BEN-8 (v1 profile): migrated JSON Schema $id from
-https://example.org/agent-workflow/poc/v1/workflow-definition
-to https://agent-workflow.dev/schemas/workflow-definition/v1.json.
-Workflow instances must set document.schema to the new URI per docs/poc-scope.md.
+Canonical naming cleanup: JSON Schema $id and document.schema URI are
+https://agent-workflow.dev/schemas/workflow-definition.json
+(on-disk entry schema: schemas/workflow-definition.json).
+Workflow instances should set document.schema to that URI per docs/engine-profile.md.

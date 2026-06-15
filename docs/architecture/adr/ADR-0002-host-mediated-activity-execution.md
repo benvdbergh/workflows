@@ -57,7 +57,7 @@ That posture extends **Option C (hybrid)** and optional **Option A**-style surfa
 ## References
 
 - [`docs/architecture/arc42/06-runtime-view.md`](../arc42/06-runtime-view.md) (host-mediated flow + MCP loop)
-- `docs/poc-scope.md`
+- `docs/engine-profile.md`
 - `docs/RFC/rfc-04-execution-model.md`, `docs/RFC/rfc-05-integration-interfaces.md`, `docs/RFC/rfc-06-interoperability.md`
 - `docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md`
 - `ROADMAP.md`

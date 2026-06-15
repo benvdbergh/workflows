@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.org/agent-workflow/v1/workflow-definition",
+  "$id": "https://agent-workflow.dev/schemas/workflow-definition.json/workflow-definition",
   "title": "Agent Workflow Protocol — workflow definition",
   "description": "JSON Schema for Agent Workflow Protocol workflow documents (includes parallel, wait, set_state orchestration nodes). Normative semantics follow RFC-03 workflow definition schema.",
   "type": "object",

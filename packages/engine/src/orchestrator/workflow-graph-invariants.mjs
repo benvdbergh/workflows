@@ -3,7 +3,7 @@
  * (single start/end, deterministic fan-out, interrupt/parallel edge counts).
  */
 
-/** @see docs/poc-scope.md §3 — interrupt inside a parallel branch is not resume-safe. */
+/** @see docs/engine-profile.md §3 — interrupt inside a parallel branch is not resume-safe. */
 export const INTERRUPT_IN_PARALLEL_BRANCH_CODE = "INTERRUPT_IN_PARALLEL_BRANCH";
 
 export class InterruptInParallelBranchError extends Error {

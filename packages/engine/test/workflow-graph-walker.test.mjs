@@ -501,7 +501,7 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
     /** @type {object} */
     const definition = {
       document: {
-        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
         name: "host-med-linear",
         version: "1.0.0",
       },
@@ -593,7 +593,7 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
     /** @type {object} */
     const definition = {
       document: {
-        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
         name: "host-input-check",
         version: "1.0.0",
       },
@@ -647,7 +647,7 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
     /** @type {object} */
     const definition = {
       document: {
-        schema: "https://example.org/agent-workflow/poc/v1/workflow-definition",
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
         name: "host-med-parallel",
         version: "1.0.0",
       },
@@ -731,12 +731,12 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
   });
 
   it("submitActivityOutcome forwards subworkflowDepth to continuation (max depth enforced)", async () => {
-    const pocSchema = "https://example.org/agent-workflow/poc/v1/workflow-definition";
+    const workflowDefinitionSchemaUri = "https://agent-workflow.dev/schemas/workflow-definition.json";
     const stateSchema = { type: "object", properties: { marker: { type: "string" } } };
 
     /** @type {object} */
     const deepest = {
-      document: { schema: pocSchema, name: "depth-deepest", version: "1.0.0" },
+      document: { schema: workflowDefinitionSchemaUri, name: "depth-deepest", version: "1.0.0" },
       state_schema: stateSchema,
       nodes: [
         { id: "start", type: "start" },
@@ -750,7 +750,7 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
 
     /** @type {object} */
     const inner = {
-      document: { schema: pocSchema, name: "depth-inner", version: "1.0.0" },
+      document: { schema: workflowDefinitionSchemaUri, name: "depth-inner", version: "1.0.0" },
       state_schema: stateSchema,
       nodes: [
         { id: "start", type: "start" },
@@ -773,7 +773,7 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
 
     /** @type {object} */
     const middle = {
-      document: { schema: pocSchema, name: "depth-middle", version: "1.0.0" },
+      document: { schema: workflowDefinitionSchemaUri, name: "depth-middle", version: "1.0.0" },
       state_schema: stateSchema,
       nodes: [
         { id: "start", type: "start" },

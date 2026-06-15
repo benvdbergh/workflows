@@ -1,6 +1,6 @@
 {
   "id": "schema.valid.conformance_agent_delegate_linear",
-  "description": "Linear agent_delegate conformance fixture validates against the POC schema.",
+  "description": "Linear agent_delegate conformance fixture validates against the workflow schema.",
   "kind": "schema",
   "definition": "examples/conformance-agent-delegate-linear.workflow.json",
   "expect": {

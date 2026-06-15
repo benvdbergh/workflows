@@ -4,7 +4,7 @@
 **Series:** Agent Workflow Protocol (working title)  
 **Related:** [Execution Model](rfc-04-execution-model.md) · [Integration Interfaces](rfc-05-integration-interfaces.md) · [Governance and Adoption](rfc-09-governance-adoption.md)
 
-**As-built note:** This monorepo currently ships a **Node.js** reference implementation as npm package **`@agent-workflow/engine`** under `packages/engine/`, aligned with [`docs/poc-scope.md`](../poc-scope.md). The component and folder layout in §8.4 remains an informative target for a broader multi-language artifact tree.
+**As-built note:** This monorepo currently ships a **Node.js** reference implementation as npm package **`@agent-workflow/engine`** under `packages/engine/`, aligned with [`docs/engine-profile.md`](../engine-profile.md). The component and folder layout in §8.4 remains an informative target for a broader multi-language artifact tree.
 
 ---
 

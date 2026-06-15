@@ -7,7 +7,7 @@
 | **Correctness — replay** | History + definition determines progression | Replay vectors under `conformance/vectors/replay/`; walker tests |
 | **Correctness — schema** | Invalid definitions rejected | `*.vector.json` (`kind: "schema"`) + `npm run validate-workflows` |
 | **Maintainability — boundary clarity** | MCP isolated behind application port | Adapter tests (`packages/engine/test/mcp-stdio-adapter.test.mjs` and related) |
-| **Compliance — profile fidelity** | Node type surface matches scope | AJV enums + poc-scope assertions in documentation |
+| **Compliance — profile fidelity** | Node type surface matches scope | AJV enums + engine-profile assertions in documentation |
 | **Operability — smoke reproducibility** | Operator can exercise MCP lifecycle | [`../arc42-assets/runbooks/mcp-stdio-host-smoke.md`](../arc42-assets/runbooks/mcp-stdio-host-smoke.md) |
 
 ## 10.2 Non-functional backlog (stretch vs GA)
@@ -28,7 +28,7 @@ Themes from **`ROADMAP.md`** not fully realized in reference-engine tooling:
 | `npm run validate-workflows` | CI + local |
 | `npm run conformance` | CI |
 | `npm test` (engine workspace) | CI |
-| `npm run check-engine-poc-schema-sync` | Ensures bundled schema fidelity |
+| `npm run check-engine-schema-sync` | Ensures bundled schema fidelity |
 
 ## 10.4 Architecture strengths (as-is reinforcement)
 
@@ -36,7 +36,7 @@ Together these properties keep the reference engine auditable despite limited su
 
 | Strength | Meaning |
 |---------|---------|
-| **Profile boundary clarity** | `docs/poc-scope.md` cleanly narrows runnable semantics beneath the RFC family. |
+| **Profile boundary clarity** | `docs/engine-profile.md` cleanly narrows runnable semantics beneath the RFC family. |
 | **Deterministic command/event lineage** | History + schema-valid definition drives **replay-shaped** advancement (`workflow-graph-walker.mjs`). |
 | **Hexagonal MCP boundary** | `createWorkflowApplicationPort` shields orchestration logic from MCP transport quirks. |
 | **Conformance harness** | Vectors institutionalize regressions beside golden examples. |

@@ -6,7 +6,7 @@ This directory contains the **[arc42](https://arc42.org/)** template applied to 
 - baseline before new features (**where to extend**),
 - alignment with **[C4 model](https://c4model.com/)** diagrams in [`../arc42-assets/diagrams/as-built-views.drawio`](../arc42-assets/diagrams/as-built-views.drawio).
 
-**Status:** As-is baseline. Normative protocol intent remains in [`docs/RFC/`](../../RFC/); engine profile subset in [`docs/poc-scope.md`](../../poc-scope.md).
+**Status:** As-is baseline. Normative protocol intent remains in [`docs/RFC/`](../../RFC/); engine profile subset in [`docs/engine-profile.md`](../../engine-profile.md).
 
 ## Section index
 
@@ -37,7 +37,7 @@ This directory contains the **[arc42](https://arc42.org/)** template applied to 
 |-------|------|
 | Host-mediated versus engine-direct | [`../adr/ADR-0002-host-mediated-activity-execution.md`](../adr/ADR-0002-host-mediated-activity-execution.md), [`../adr/ADR-0003-engine-direct-mcp-activity-execution.md`](../adr/ADR-0003-engine-direct-mcp-activity-execution.md) |
 | Engine package surface | [`../../../packages/engine/README.md`](../../../packages/engine/README.md) |
-| Profile & schema authority | [`../../poc-scope.md`](../../poc-scope.md) |
+| Profile & schema authority | [`../../engine-profile.md`](../../engine-profile.md) |
 | Replay / conformance harness | [`../../../conformance/README.md`](../../../conformance/README.md) |
 | RFC execution model & reference impl narratives | [`../../RFC/rfc-04-execution-model.md`](../../RFC/rfc-04-execution-model.md), [`../../RFC/rfc-08-reference-implementation.md`](../../RFC/rfc-08-reference-implementation.md) |
 
