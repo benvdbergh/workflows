@@ -56,6 +56,7 @@ MCP operator quickstart for end users: [docs/user/mcp-operator-guide.md](user/mc
 ## Releases and governance
 
 - Spec and architecture governance: [governance/spec-architecture-governance.md](governance/spec-architecture-governance.md)
+- Release process overview (tag-triggered): [releases/README.md](releases/README.md)
 - Alpha release notes (changelog): [releases/alpha-release-notes.md](releases/alpha-release-notes.md)
 - Versioning and release commit flow: [releases/alpha-versioning-and-release-commit-flow.md](releases/alpha-versioning-and-release-commit-flow.md)
 - CI/CD packaging governance: [releases/alpha-ci-cd-packaging-governance.md](releases/alpha-ci-cd-packaging-governance.md)

@@ -27,7 +27,7 @@ For **`benvdbergh/workflows`**, epics/stories, acceptance criteria, and planning
   - Epic/story decomposition and traceability mechanics (escalate to `project-planning`; **emit artifacts as Linear milestones/issues** per `references/workflows-linear-backlog-override.md`).
   - Branch/PR linkage, CI gates, and execution-close hygiene (defer to `wf-execute`).
   - Deep technical architecture decisions and topology validation (escalate to `software-architecture`).
-  - SemVer and release/version policy definition (escalate to `release-versioning`).
+  - SemVer and release/version policy definition (escalate to `release-versioning`; release cut execution to `wf-release`).
 
 ## Mandatory Behaviors
 

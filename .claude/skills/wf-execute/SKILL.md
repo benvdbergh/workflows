@@ -40,7 +40,7 @@ This skill is orchestration-only. It does not replace deep planning, coding qual
 
 - Story decomposition quality and dependency slicing.
 - Code architecture, implementation standards, or refactoring strategy.
-- Release version bump policy, changelog policy, or SemVer interpretation.
+- Release version bump policy, changelog policy, or SemVer interpretation (escalate to **`release-versioning`**; release cut execution to **`wf-release`**).
 - Triage taxonomy design, SLA definition, or intake policy design.
 
 Use `references/skill-escalation.md` for escalation criteria.
@@ -130,7 +130,7 @@ Escalate to `minimalist-coding` when implementation quality or architectural sim
 4. Document blockers and runway dependencies that affected delivery.
 5. Publish a short close report with done/carryover/risks/next actions.
 
-Escalate to `release-versioning` for release policy, SemVer decisions, and changelog governance.
+Escalate to `wf-release` for release preflight, tag push, and postflight; escalate to `release-versioning` for SemVer policy and changelog governance.
 
 ### Triggered interaction
 - "close release execution report"
@@ -144,6 +144,7 @@ Always escalate by intent:
 - `project-planning`: decomposition, sequencing, dependency mapping, acceptance shaping (artifacts = Linear per `../wf-plan/references/workflows-linear-backlog-override.md`).
 - `minimalist-coding`: implementation quality, clean layering, YAGNI, maintainable change design.
 - `release-versioning`: release semantics, version bump rationale, release notes/changelog policy.
+- `wf-release`: preflight, tag push gate, postflight verification, break-glass recovery.
 - `repo-triage-pr-ops`: GitHub issue/PR ops model, routing, labels (community intake).
 
 See `references/skill-escalation.md` for ownership boundaries and handoff triggers.

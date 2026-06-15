@@ -1,15 +1,16 @@
 # Alpha CI/CD Packaging Governance
 
-**Last reviewed:** 2026-04-13
+**Last reviewed:** 2026-06-15
 
 This document defines the governed GitHub Actions release packaging and publish paths for alpha, and maps workflows to required checks, permissions, and operational controls.
 
 ## 1) Workflow map (reuse strategy)
 
 - `validate-workflows.yml` (event workflow) calls reusable workflow `.github/workflows/reusable-validate-and-test.yml` on every **push**, on **pull_request** to `main`/`master`, **merge_group**, and **workflow_dispatch**.
-- `release-packaging.yml` (manual workflow) calls the same reusable workflow for quality gates, then executes package build/upload.
-- `release-npm-publish.yml` (manual workflow) calls the same reusable workflow for quality gates, then performs trusted npm publish for `@agent-workflow/engine`.
-- `docs-publish.yml` (manual workflow) optionally runs quality gates, builds end-user docs from `docs/user/`, and deploys versioned GitHub Pages via `mike` to the `gh-pages` branch.
+- **`release.yml` (primary path)** runs on **push** of tags matching `v*`. Orchestrates quality gates, package artifact upload, trusted npm publish, GitHub Pages docs deploy, and GitHub Release creation. Maintainer gate is **annotated tag push** on a green `master` commit (see `.claude/skills/wf-release/` and [alpha-versioning-and-release-commit-flow.md](alpha-versioning-and-release-commit-flow.md)).
+- `release-packaging.yml` (**break-glass** manual workflow) calls the same reusable workflow for quality gates, then executes package build/upload.
+- `release-npm-publish.yml` (**break-glass** manual workflow) calls the same reusable workflow for quality gates, then performs trusted npm publish for `@agent-workflow/engine`.
+- `docs-publish.yml` (**break-glass** manual workflow) optionally runs quality gates, builds end-user docs from `docs/user/`, and deploys versioned GitHub Pages via `mike` to the `gh-pages` branch.
 - Reuse model: one shared validation unit via `workflow_call` to keep gate logic and command set consistent across CI and release packaging.
 
 ## 2) Required checks mapping and stable names
@@ -17,15 +18,21 @@ This document defines the governed GitHub Actions release packaging and publish 
 For protected branch policy, keep these check names stable:
 
 - `Validate workflow definitions / validate-workflows` (branch and PR merge gate)
-- `Release packaging (manual) / release-quality-gates` (manual release evidence gate)
-- `Release packaging (manual) / package-npm-artifact` (artifact generation stage)
-- `Release npm publish (manual) / release-quality-gates` (manual publish evidence gate)
-- `Release npm publish (manual) / publish-engine-package` (trusted publish stage)
+- `Release (tag) / release-quality-gates` (tag-triggered release evidence gate)
+- `Release (tag) / package-npm-artifact` (tag-triggered artifact generation)
+- `Release (tag) / publish-engine-package` (tag-triggered trusted publish)
+- `Release (tag) / publish-github-pages` (tag-triggered docs deploy)
+- `Release (tag) / create-github-release` (GitHub Release for tag)
+- `Release packaging (manual) / release-quality-gates` (break-glass release evidence gate)
+- `Release packaging (manual) / package-npm-artifact` (break-glass artifact generation)
+- `Release npm publish (manual) / release-quality-gates` (break-glass publish evidence gate)
+- `Release npm publish (manual) / publish-engine-package` (break-glass trusted publish)
 
 Policy guidance:
 
 - Treat `Validate workflow definitions / validate-workflows` as required for branch merge.
-- Keep release checks non-required for day-to-day PRs; use them for release operations and audit evidence.
+- Tag-triggered release checks are evidence for shipped versions; keep them non-required for day-to-day PRs.
+- Manual release checks remain for break-glass recovery only.
 - If branch protection rules are updated, preserve these exact names to avoid accidental policy drift.
 
 ## 3) Permissions map (least privilege)
@@ -35,7 +42,9 @@ All workflows default to read-only repository scope unless a job has an explicit
 - Workflow-level permissions:
   - `contents: read`
 - Job-level deltas:
-  - `release-npm-publish.yml` publish job adds `id-token: write` for npm trusted publishing provenance.
+  - `release.yml` `publish-engine` job adds `id-token: write` for npm trusted publishing provenance.
+  - `release.yml` `publish-docs` and `create-github-release` jobs add `contents: write` for `gh-pages` deploy and GitHub Release creation.
+  - `release-npm-publish.yml` publish job adds `id-token: write` for npm trusted publishing provenance (break-glass).
 
 No job currently requires:
 
@@ -58,8 +67,16 @@ Release packaging and publish reuse the same core quality gate commands contribu
 4. `npm pack --dry-run`
 5. `npm pack`
 
-The release path is manual (`workflow_dispatch`) and requires an explicit `release_ref` input (tag/branch/SHA).
-The publish path is also manual (`workflow_dispatch`) and requires both explicit `release_ref` and `dist_tag` (`alpha`/`latest`) inputs.
+**Primary release path:** push annotated tag `v*` → `release.yml` runs on that ref. Tag suffix selects defaults:
+
+| Tag pattern | npm dist-tag | Docs `latest` alias |
+|-------------|--------------|---------------------|
+| `v0.y.z-alpha.N` | `alpha` | no |
+| `v0.y.z` (baseline) | `latest` | yes |
+
+Enforced in CI: tag base version must match `packages/engine/package.json` version; npm publish is skipped when the version already exists on the registry (idempotency).
+
+**Break-glass path:** manual `workflow_dispatch` on packaging/publish/docs workflows with explicit `release_ref` (and `dist_tag` for npm publish).
 
 ## 5) Action pinning inventory
 
@@ -85,16 +102,17 @@ Pinning policy status:
 - Cache strategy: `setup-node` npm cache enabled.
   - Rationale: lower install time and runner minutes while keeping lockfile-resolved installs via `npm ci`.
 - Cost controls:
-  - Manual release/publish triggers only (no automated publish loops).
+  - Tag-triggered release runs only when maintainers push `v*` tags (human gate).
+  - Manual workflows reserved for break-glass (no unattended publish loops).
   - No broad matrix expansion.
   - Job `timeout-minutes` set on reusable, packaging, and publish jobs.
   - Concurrency for `validate-workflows` cancels superseded runs on same ref.
 
-## 7) Trusted publish path (manual, in automation)
+## 7) Trusted publish path (tag-triggered, with break-glass)
 
-Publishing is performed by `release-npm-publish.yml` and is intentionally separated from packaging.
+Publishing is performed by `release.yml` on tag push. Break-glass republish uses `release-npm-publish.yml`.
 
-Publish workflow prerequisites:
+Publish prerequisites:
 
 1. npm package `@agent-workflow/engine` is configured for public publish (`publishConfig.access=public`).
 2. npm trusted publishing is configured for this repository and package in npm settings.
@@ -102,15 +120,14 @@ Publish workflow prerequisites:
 4. Intended version has not already been published for the selected dist-tag.
 5. Published package `package.json` includes `repository.url` matching the GitHub repo used for trusted publishing (npm validates this when using `--provenance`; an empty or wrong URL yields `E422`).
 
-Trusted publish runbook:
+Trusted publish runbook (primary):
 
-1. Trigger `Release npm publish (manual)` with:
-   - `release_ref`: intended tag/branch/SHA
-   - `dist_tag`: `alpha` for channel builds, `latest` for accepted baseline promotions
-   - `also_point_latest_dist_tag`: `false` by default (alpha drops stay off `latest`). Set `true` only when intentionally promoting this exact version to npm `latest` after publish (runs `npm dist-tag add @agent-workflow/engine@<version> latest`).
-2. Confirm `release-quality-gates` passes.
-3. Verify `publish-engine-package` success and capture npm publish logs in release evidence.
-4. Update release notes/tag metadata with published version and dist-tag.
+1. Complete preflight per `.claude/skills/wf-release/` and [alpha-versioning-and-release-commit-flow.md](alpha-versioning-and-release-commit-flow.md).
+2. Push annotated tag (`v0.y.z` or `v0.y.z-alpha.N`) on the release commit.
+3. Confirm `Release (tag)` workflow jobs succeed (`release-quality-gates`, `publish-engine-package`, `publish-github-pages`, `create-github-release`).
+4. Postflight: verify npm version, docs URLs, and GitHub Release body.
+
+Break-glass: trigger `Release npm publish (manual)` with explicit `release_ref` and `dist_tag` when tag automation failed or channel override is required.
 
 Troubleshooting quick reference:
 

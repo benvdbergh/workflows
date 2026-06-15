@@ -1,4 +1,4 @@
-name: Release npm publish (manual)
+name: Release npm publish (manual, break-glass)
 
 on:
   workflow_dispatch:

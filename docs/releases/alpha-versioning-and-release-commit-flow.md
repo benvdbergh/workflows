@@ -1,8 +1,10 @@
 # Alpha Versioning and Final Release Commit Flow
 
-**Last reviewed:** 2026-05-04
+**Last reviewed:** 2026-06-15
 
 This policy keeps alpha releases predictable while the repository remains pre-1.0.
+
+**Operator skill:** `.claude/skills/wf-release/` — preflight, tag push, postflight, and break-glass routing.
 
 ## 1) Alpha SemVer policy (`0.y.z`)
 
@@ -35,7 +37,7 @@ If a release contains mixed commit types, choose the highest required bump for i
 
 ## 3) Final release commit checklist
 
-Run from repository root before creating the final release commit/tag:
+Run from repository root before pushing the release tag. Use **`wf-release`** preflight (`references/preflight-checklist.md`) for the full gate list.
 
 1. **Working tree sanity**
    - Confirm intended files only; avoid accidental unrelated changes.
@@ -44,31 +46,31 @@ Run from repository root before creating the final release commit/tag:
    - `npm run conformance`
 3. **Package verification**
    - `npm test`
-   - `npm pack --dry-run`
-   - Confirm `package.json` version matches intended release tag.
-   - Optional governed packaging run: trigger `Release packaging (manual)` workflow with `release_ref` set to the intended tag or commit, then inspect generated `*.tgz` artifact.
-   - Optional governed trusted publish: trigger `Release npm publish (manual)` with explicit `release_ref` and `dist_tag` (`alpha` or `latest`) after packaging confidence is complete.
+   - `npm pack --dry-run --workspace @agent-workflow/engine`
+   - Confirm `package.json` version matches intended release tag **base** (`v0.1.3-alpha.1` → `0.1.3`).
 4. **Documentation and release narrative**
    - Update `docs/releases/alpha-release-notes.md` using the template/process below.
    - Update `docs/user/` when operator or author guidance changes.
    - Record known limitations and any upgrade caveats for consumers.
-5. **Publish end-user docs (after tag push)**
-   - Trigger **Docs publish (manual)** with `release_ref` set to the release tag (e.g. `v0.1.2`).
-   - Set `promote_latest: true` for baseline alpha cuts.
-   - Confirm site URLs in release notes (see template below).
-6. **Release commit + tag**
-   - Create a dedicated release commit (docs + versioning changes only where practical).
-   - Create and push tag:
+5. **Merge to `master` and confirm CI**
+   - `Validate workflow definitions` must pass on the release commit.
+6. **Tag push (human gate → automation)**
+   - Create and push annotated tag:
      - iteration: `v0.y.z-alpha.N`
      - accepted alpha baseline: `v0.y.z`
+   - Push triggers **`Release (tag)`** workflow (`.github/workflows/release.yml`): quality gates → npm pack artifact → npm publish → docs → GitHub Release.
+7. **Postflight**
+   - Verify npm, docs URLs, and GitHub Release per `wf-release` postflight checklist.
 
 ## 3.1) CI/CD governance references
 
 - Workflow and permissions map: [alpha-ci-cd-packaging-governance.md](alpha-ci-cd-packaging-governance.md)
 - Shared quality gate workflow: `.github/workflows/reusable-validate-and-test.yml`
-- Manual packaging workflow: `.github/workflows/release-packaging.yml`
-- Manual trusted publish workflow: `.github/workflows/release-npm-publish.yml`
-- Manual docs publish workflow: `.github/workflows/docs-publish.yml`
+- **Primary tag-triggered release:** `.github/workflows/release.yml`
+- Break-glass manual packaging: `.github/workflows/release-packaging.yml`
+- Break-glass manual trusted publish: `.github/workflows/release-npm-publish.yml`
+- Break-glass manual docs publish: `.github/workflows/docs-publish.yml`
+- Maintainer skill: `.claude/skills/wf-release/`
 
 ## 4) Release notes and changelog process (repeatable)
 

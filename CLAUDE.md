@@ -48,7 +48,7 @@ Lighthouse fixture:
 npx --yes ajv-cli@5 validate -s schemas/workflow-definition.json -d examples/lighthouse-customer-routing.workflow.json --spec=draft2020
 ```
 
-**CI:** `.github/workflows/validate-workflows.yml` runs the reusable `reusable-validate-and-test.yml` workflow (validate + conformance + test) on pushes and pull requests to `main` and `master`. Manual `release-packaging.yml` and `release-npm-publish.yml` workflows gate release artifacts and trusted npm publishes behind the same quality-gate reusable. All workflows run Node.js 24.
+**CI:** `.github/workflows/validate-workflows.yml` runs the reusable `reusable-validate-and-test.yml` workflow (validate + conformance + test) on pushes and pull requests to `main` and `master`. **Tag push** (`v*`) triggers `.github/workflows/release.yml` (gates → pack → npm publish → docs → GitHub Release). Break-glass manual `release-packaging.yml`, `release-npm-publish.yml`, and `docs-publish.yml` remain for recovery. All workflows run Node.js 24.
 
 ## MCP stdio adapter (no-install)
 
@@ -89,11 +89,11 @@ MCP tools exposed: `workflow_start`, `workflow_status`, `workflow_resume`, `work
 
 **MCP adapter is layered over a stable application port.** `createWorkflowApplicationPort` is the internal boundary. The MCP stdio server (`mcp-stdio-server.mjs`) maps MCP request DTOs to that port and translates engine failures into structured tool errors with stable error codes (`VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, activity-submit codes `ACTIVITY_SUBMIT_NOT_AWAITING`, `ACTIVITY_SUBMIT_NODE_MISMATCH`, `ACTIVITY_SUBMIT_PARALLEL_MISMATCH`, `SUBMIT_VALIDATION_ERROR`, `ENGINE_FAILURE`, `INTERNAL_ERROR`).
 
-**Release pipeline is fully manual and trusted-publish-based.** npm publish uses OIDC provenance (`--provenance`); no secrets stored in the repo. Release ops require `id-token: write` on the publish job only. See `docs/releases/alpha-ci-cd-packaging-governance.md` for the full permissions map and gate design.
+**Release pipeline is tag-triggered with a human gate.** Maintainers push annotated `v*` tags on green `master` commits; `release.yml` runs quality gates, packaging, OIDC npm publish (`--provenance`), docs deploy, and GitHub Release creation. Use the **`wf-release`** skill for preflight/postflight; break-glass manual workflows remain. See `docs/releases/alpha-ci-cd-packaging-governance.md` for permissions and gate design.
 
 ## Work item conventions
 
-**Canonical backlog:** Linear milestones and issues on the workflows project hold epic/story intent, acceptance criteria, status, and links to RFC/`docs/engine-profile.md`/ADRs. Use the `wf-plan`, `wf-design`, and `wf-execute` skills and `.project-planning.yaml` (`delivery_tracker: linear`) for Linear MCP conventions. The global `project-planning` skill still applies to **process** (decomposition, dependencies, readiness); this repository **overrides the artifact location** to Linear per `workflows-linear-backlog-override.md`.
+**Canonical backlog:** Linear milestones and issues on the workflows project hold epic/story intent, acceptance criteria, status, and links to RFC/`docs/engine-profile.md`/ADRs. Use the `wf-plan`, `wf-design`, `wf-execute`, and `wf-release` skills and `.project-planning.yaml` (`delivery_tracker: linear`) for Linear MCP conventions. The global `project-planning` skill still applies to **process** (decomposition, dependencies, readiness); this repository **overrides the artifact location** to Linear per `workflows-linear-backlog-override.md`.
 
 **Legacy:** Historical per-epic and per-story markdown under `docs` was removed after earlier backlog migrations; GitHub Project #4 is legacy for planning. Do not recreate planning markdown or duplicate backlog in GitHub issues.
 

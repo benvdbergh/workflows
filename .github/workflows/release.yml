@@ -1,0 +1,320 @@
+name: Release (tag)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  resolve-release:
+    name: resolve-release-metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      base_version: ${{ steps.meta.outputs.base_version }}
+      dist_tag: ${{ steps.meta.outputs.dist_tag }}
+      promote_latest: ${{ steps.meta.outputs.promote_latest }}
+    steps:
+      - name: Derive release metadata from tag
+        id: meta
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          BASE="${TAG#v}"
+          BASE="${BASE%%-alpha.*}"
+          if [[ "$TAG" =~ -alpha\.[0-9]+$ ]]; then
+            DIST_TAG="alpha"
+            PROMOTE="false"
+          else
+            DIST_TAG="latest"
+            PROMOTE="true"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "base_version=${BASE}" >> "$GITHUB_OUTPUT"
+          echo "dist_tag=${DIST_TAG}" >> "$GITHUB_OUTPUT"
+          echo "promote_latest=${PROMOTE}" >> "$GITHUB_OUTPUT"
+          echo "Release tag ${TAG} → package base ${BASE}, npm dist-tag ${DIST_TAG}, docs promote_latest=${PROMOTE}"
+
+  quality-gates:
+    name: release-quality-gates
+    needs: resolve-release
+    uses: ./.github/workflows/reusable-validate-and-test.yml
+    with:
+      checkout_ref: ${{ needs.resolve-release.outputs.tag }}
+      node_version: "24"
+      run_tests: true
+    permissions:
+      contents: read
+
+  package-artifact:
+    name: package-npm-artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - resolve-release
+      - quality-gates
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-release.outputs.tag }}
+
+      - name: Verify tag matches package version
+        run: |
+          set -euo pipefail
+          BASE="${{ needs.resolve-release.outputs.base_version }}"
+          PKG=$(jq -r .version packages/engine/package.json)
+          if [ "$BASE" != "$PKG" ]; then
+            echo "::error::Tag base version ${BASE} does not match packages/engine/package.json version ${PKG}"
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify package contents (workspace dry run)
+        run: npm pack --dry-run --workspace @agent-workflow/engine
+
+      - name: Build package tarball (workspace)
+        run: npm pack --workspace @agent-workflow/engine
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-package-${{ needs.resolve-release.outputs.tag }}
+          path: "*.tgz"
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-engine:
+    name: publish-engine-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - resolve-release
+      - quality-gates
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      published: ${{ steps.outcome.outputs.published }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-release.outputs.tag }}
+
+      - name: Read engine version
+        id: version
+        run: |
+          VERSION=$(jq -r .version packages/engine/package.json)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches package version
+        run: |
+          set -euo pipefail
+          BASE="${{ needs.resolve-release.outputs.base_version }}"
+          PKG="${{ steps.version.outputs.version }}"
+          if [ "$BASE" != "$PKG" ]; then
+            echo "::error::Tag base version ${BASE} does not match packages/engine/package.json version ${PKG}"
+            exit 1
+          fi
+
+      - name: Set up Node.js for npm registry
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify package contents (workspace dry run)
+        run: npm pack --dry-run --workspace @agent-workflow/engine
+
+      - name: Check whether version is already published
+        id: check
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          PKG="@agent-workflow/engine"
+          if npm view "${PKG}@${VERSION}" version 2>/dev/null | grep -qx "${VERSION}"; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "${PKG}@${VERSION} is already on npm; publish will be skipped."
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish engine package with provenance
+        id: publish
+        if: steps.check.outputs.already_published != 'true'
+        env:
+          DIST_TAG: ${{ needs.resolve-release.outputs.dist_tag }}
+        run: npm publish --workspace @agent-workflow/engine --tag "$DIST_TAG" --access public --provenance
+
+      - name: Record publish outcome
+        id: outcome
+        if: always()
+        run: |
+          if [ "${{ steps.check.outputs.already_published }}" = "true" ]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.publish.outcome }}" = "success" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish-docs:
+    name: publish-github-pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - resolve-release
+      - quality-gates
+      - publish-engine
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-release.outputs.tag }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Read engine version
+        id: version
+        run: |
+          VERSION=$(jq -r .version packages/engine/package.json)
+          echo "engine_version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install MkDocs and mike
+        run: pip install -r website/requirements.txt
+
+      - name: Build docs site sources
+        run: node scripts/build-docs-site.mjs --version ${{ steps.version.outputs.engine_version }}
+
+      - name: Configure git for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy versioned docs with mike
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.engine_version }}"
+          cd website
+          if [ "${{ needs.resolve-release.outputs.promote_latest }}" = "true" ]; then
+            mike deploy --push --update-aliases "${VERSION}" latest
+          else
+            mike deploy --push "${VERSION}"
+          fi
+          mike set-default latest --push
+
+      - name: Publish summary
+        run: |
+          VERSION="${{ steps.version.outputs.engine_version }}"
+          echo "Published docs version ${VERSION} to gh-pages branch."
+          echo "Site URL: https://benvdbergh.github.io/workflows/"
+          echo "Schema mirror: https://benvdbergh.github.io/workflows/schemas/${VERSION}/workflow-definition.json"
+
+  create-github-release:
+    name: create-github-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - resolve-release
+      - package-artifact
+      - publish-engine
+      - publish-docs
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve-release.outputs.tag }}
+
+      - name: Extract release notes section
+        id: notes
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.resolve-release.outputs.tag }}"
+          NOTES_FILE="docs/releases/alpha-release-notes.md"
+          if [ ! -f "$NOTES_FILE" ]; then
+            echo "body=Release ${TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BODY=$(awk -v tag="$TAG" '
+            $0 ~ "^## " tag "$" { found=1; next }
+            found && /^## v/ { exit }
+            found { print }
+          ' "$NOTES_FILE")
+          if [ -z "${BODY//[[:space:]]/}" ]; then
+            BODY="Release ${TAG}. See ${NOTES_FILE}."
+          fi
+          {
+            echo "body<<EOF"
+            echo "$BODY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve-release.outputs.tag }}
+          VERSION: ${{ needs.publish-engine.outputs.version }}
+          PUBLISHED: ${{ needs.publish-engine.outputs.published }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub Release ${TAG} already exists; skipping create."
+            exit 0
+          fi
+          NOTES_FILE=$(mktemp)
+          printf '%s\n' "${{ steps.notes.outputs.body }}" > "$NOTES_FILE"
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "**npm:** @agent-workflow/engine@${VERSION}"
+            if [ "$PUBLISHED" = "true" ]; then
+              echo "**Publish:** new publish in this workflow run"
+            else
+              echo "**Publish:** skipped (version already on registry)"
+            fi
+            echo "**Docs:** https://benvdbergh.github.io/workflows/"
+          } >> "$NOTES_FILE"
+          gh release create "$TAG" --title "$TAG" --notes-file "$NOTES_FILE"

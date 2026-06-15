@@ -1,4 +1,4 @@
-name: Release packaging (manual)
+name: Release packaging (manual, break-glass)
 
 on:
   workflow_dispatch:

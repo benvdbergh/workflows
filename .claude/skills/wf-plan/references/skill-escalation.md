@@ -19,6 +19,7 @@
 |---------|-------------|-----------------|
 | Vision → multi-horizon roadmap shape | `product-roadmap` | Outcome-oriented roadmap with commitment tiers |
 | Release slice needs version policy | `release-versioning` | SemVer / release semantics aligned to `ROADMAP.md` |
+| Release slice ready to ship | `wf-release` | Preflight, tag push, postflight per governed automation |
 | Runway constraints, NFR trade-offs, topology | `software-architecture` | Architecture constraints fed back into plan |
 | Roadmap items must map into executable epics/stories/dependencies | `project-planning` | Decomposed work as **Linear milestones/issues** with traceability; see `workflows-linear-backlog-override.md` |
 

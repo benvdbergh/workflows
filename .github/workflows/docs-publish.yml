@@ -1,4 +1,4 @@
-name: Docs publish (manual)
+name: Docs publish (manual, break-glass)
 
 on:
   workflow_dispatch:

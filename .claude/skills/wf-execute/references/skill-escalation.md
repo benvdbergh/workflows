@@ -9,7 +9,7 @@
 ## wf-execute does not own
 
 - Epic/story decomposition (escalate to **`project-planning`** / **`wf-plan`**).
-- Release version policy (escalate to **`release-versioning`**).
+- Release version policy (escalate to **`release-versioning`**; release cut execution to **`wf-release`**).
 - GitHub community triage taxonomy (escalate to **`repo-triage-pr-ops`** for intake issues).
 
 ## Handoff from planning

@@ -1,10 +1,61 @@
 # Alpha Release Notes (Pre-1.0)
 
-**Last reviewed:** 2026-05-17
+**Last reviewed:** 2026-06-15
 
-**Current published engine:** `@agent-workflow/engine@0.1.2` (publish via [Operator runbook](#operator-runbook-publish-to-announce); until then use repo `main` / tag `v0.1.2`). Prior npm line: `0.1.1` (`latest` / `alpha`). See [ROADMAP.md](../../ROADMAP.md) for post-alpha sequencing.
+**Current published engine:** `@agent-workflow/engine@0.1.3` (tag-triggered publish via `release.yml`; see [release process](README.md)). Prior npm line: `0.1.2`. See [ROADMAP.md](../../ROADMAP.md) for post-alpha sequencing.
 
 Release policy and checklist reference: [alpha-versioning-and-release-commit-flow.md](alpha-versioning-and-release-commit-flow.md)
+
+## v0.1.3 — 2026-06-15
+
+### Added
+
+- **Tag-triggered release orchestration** (`.github/workflows/release.yml`): push annotated `v*` tag runs quality gates → npm pack artifact → OIDC npm publish → GitHub Pages docs → GitHub Release.
+- **`wf-release` maintainer skill** (`.claude/skills/wf-release/`) for preflight, tag push, postflight, and break-glass routing.
+- **Release process overview** (`docs/releases/README.md`).
+
+### Changed
+
+- Release governance docs updated: tag push is the primary path; manual packaging/publish/docs workflows are **break-glass** only.
+- Product documentation publishing workflow and end-user docs site build path on `master` (since `v0.1.2`).
+- POC terminology renamed to **engine profile** across docs and skills (#89).
+
+### Fixed
+
+- (none called out separately for this cut)
+
+### Docs
+
+- `alpha-versioning-and-release-commit-flow.md` and `alpha-ci-cd-packaging-governance.md` aligned to tag-triggered automation.
+- `CLAUDE.md`, `README.md`, and `wf-plan` / `wf-execute` escalation updated for `wf-release`.
+
+### Internal
+
+- CI dependency bumps (GitHub Actions v6/v7, ajv, zod).
+- R4 GA protocol stabilization and CI gate hardening (#81).
+
+### Breaking/Impact Notes
+
+- **Patch (`0.1.3`):** no engine API or schema contract changes; release operators should use tag push instead of manual workflow dispatch for routine cuts.
+
+### Validation run
+
+- `npm run check-engine-schema-sync`
+- `npm run validate-workflows`
+- `npm run conformance`
+- `npm test`
+- `npm pack --workspace @agent-workflow/engine`
+
+### Published URLs
+
+- User docs: https://benvdbergh.github.io/workflows/latest/
+- Schema mirror: https://benvdbergh.github.io/workflows/schemas/0.1.3/workflow-definition.json
+
+### Publish (maintainers)
+
+1. Merge release commit to `master`; confirm CI green.
+2. Push annotated tag **`v0.1.3`** → **`Release (tag)`** workflow runs automatically.
+3. Postflight: verify npm `@agent-workflow/engine@0.1.3`, docs URLs, and `gh release view v0.1.3`.
 
 ## v0.1.2 — 2026-05-17
 

@@ -20,6 +20,7 @@ Use README for repository onboarding; use `docs/` for developer architecture, RF
 - No-install MCP quickstart: [GitHub Pages — Run with MCP](https://benvdbergh.github.io/workflows/latest/mcp-operator-guide/) (canonical) or [docs/user/mcp-operator-guide.md](docs/user/mcp-operator-guide.md)
 - MCP host wiring: **operator setup** (default) runs the published engine via `npx`; **development setup** points the host at `packages/engine/src/mcp-stdio-server.mjs` in a clone — [walkthrough](docs/architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md), [smoke runbook](docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md)
 - Alpha versioning and final release commit flow: [docs/releases/alpha-versioning-and-release-commit-flow.md](docs/releases/alpha-versioning-and-release-commit-flow.md)
+- Release process overview (tag-triggered automation): [docs/releases/README.md](docs/releases/README.md)
 - Alpha CI/CD packaging governance (workflow map, checks, permissions): [docs/releases/alpha-ci-cd-packaging-governance.md](docs/releases/alpha-ci-cd-packaging-governance.md)
 - Community launch playbook (channels, templates, triage SLAs): [docs/community-launch-playbook.md](docs/community-launch-playbook.md)
 - Security policy and disclosure process: [SECURITY.md](SECURITY.md)

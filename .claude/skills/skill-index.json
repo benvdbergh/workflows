@@ -1,8 +1,8 @@
 {
-  "generated": "2026-06-04T00:00:00Z",
-  "totalSkills": 4,
+  "generated": "2026-06-15T00:00:00Z",
+  "totalSkills": 5,
   "alwaysLoadedCount": 0,
-  "deferredCount": 4,
+  "deferredCount": 5,
   "planning_backlog": "linear",
   "planning_override_doc": "wf-plan/references/workflows-linear-backlog-override.md",
   "linear_project_url": "https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview",
@@ -28,6 +28,20 @@
         "work starts from a Linear story",
         "field updates",
         "and execution reporting through closure"
+      ],
+      "workflows": [],
+      "tier": "deferred"
+    },
+    "wf-release": {
+      "name": "wf-release",
+      "path": "wf-release/SKILL.md",
+      "fullDescription": "Orchestrates alpha release preflight, version-tag creation, and postflight verification for the workflows repository. Guides maintainers through checklist gates, tag push to trigger automated packaging/npm/docs/GitHub Release, and break-glass recovery. Use when cutting a release, preparing v0.y.z or v0.y.z-alpha.N tags, running release preflight, verifying publish outcomes, or recovering a failed release workflow.",
+      "triggers": [
+        "cutting a release",
+        "release preflight",
+        "push release tag",
+        "verify publish outcomes",
+        "failed release workflow"
       ],
       "workflows": [],
       "tier": "deferred"
