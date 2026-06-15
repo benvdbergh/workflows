@@ -83,6 +83,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Sync gh-pages remote for mike
+        run: git fetch origin gh-pages || true
+
       - name: Deploy versioned docs with mike
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
