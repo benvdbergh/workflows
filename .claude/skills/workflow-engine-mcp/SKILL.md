@@ -14,6 +14,8 @@ metadata:
 
 **Authoritative contract in this skill:** `assets/workflow-definition-schema.json` (JSON Schema for the workflow document). **Normative behavior** for node semantics, execution, and jq binding is as implemented by the **published** `@agent-workflow/engine` package for the version you run; this skill tracks that surface and is **self-contained** (no dependency on a particular repository checkout).
 
+**End-user operator guide (repository):** [docs/user/mcp-operator-guide.md](../../../docs/user/mcp-operator-guide.md) — published at [GitHub Pages](https://benvdbergh.github.io/workflows/latest/mcp-operator-guide/).
+
 ## When to load which reference
 
 | Topic | File |

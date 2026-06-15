@@ -1,0 +1,68 @@
+site_name: Agent Workflow Protocol
+site_url: https://benvdbergh.github.io/workflows/
+site_description: End-user documentation for the Agent Workflow Protocol reference engine
+repo_url: https://github.com/benvdbergh/workflows
+repo_name: benvdbergh/workflows
+edit_uri: edit/main/docs/user/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mike:
+      alias_type: symlink
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Run with MCP: mcp-operator-guide.md
+  - Author workflows:
+      - Overview: authoring-workflows.md
+      - Node reference: node-reference.md
+      - State, jq and reducers: state-jq-reducers.md
+      - Examples: examples.md
+  - Schema:
+      - Download and validate: schema/index.md
+  - Compatibility: compatibility.md
+  - Release notes: release-notes.md
+  - Whitepaper: whitepaper.md
+  - Security (operators): security-operators.md

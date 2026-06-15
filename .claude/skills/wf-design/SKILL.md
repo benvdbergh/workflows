@@ -31,7 +31,7 @@ For **`benvdbergh/workflows`**, executable planning artifacts are **Linear issue
 - Treat `ROADMAP.md` and `docs/RFC/` as primary vision and protocol constraints.
 - Treat `docs/governance/spec-architecture-governance.md` as the mandatory design-first gate policy (Gate A/B/C).
 - Use `docs/architecture/arc42/README.md` and **Section 6 (Runtime)** as the implementation baseline narrative before proposing deltas (full index spans Sections 1–12).
-- Use `docs/architecture/arc42-assets/diagrams/as-built-views.drawio` (as-is) and `docs/architecture/arc42-assets/archive/target-state/rfc-target-views.drawio` (target) as the canonical architecture view artifacts.
+- Use `docs/architecture/arc42-assets/diagrams/as-built-views.drawio` (as-is) and `docs/architecture/arc42-assets/archive/target-state/` (target; see archive README) as the canonical architecture view artifacts.
 - Link relevant ADRs under `docs/architecture/adr/` and explicitly state whether a new ADR is required.
 - Escalate when confidence is low, uncertainty is structural, or formal planning/specification is required.
 
@@ -48,7 +48,7 @@ Actions:
   - `ROADMAP.md` for release intent and sequencing context.
   - `docs/RFC/` for protocol constraints and non-negotiable design boundaries.
   - `docs/governance/spec-architecture-governance.md` for gate and traceability requirements.
-  - `docs/architecture/arc42/README.md` + `docs/architecture/arc42/06-runtime-view.md`, `docs/architecture/arc42-assets/diagrams/as-built-views.drawio`, and `docs/architecture/arc42-assets/archive/target-state/rfc-target-views.drawio` for architecture viewpoints and delta analysis.
+  - `docs/architecture/arc42/README.md` + `docs/architecture/arc42/06-runtime-view.md`, `docs/architecture/arc42-assets/diagrams/as-built-views.drawio`, and `docs/architecture/arc42-assets/archive/target-state/` for architecture viewpoints and delta analysis.
   - `docs/architecture/adr/ADR-0001-poc-foundation-decisions.md` for historical rationale.
   - Relevant docs under `docs/` for existing decisions and operational context.
 - Produce an intake snapshot with knowns, unknowns, assumptions, and evidence links.

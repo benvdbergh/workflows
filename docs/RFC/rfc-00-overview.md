@@ -1,14 +1,16 @@
 # Agent Workflow Protocol — RFC (draft)
 
-**File:** `docs/rfc-00-overview.md` — canonical entry point for this specification set.  
+**File:** `docs/RFC/rfc-00-overview.md` — canonical entry point for this specification set.  
 **Status:** Working draft · series name and schema URI **TBD** (see [Governance and Adoption](rfc-09-governance-adoption.md))  
-**Canonical entry:** this file — use it as the **single link** into the specification; sections below are the normative and informative body.
+**Canonical entry:** this file — use it as the **single link** into the normative specification.
+
+> **Narrative overview:** For a readable whitepaper (evaluators, architects), see [Agent Workflow Protocol — Whitepaper](../whitepaper/agent-workflow-protocol.md) or the [published user docs](https://benvdbergh.github.io/workflows/latest/whitepaper/). This RFC set remains the **normative implementer reference**.
 
 ---
 
 ## Relationship to the founding brief
 
-The landscape analysis, gap framing, adoption playbook, and the **original nine-section outline** live in **[`analysis-brief.md`](../analysis-brief.md)**. This RFC set **implements** that outline as sharded Markdown: same scope (declarative workflow protocol, execution model, MCP/REST/SDK surfaces, security, reference implementation, governance), with **`analysis-brief.md`** kept as **supporting context** (market narrative, quantitative claims to verify separately).
+The landscape analysis, gap framing, adoption playbook, and the **original nine-section outline** live in **[`analysis-brief.md`](../research/analysis-brief.md)**. This RFC set **implements** that outline as sharded Markdown: same scope (declarative workflow protocol, execution model, MCP/REST/SDK surfaces, security, reference implementation, governance), with **`analysis-brief.md`** kept as **supporting context** (market narrative, quantitative claims to verify separately). The **[whitepaper](../whitepaper/agent-workflow-protocol.md)** reframes the narrative for non-implementer readers.
 
 ---
 
@@ -53,4 +55,5 @@ Several sections include **Mermaid** figures (stack, architecture, replay, inter
 - [rfc-07-security-model.md](rfc-07-security-model.md)  
 - [rfc-08-reference-implementation.md](rfc-08-reference-implementation.md)  
 - [rfc-09-governance-adoption.md](rfc-09-governance-adoption.md)  
-- [analysis-brief.md](../analysis-brief.md) — founding analysis and RFC outline source  
+- [analysis-brief.md](../research/analysis-brief.md) — founding analysis and RFC outline source  
+- [agent-workflow-protocol.md](../whitepaper/agent-workflow-protocol.md) — narrative whitepaper

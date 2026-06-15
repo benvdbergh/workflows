@@ -36,7 +36,7 @@ For **`benvdbergh/workflows`**, epics/stories, acceptance criteria, and planning
 3. Surface architecture dependencies/runway before finalizing release commitments.
 4. Verify commitment items have design evidence and ADR readiness (or explicit ADR deferral note).
 5. Anchor planning decisions against the current architecture baseline under `docs/architecture/arc42/` (**README**: index + evidence anchors; **Sections 3–7** story; **§6** runtime flows).
-6. Use `docs/architecture/arc42-assets/diagrams/as-built-views.drawio` and `docs/architecture/arc42-assets/archive/target-state/rfc-target-views.drawio` as canonical visual evidence for as-is vs target planning deltas.
+6. Use `docs/architecture/arc42-assets/diagrams/as-built-views.drawio` and `docs/architecture/arc42-assets/archive/target-state/` (target; see archive README) as canonical visual evidence for as-is vs target planning deltas.
 7. End each run with a cadence-ready status view (changes, risks, next checkpoint).
 8. Route to specialist skills instead of recreating their standards locally.
 
@@ -118,7 +118,7 @@ Actions:
 ## Standard Orchestration Loop
 
 1. **Intake**: capture vision/objective, timeframe, constraints, and stakeholders.
-2. **Baseline check**: confirm delta against `docs/architecture/arc42/README.md` (and Sections **3–11** where relevant — especially **§6 Runtime**), `docs/architecture/arc42-assets/diagrams/as-built-views.drawio`, `docs/architecture/arc42-assets/archive/target-state/rfc-target-views.drawio`, and relevant ADRs in `docs/architecture/adr/`.
+2. **Baseline check**: confirm delta against `docs/architecture/arc42/README.md` (and Sections **3–11** where relevant — especially **§6 Runtime**), `docs/architecture/arc42-assets/diagrams/as-built-views.drawio`, `docs/architecture/arc42-assets/archive/target-state/` (when target views exist), and relevant ADRs in `docs/architecture/adr/`.
 3. **Classify**: select one routing workflow and identify required specialist skills.
 4. **Escalate**: invoke relevant skills (`product-roadmap`, `project-planning`, `software-architecture`, `release-versioning` when needed). When `project-planning` is used, planning outputs target **Linear**, not markdown under `docs` (see override doc).
 5. **Consolidate**: unify outputs into one plan view with commitment/forecast labels and runway dependencies.

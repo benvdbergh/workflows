@@ -11,18 +11,20 @@ A vendor-neutral, declarative standard for **stateful, multi-step AI agent workf
 
 ## Alpha quickstart and docs map
 
-Use README for onboarding, and `docs/` for deeper architecture and operations content.
+**End-user documentation (operators, authors):** [https://benvdbergh.github.io/workflows/](https://benvdbergh.github.io/workflows/)
+
+Use README for repository onboarding; use `docs/` for developer architecture, RFC, and governance content ([docs/README.md](docs/README.md)).
 
 - Quickstart validation commands: [Workflow schema and validation](#workflow-schema-and-validation)
 - Alpha release notes (highlights, caveats, known limitations): [docs/releases/alpha-release-notes.md](docs/releases/alpha-release-notes.md)
-- No-install MCP quickstart and publish/operator runbook: [docs/releases/alpha-release-notes.md#no-install-mcp-quickstart-npx](docs/releases/alpha-release-notes.md#no-install-mcp-quickstart-npx)
+- No-install MCP quickstart: [GitHub Pages — Run with MCP](https://benvdbergh.github.io/workflows/latest/mcp-operator-guide/) (canonical) or [docs/user/mcp-operator-guide.md](docs/user/mcp-operator-guide.md)
 - MCP host wiring: **operator setup** (default) runs the published engine via `npx`; **development setup** points the host at `packages/engine/src/mcp-stdio-server.mjs` in a clone — [walkthrough](docs/architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md), [smoke runbook](docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md)
 - Alpha versioning and final release commit flow: [docs/releases/alpha-versioning-and-release-commit-flow.md](docs/releases/alpha-versioning-and-release-commit-flow.md)
 - Alpha CI/CD packaging governance (workflow map, checks, permissions): [docs/releases/alpha-ci-cd-packaging-governance.md](docs/releases/alpha-ci-cd-packaging-governance.md)
 - Community launch playbook (channels, templates, triage SLAs): [docs/community-launch-playbook.md](docs/community-launch-playbook.md)
 - Security policy and disclosure process: [SECURITY.md](SECURITY.md)
 - Alpha security baseline posture and gap register: [docs/security/alpha-security-baseline.md](docs/security/alpha-security-baseline.md)
-- Documentation index (information architecture): [docs/README.md](docs/README.md)
+- Documentation index (developer / AI): [docs/README.md](docs/README.md)
 - Guided architecture walkthrough: [docs/architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md](docs/architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md)
 - Conformance harness guide: [conformance/README.md](conformance/README.md)
 - Contributor guide and intake policy: [CONTRIBUTING.md](CONTRIBUTING.md)

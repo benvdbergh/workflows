@@ -25,6 +25,12 @@ Release policy and checklist reference: [alpha-versioning-and-release-commit-flo
 ### Docs
 
 - Release notes, `CLAUDE.md`, arc42 product sections, and `docs/engine-profile.md` scrubbed of stale “out of scope” delegation/composition language; capability terms replace release-milestone labels in product docs.
+- End-user documentation site sources under `docs/user/`; publish via **Docs publish (manual)** workflow.
+
+### Published URLs
+
+- User docs: https://benvdbergh.github.io/workflows/latest/
+- Schema mirror: https://benvdbergh.github.io/workflows/schemas/0.1.2/workflow-definition.json
 
 ### Internal
 
@@ -134,7 +140,7 @@ These notes are for external evaluators and early adopters validating the curren
 
 Use the published package directly from npm without cloning this repository.
 
-**Operator vs development MCP wiring:** treat the **operator setup** (published `@agent-workflow/engine` via `npx`, below) as the default for MCP-capable hosts and demos. Use a **development setup** (absolute path to `packages/engine/src/mcp-stdio-server.mjs` in your clone) only when you are modifying the engine or MCP adapter. Step-by-step host guides: [MCP stdio host smoke](../architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md), [Lighthouse MCP walkthrough](../architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md).
+**Operator vs development MCP wiring:** treat the **operator setup** (published `@agent-workflow/engine` via `npx`, below) as the default for MCP-capable hosts and demos. Canonical guide: [docs/user/mcp-operator-guide.md](../user/mcp-operator-guide.md) ([GitHub Pages](https://benvdbergh.github.io/workflows/latest/mcp-operator-guide/)). Use a **development setup** (absolute path to `packages/engine/src/mcp-stdio-server.mjs` in your clone) only when you are modifying the engine or MCP adapter. Deep-dive walkthroughs: [MCP stdio host smoke](../architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md), [Lighthouse MCP walkthrough](../architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md).
 
 The package is published under the npm organization scope **`@agent-workflow`** ([npm org](https://www.npmjs.com/org/agent-workflow)), not a separate `agent-workflow-protocol` scope.
 

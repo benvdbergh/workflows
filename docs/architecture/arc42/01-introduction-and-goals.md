@@ -10,7 +10,7 @@ This repository implements the **Agent Workflow Protocol** as:
 
 These arc42 sections (1–12) are the **as-is baseline** for future design increments, structured ADRs, release planning (`ROADMAP.md`), and onboarding. Normative protocol semantics remain in the RFC texts; **`docs/engine-profile.md`** is authoritative for **which** semantics the reference engine implements.
 
-Primary **C4-style** diagram sources: [`../arc42-assets/diagrams/as-built-views.drawio`](../arc42-assets/diagrams/as-built-views.drawio) (context, deployment, building blocks); target sketches (not baseline evidence): [`../arc42-assets/archive/target-state/rfc-target-views.drawio`](../arc42-assets/archive/target-state/rfc-target-views.drawio).
+Primary **C4-style** diagram sources: [`../arc42-assets/diagrams/as-built-views.drawio`](../arc42-assets/diagrams/as-built-views.drawio) (context, deployment, building blocks); target sketches (not baseline evidence): [`../arc42-assets/archive/target-state/`](../arc42-assets/archive/target-state/) (placeholder until `rfc-target-views.drawio` is added).
 
 Current architecture favors **deterministic replay** and a **narrow engine profile** over full RFC surface-area coverage everywhere at once.
 

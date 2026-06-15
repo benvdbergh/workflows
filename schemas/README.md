@@ -53,3 +53,14 @@ Validated example workflows and RFC-04 trace companions: [examples/README.md](..
 ## Versioning
 
 Bump **`document.schema`** in workflow instances and revise this bundle together when the engine profile contract changes; keep [docs/engine-profile.md](../docs/engine-profile.md) and these files aligned in the same change set where possible.
+
+## GitHub Pages schema mirror
+
+Published alongside end-user docs at [https://benvdbergh.github.io/workflows/](https://benvdbergh.github.io/workflows/):
+
+| Channel | URL |
+|---------|-----|
+| Latest | `https://benvdbergh.github.io/workflows/latest/schemas/<engine-version>/workflow-definition.json` |
+| Pinned example (`0.1.2`) | `https://benvdbergh.github.io/workflows/schemas/0.1.2/workflow-definition.json` |
+
+The canonical `$id` and suggested `document.schema` remain `https://agent-workflow.dev/schemas/workflow-definition.json` until GA registry publication ([profile-model.md](../docs/releases/profile-model.md)). Use the Pages URLs as **download mirrors** for validation and IDE setup.

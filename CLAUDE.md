@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A specification, contract, and **reference engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The alpha line is `@agent-workflow/engine@0.1.2` (prior publish: `0.1.1` on `latest` / `alpha`). Publish via the manual **Release npm publish** workflow after tagging `v0.1.2`.
 
-- `docs/RFC/` — nine-section RFC defining the protocol (workflow definition schema, execution model, MCP/REST/SDK integration, security, governance)
+- `docs/user/` — **end-user documentation source** (published to GitHub Pages via `website/`)
+- `docs/whitepaper/` — narrative protocol whitepaper (also on GitHub Pages)
+- `docs/RFC/` — nine-section RFC defining the protocol (normative implementer reference)
 - `docs/engine-profile.md` — **authoritative engine profile**: which node types, commands/events, and reducers the reference engine must support (read this before implementing anything)
 - `schemas/workflow-definition.json` — JSON Schema Draft 2020-12 entry schema; validates workflow documents
 - `examples/` — golden fixtures (workflow + happy-path and failure/retry trace companions) for the lighthouse demo, plus a prompt-improver fixture
@@ -30,6 +32,8 @@ From the repository root (after `npm install`):
 | `npm run engine:validate -- path/to/workflow.json` | Validate a single file with the engine CLI (stderr lists AJV errors) |
 | `npm run engine:mcp:stdio` | Start the MCP stdio adapter (in-memory store; for development/testing) |
 | `npm run check-engine-schema-sync` | Verify the bundled engine schema is in sync with the root schema (run in CI) |
+| `npm run docs:serve` | Build and preview end-user docs site locally (requires Python + `website/requirements.txt`) |
+| `npm run docs:build` | Production build of end-user docs site |
 | `npm test` | Run engine package tests |
 
 One-off validation with **ajv-cli** (no `npm install` required):

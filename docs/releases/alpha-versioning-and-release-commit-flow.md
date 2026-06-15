@@ -50,8 +50,13 @@ Run from repository root before creating the final release commit/tag:
    - Optional governed trusted publish: trigger `Release npm publish (manual)` with explicit `release_ref` and `dist_tag` (`alpha` or `latest`) after packaging confidence is complete.
 4. **Documentation and release narrative**
    - Update `docs/releases/alpha-release-notes.md` using the template/process below.
+   - Update `docs/user/` when operator or author guidance changes.
    - Record known limitations and any upgrade caveats for consumers.
-5. **Release commit + tag**
+5. **Publish end-user docs (after tag push)**
+   - Trigger **Docs publish (manual)** with `release_ref` set to the release tag (e.g. `v0.1.2`).
+   - Set `promote_latest: true` for baseline alpha cuts.
+   - Confirm site URLs in release notes (see template below).
+6. **Release commit + tag**
    - Create a dedicated release commit (docs + versioning changes only where practical).
    - Create and push tag:
      - iteration: `v0.y.z-alpha.N`
@@ -63,6 +68,7 @@ Run from repository root before creating the final release commit/tag:
 - Shared quality gate workflow: `.github/workflows/reusable-validate-and-test.yml`
 - Manual packaging workflow: `.github/workflows/release-packaging.yml`
 - Manual trusted publish workflow: `.github/workflows/release-npm-publish.yml`
+- Manual docs publish workflow: `.github/workflows/docs-publish.yml`
 
 ## 4) Release notes and changelog process (repeatable)
 
@@ -106,6 +112,10 @@ Copy this into `docs/releases/alpha-release-notes.md` for each iteration:
 - `npm run conformance`
 - `npm test`
 - `npm pack --dry-run`
+
+### Published URLs
+- User docs: `https://benvdbergh.github.io/workflows/latest/`
+- Schema mirror: `https://benvdbergh.github.io/workflows/schemas/<engine-version>/workflow-definition.json`
 ```
 
 ## Maintainer decisions to keep explicit

@@ -1,0 +1,105 @@
+name: Docs publish (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: "Git ref to publish (tag, branch, or SHA)"
+        required: true
+        type: string
+      promote_latest:
+        description: "Also update the 'latest' docs alias to this version"
+        required: false
+        type: boolean
+        default: true
+      run_quality_gates:
+        description: "Run validate/conformance/test gates before publish"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-publish-${{ github.event.inputs.release_ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality-gates:
+    if: ${{ github.event.inputs.run_quality_gates == 'true' }}
+    name: docs-publish-quality-gates
+    uses: ./.github/workflows/reusable-validate-and-test.yml
+    with:
+      checkout_ref: ${{ github.event.inputs.release_ref }}
+      node_version: "24"
+      run_tests: true
+    permissions:
+      contents: read
+
+  publish-docs:
+    name: publish-github-pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+      - quality-gates
+    if: >-
+      always() &&
+      (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.release_ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Read engine version
+        id: version
+        run: |
+          VERSION=$(jq -r .version packages/engine/package.json)
+          echo "engine_version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install MkDocs and mike
+        run: pip install -r website/requirements.txt
+
+      - name: Build docs site sources
+        run: node scripts/build-docs-site.mjs --version ${{ steps.version.outputs.engine_version }}
+
+      - name: Configure git for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy versioned docs with mike
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.engine_version }}"
+          cd website
+          if [ "${{ github.event.inputs.promote_latest }}" = "true" ]; then
+            mike deploy --push --update-aliases "${VERSION}" latest
+          else
+            mike deploy --push "${VERSION}"
+          fi
+          mike set-default latest --push
+
+      - name: Publish summary
+        run: |
+          VERSION="${{ steps.version.outputs.engine_version }}"
+          echo "Published docs version ${VERSION} to gh-pages branch."
+          echo "Site URL: https://benvdbergh.github.io/workflows/"
+          echo "Schema mirror: https://benvdbergh.github.io/workflows/schemas/${VERSION}/workflow-definition.json"

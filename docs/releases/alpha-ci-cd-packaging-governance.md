@@ -9,6 +9,7 @@ This document defines the governed GitHub Actions release packaging and publish 
 - `validate-workflows.yml` (event workflow) calls reusable workflow `.github/workflows/reusable-validate-and-test.yml` on every **push**, on **pull_request** to `main`/`master`, **merge_group**, and **workflow_dispatch**.
 - `release-packaging.yml` (manual workflow) calls the same reusable workflow for quality gates, then executes package build/upload.
 - `release-npm-publish.yml` (manual workflow) calls the same reusable workflow for quality gates, then performs trusted npm publish for `@agent-workflow/engine`.
+- `docs-publish.yml` (manual workflow) optionally runs quality gates, builds end-user docs from `docs/user/`, and deploys versioned GitHub Pages via `mike` to the `gh-pages` branch.
 - Reuse model: one shared validation unit via `workflow_call` to keep gate logic and command set consistent across CI and release packaging.
 
 ## 2) Required checks mapping and stable names
