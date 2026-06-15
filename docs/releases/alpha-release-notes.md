@@ -2,9 +2,55 @@
 
 **Last reviewed:** 2026-06-15
 
-**Current published engine:** `@agent-workflow/engine@0.1.3` (tag-triggered publish via `release.yml`; see [release process](README.md)). Prior npm line: `0.1.2`. See [ROADMAP.md](../../ROADMAP.md) for post-alpha sequencing.
+**Current published engine:** `@agent-workflow/engine@0.1.4` (tag-triggered publish via `release.yml`; see [release process](README.md)). Prior npm line: `0.1.3`. See [ROADMAP.md](../../ROADMAP.md) for post-alpha sequencing.
 
 Release policy and checklist reference: [alpha-versioning-and-release-commit-flow.md](alpha-versioning-and-release-commit-flow.md)
+
+## v0.1.4 — 2026-06-15
+
+### Added
+
+- (none — pipeline validation cut)
+
+### Changed
+
+- (none — engine package unchanged)
+
+### Fixed
+
+- **Release docs deploy:** `release.yml` and `docs-publish.yml` fetch `gh-pages` before mike deploy to avoid push races.
+- **`create-github-release`** no longer blocked when docs deploy fails after a successful npm publish.
+
+### Docs
+
+- Release notes for pipeline validation cut.
+
+### Internal
+
+- Full tag-triggered release pipeline validated end-to-end (`release.yml` on `v0.1.4`).
+
+### Breaking/Impact Notes
+
+- **Patch (`0.1.4`):** no engine API or schema contract changes.
+
+### Validation run
+
+- `npm run check-engine-schema-sync`
+- `npm run validate-workflows`
+- `npm run conformance`
+- `npm test`
+- `npm pack --workspace @agent-workflow/engine`
+
+### Published URLs
+
+- User docs: https://benvdbergh.github.io/workflows/latest/
+- Schema mirror: https://benvdbergh.github.io/workflows/schemas/0.1.4/workflow-definition.json
+
+### Publish (maintainers)
+
+1. Merge release commit to `master`; confirm CI green.
+2. Push annotated tag **`v0.1.4`** → **`Release (tag)`** workflow runs automatically.
+3. Postflight: verify npm `@agent-workflow/engine@0.1.4`, docs URLs, and `gh release view v0.1.4`.
 
 ## v0.1.3 — 2026-06-15
 
