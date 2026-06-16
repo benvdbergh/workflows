@@ -86,6 +86,23 @@ The manifest matches the schema validated by `workflows-engine mcp-manifest vali
 
 Security, credentials, and trust boundaries for this profile are documented in [ADR-0003: Engine-direct MCP activity execution](../../docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md). Host-mediated completion via `workflow_submit_activity` is unchanged when you use `activity_execution_mode: host_mediated`; after a submit, continuations still use the same port-level executor when engine-direct is enabled.
 
+### Engine-direct `llm_call` execution (`LlmActivityExecutor`)
+
+`LlmActivityExecutor` implements the **`ActivityExecutor`** port for **`llm_call`** nodes. It reads `node.config` (`model`, `system_prompt`, `user_prompt` / `prompt`, optional `output_schema`) and resolves provider credentials from **operator config** — not workflow JSON ([RFC-07 §7.3](../../docs/RFC/rfc-07-security-model.md)).
+
+```js
+import { LlmActivityExecutor, runGraphWorkflow } from "@agent-workflow/engine";
+
+const activityExecutor = new LlmActivityExecutor({
+  operatorConfig: {
+    apiKeyEnv: "OPENAI_API_KEY", // apiKeySecretRef accepted; vault resolver deferred to BEN-103
+    baseUrl: "https://api.openai.com/v1", // optional OpenAI-compatible base
+  },
+});
+```
+
+Inject a custom **`LlmProvider`** for tests or non-OpenAI backends; the default uses fetch against `/chat/completions` with no extra SDK. Structured outputs are validated with AJV when `output_schema` is set. Failures return stable codes: `LLM_CONFIG_INVALID`, `LLM_CREDENTIALS_MISSING`, `LLM_PROVIDER_ERROR`, `LLM_OUTPUT_VALIDATION_FAILED` (surfaced as `ActivityFailed` in execution history).
+
 ### Host compatibility constraints for no-install use
 
 - **Node runtime:** Node.js `>=22.5.0` is required (uses `node:sqlite`).
