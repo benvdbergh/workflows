@@ -1,0 +1,32 @@
+{
+  "id": "parity.r2.host_mediated_lighthouse_classify",
+  "description": "Lighthouse billing path: host_mediated llm_call (classify) then tool_call (open_ticket); port and MCP snapshots match.",
+  "kind": "parity",
+  "definition": "examples/lighthouse-customer-routing.workflow.json",
+  "executionId": "parity-host-lighthouse-billing-1",
+  "steps": [
+    {
+      "op": "start",
+      "input": { "ticket_text": "double charge on invoice" },
+      "activityExecutionMode": "host_mediated",
+      "expect": { "status": "awaiting_activity", "node_id": "classify" }
+    },
+    {
+      "op": "submit_activity",
+      "nodeId": "classify",
+      "outcome": { "ok": true, "result": { "intent": "billing", "confidence": 0.92 } },
+      "activityExecutionMode": "host_mediated",
+      "expect": { "status": "awaiting_activity", "node_id": "open_ticket" }
+    },
+    {
+      "op": "submit_activity",
+      "nodeId": "open_ticket",
+      "outcome": { "ok": true, "result": { "ticket_id": "T-1001" } },
+      "activityExecutionMode": "host_mediated",
+      "expect": {
+        "status": "completed",
+        "result": { "intent": "billing", "confidence": 0.92 }
+      }
+    }
+  ]
+}

@@ -55,6 +55,7 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - Run with MCP: mcp-operator-guide.md
+  - Host-mediated activities: host-mediated-activities.md
   - Author workflows:
       - Overview: authoring-workflows.md
       - Node reference: node-reference.md

@@ -73,9 +73,11 @@ This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `wo
 
 Operator smoke runbook: `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`.
 
+**Assistant hosts** that own LLM/tool credentials should pass `activity_execution_mode: "host_mediated"` and complete activities via `workflow_submit_activity`. End-user guide: [`docs/user/host-mediated-activities.md`](../../docs/user/host-mediated-activities.md) ([ADR-0002](../../docs/architecture/adr/ADR-0002-host-mediated-activity-execution.md)).
+
 ### Engine-direct `tool_call` execution (optional)
 
-By default, `workflows-engine-mcp` uses the **in-process stub** executor for activity placeholders (same backward-compatible demo behavior as before).
+By default, `workflows-engine-mcp` uses the **in-process stub** executor for activity placeholders when **no operator activity config** is set. That default is intended for **local demo and smoke tests only** — not a silent production fallback. For production, configure at least one real sub-executor (see **Composite activity routing** below).
 
 To run **`tool_call` nodes against real MCP stdio servers**, enable engine-direct configuration:
 
@@ -85,6 +87,72 @@ To run **`tool_call` nodes against real MCP stdio servers**, enable engine-direc
 The manifest matches the schema validated by `workflows-engine mcp-manifest validate` (Cursor-style `mcpServers` with stdio `command` / `args` / `env`). Workflow nodes use `tool_call` with `config.server` (manifest key) and `config.tool` (MCP tool name). If the file is missing or invalid JSON/schema, the process **exits with code 1** before accepting MCP traffic; errors are written to **stderr**.
 
 Security, credentials, and trust boundaries for this profile are documented in [ADR-0003: Engine-direct MCP activity execution](../../docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md). Host-mediated completion via `workflow_submit_activity` is unchanged when you use `activity_execution_mode: host_mediated`; after a submit, continuations still use the same port-level executor when engine-direct is enabled.
+
+### Engine-direct `llm_call` execution (`LlmActivityExecutor`)
+
+`LlmActivityExecutor` implements the **`ActivityExecutor`** port for **`llm_call`** nodes. It reads `node.config` (`model`, `system_prompt`, `user_prompt` / `prompt`, optional `output_schema`) and resolves provider credentials from **operator config** — not workflow JSON ([RFC-07 §7.3](../../docs/RFC/rfc-07-security-model.md)).
+
+```js
+import { LlmActivityExecutor, runGraphWorkflow } from "@agent-workflow/engine";
+
+const activityExecutor = new LlmActivityExecutor({
+  operatorConfig: {
+    apiKeyEnv: "OPENAI_API_KEY", // apiKeySecretRef accepted; vault resolver deferred to BEN-103
+    baseUrl: "https://api.openai.com/v1", // optional OpenAI-compatible base
+  },
+});
+```
+
+Inject a custom **`LlmProvider`** for tests or non-OpenAI backends; the default uses fetch against `/chat/completions` with no extra SDK. Structured outputs are validated with AJV when `output_schema` is set. Failures return stable codes: `LLM_CONFIG_INVALID`, `LLM_CREDENTIALS_MISSING`, `LLM_PROVIDER_ERROR`, `LLM_OUTPUT_VALIDATION_FAILED` (surfaced as `ActivityFailed` in execution history).
+
+### Engine-direct `step` execution (`StepActivityExecutor`)
+
+`StepActivityExecutor` implements the **`ActivityExecutor`** port for **`step`** nodes. It reads `node.config.handler` (a string URN) and looks up the implementation in an operator-provided **`StepHandlerRegistry`** registered at bootstrap — not in workflow JSON.
+
+```js
+import { StepActivityExecutor, StepHandlerRegistry, runGraphWorkflow } from "@agent-workflow/engine";
+
+const registry = new StepHandlerRegistry();
+registry.register("urn:my-app:handlers:lookup-customer", async (ctx) => {
+  return { customerId: "c-1", name: "Ada" };
+});
+const activityExecutor = new StepActivityExecutor({ registry: registry.createFrozenCopy() });
+```
+
+**v1 sandboxing:** handlers run in the **same Node.js process** as the engine (in-process dispatch). There is no worker isolation, VM sandbox, or resource cap in this profile milestone — treat registered handlers as trusted operator code. Isolated worker processes are deferred to a later release.
+
+Stable failure codes: `STEP_CONFIG_INVALID` (missing/invalid `handler`), `HANDLER_NOT_FOUND` (URN not registered), `HANDLER_ERROR` (handler threw). Success merges handler output into workflow state per `state_schema` reducers.
+
+### Composite activity routing (`CompositeActivityExecutor`)
+
+`CompositeActivityExecutor` is the production router for **`step`**, **`llm_call`**, and **`tool_call`** nodes. It dispatches by `ctx.node.type` to optional sub-executors (`StepActivityExecutor`, `LlmActivityExecutor`, `McpManifestActivityExecutor`). When a routed node type has no configured sub-executor, execution fails with stable code **`COMPOSITE_EXECUTOR_NOT_CONFIGURED`** (unless an explicit **`fallback`** is injected — see demo profile below).
+
+```js
+import {
+  buildCompositeActivityExecutor,
+  LlmActivityExecutor,
+  McpManifestActivityExecutor,
+  StepActivityExecutor,
+} from "@agent-workflow/engine";
+
+const activityExecutor = buildCompositeActivityExecutor({
+  step: new StepActivityExecutor({ registry }),
+  llm_call: new LlmActivityExecutor({ operatorConfig: { apiKeyEnv: "OPENAI_API_KEY" } }),
+  tool_call: new McpManifestActivityExecutor({ manifest }),
+});
+```
+
+Pass the composite (or any custom `ActivityExecutor`) to `createWorkflowApplicationPort({ activityExecutor })` or `runGraphWorkflow({ activityExecutor })`.
+
+**`workflows-engine-mcp` wiring:** when any operator config is present, the stdio bin loads a composite via `loadProductionActivityExecutor`:
+
+| Env var | Sub-executor |
+|---------|----------------|
+| `WORKFLOW_ENGINE_MCP_CONFIG` / `--mcp-config` | `tool_call` → `McpManifestActivityExecutor` |
+| `WORKFLOW_ENGINE_LLM_CONFIG` (inline JSON or file path) | `llm_call` → `LlmActivityExecutor` |
+| `WORKFLOW_ENGINE_STEP_HANDLERS` (inline JSON or file path; URN → static output map) | `step` → `StepActivityExecutor` |
+
+When **none** of these are set, the MCP adapter omits `activityExecutor` and the walker uses **`StubActivityExecutor`** (demo/local only). Set **`WORKFLOW_ENGINE_PROFILE=demo`** to add stub **fallback** inside a partial composite (unconfigured node types return `{}` instead of `COMPOSITE_EXECUTOR_NOT_CONFIGURED`). Do **not** rely on stub fallback in production deployments.
 
 ### Host compatibility constraints for no-install use
 
@@ -155,7 +223,7 @@ Phases: **validate** (bundled workflow schema + reject `state_schema.properties.
 
 **Graph rules:** Edges must form a **single linear path** covering every node: exactly one edge from `__start__`, at most one outgoing edge per node, no cycles, exactly one `start` and one `end`. `switch` and `interrupt` nodes are rejected by this runner (use the general graph walker). Unknown topology errors throw from `computeLinearNodePath` or return `{ status: 'failed', error }` from `runLinearWorkflow`.
 
-**Activity boundary:** `step`, `llm_call`, and `tool_call` are executed through an **`ActivityExecutor`** port (`executeActivity(ctx)` → success with `output` or failure with `error` / optional `code`). The walker only calls this port (no MCP, HTTP, or provider SDKs inside the runner). **`StubActivityExecutor`** is the default: deterministic, returns `{}` or per-node outputs from an `outputsByNodeId` map. Pass `activityExecutor` to inject real adapters; pass `stubActivityOutputs` only affects the default stub when `activityExecutor` is omitted.
+**Activity boundary:** `step`, `llm_call`, and `tool_call` are executed through an **`ActivityExecutor`** port (`executeActivity(ctx)` → success with `output` or failure with `error` / optional `code`). The walker only calls this port (no MCP, HTTP, or provider SDKs inside the runner). **`StubActivityExecutor`** is the default when `activityExecutor` is omitted: deterministic, returns `{}` or per-node outputs from an `outputsByNodeId` map (library demos and tests). **`CompositeActivityExecutor`** routes production workloads to configured sub-executors; pass `activityExecutor` to inject real adapters; pass `stubActivityOutputs` only affects the default stub when `activityExecutor` is omitted.
 
 **Limitation:** Per-node **`retry`** and **`timeout`** settings from the workflow definition are **not** applied by this runner yet; failures return immediately after a single `executeActivity` call.
 

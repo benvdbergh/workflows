@@ -7,6 +7,8 @@ import {
   RejectingDelegateExecutor,
   resumeGraphWorkflow,
   runGraphWorkflow,
+  StepActivityExecutor,
+  StepHandlerRegistry,
   submitActivityOutcome,
   validateWorkflowDefinition,
 } from "../packages/engine/src/index.mjs";
@@ -30,6 +32,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *   }>;
  *   activityExecutionMode?: "in_process" | "host_mediated";
  *   assertNoActivityExecutorInvocation?: boolean;
+ *   stepHandlers?: Record<string, Record<string, unknown>>;
  *   assertNoSubworkflowInvocation?: boolean;
  *   assertNoDelegateExecutorInvocation?: boolean;
  *   resumePayload?: Record<string, unknown>;
@@ -106,8 +109,17 @@ export function discoverVectors() {
 }
 
 /**
- * @param {ConformanceVector} vector
+ * @param {Record<string, Record<string, unknown>>} stepHandlers
+ * @returns {import("../packages/engine/src/orchestrator/step-activity-executor.mjs").StepActivityExecutor}
  */
+function buildConformanceStepActivityExecutor(stepHandlers) {
+  const registry = new StepHandlerRegistry();
+  for (const [urn, output] of Object.entries(stepHandlers)) {
+    registry.register(urn, async () => output);
+  }
+  return new StepActivityExecutor({ registry: registry.createFrozenCopy() });
+}
+
 /**
  * @param {object} definition
  * @param {Record<string, unknown> | undefined} tamper
@@ -194,7 +206,15 @@ async function runReplayVector(vector) {
   const assertNoActivityExecutorInvocation = vector.assertNoActivityExecutorInvocation === true;
   const assertNoSubworkflowInvocation = vector.assertNoSubworkflowInvocation === true;
   const assertNoDelegateExecutorInvocation = vector.assertNoDelegateExecutorInvocation === true;
-  const activityExecutor = assertNoActivityExecutorInvocation ? new RejectingActivityExecutor() : undefined;
+  let activityExecutor = assertNoActivityExecutorInvocation ? new RejectingActivityExecutor() : undefined;
+  if (
+    !activityExecutor &&
+    vector.stepHandlers &&
+    typeof vector.stepHandlers === "object" &&
+    !Array.isArray(vector.stepHandlers)
+  ) {
+    activityExecutor = buildConformanceStepActivityExecutor(vector.stepHandlers);
+  }
   const delegateExecutor = assertNoDelegateExecutorInvocation ? new RejectingDelegateExecutor() : undefined;
 
   let run = await runGraphWorkflow({

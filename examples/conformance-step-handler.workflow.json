@@ -1,0 +1,33 @@
+{
+  "document": {
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
+    "name": "conformance-step-handler",
+    "version": "1.0.0"
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "value": { "type": "string" }
+    }
+  },
+  "nodes": [
+    { "id": "begin", "type": "start" },
+    {
+      "id": "dispatch",
+      "type": "step",
+      "config": {
+        "handler": "urn:conformance:step:test-handler"
+      }
+    },
+    {
+      "id": "finish",
+      "type": "end",
+      "config": { "output_mapping": ".value" }
+    }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "begin" },
+    { "source": "begin", "target": "dispatch" },
+    { "source": "dispatch", "target": "finish" }
+  ]
+}

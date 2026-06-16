@@ -39,6 +39,24 @@ export {
   mapMcpClientThrownError,
   McpManifestActivityExecutor,
 } from "./orchestrator/mcp-stdio-activity-executor.mjs";
+export {
+  buildLlmChatMessages,
+  LlmActivityExecutor,
+  OpenAiCompatibleLlmProvider,
+  parseLlmAssistantContent,
+  parseLlmCallNodeConfig,
+  resolveLlmApiKey,
+  validateLlmStructuredOutput,
+} from "./orchestrator/llm-activity-executor.mjs";
+export {
+  parseStepNodeConfig,
+  StepActivityExecutor,
+  StepHandlerRegistry,
+} from "./orchestrator/step-activity-executor.mjs";
+export {
+  buildCompositeActivityExecutor,
+  CompositeActivityExecutor,
+} from "./orchestrator/composite-activity-executor.mjs";
 export { MemoryExecutionHistoryStore } from "./persistence/memory-history-store.mjs";
 export { SqliteExecutionHistoryStore } from "./persistence/sqlite-history-store.mjs";
 export {

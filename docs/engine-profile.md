@@ -38,7 +38,7 @@ These discriminators **MUST** be supported by the workflow schema bundle and hon
 |--------|-----------|
 | `start` | At most one per document; entry binding per RFC. |
 | `end` | Terminal; `output_schema` / `output_mapping` **MAY** be used if present. |
-| `step` | Deterministic activity boundary; `config` **MUST** include an implementation reference (e.g. `handler` / `code_ref`) per RFC; exact registry is profile-specific. |
+| `step` | Deterministic activity boundary; `config` **MUST** include an implementation reference (e.g. `handler` / `code_ref`) per RFC. The reference engine provides **`StepHandlerRegistry`** and **`StepActivityExecutor`**: operators register handler URNs → async `(ctx) => output` functions at bootstrap; `StepActivityExecutor` dispatches `config.handler` in-process (v1 — same Node.js process; isolated workers deferred). Unknown URNs fail with `HANDLER_NOT_FOUND`; missing `handler` fails with `STEP_CONFIG_INVALID`. |
 | `llm_call` | Non-deterministic model invocation; **MAY** be stubbed with a fixed transcript in early demos without changing document shape. |
 | `tool_call` | External tool; **SHOULD** be MCP-shaped (`server`, `tool`, `arguments`) for portable fixtures. |
 | `switch` | Conditional routing via `config.cases` (`when` jq expression, `target` node id) and optional `config.default`. |

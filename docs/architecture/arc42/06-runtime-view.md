@@ -38,7 +38,7 @@ Exported orchestrators used by `createWorkflowApplicationPort` (**`workflow-grap
 3. Host observes progress via **`workflow_status`** (**`phase`** values: **`running`**, **`completed`**, **`failed`**, **`interrupted`**, **`awaiting_activity`**). When history includes composition milestones, the same response may include optional correlation fields (snake_case on MCP; camelCase on the application port):
    - **`delegate_correlation_id`** — latest `agent_delegate` correlation id from history.
    - **`child_execution_id`** / **`parent_execution_id`** — nested **`subworkflow`** child run id and parent execution id (derived from `SubworkflowStarted` / child execution id suffix rules).
-4. Host calls **`workflow_resume`** with **`resumePayload`** after **`interrupt`** milestones, and **`workflow_submit_activity`** when **`phase`** is **`awaiting_activity`** on a **`host_mediated`** boundary (operator walkthrough [`../arc42-assets/runbooks/mcp-stdio-host-smoke.md`](../arc42-assets/runbooks/mcp-stdio-host-smoke.md)). Assistant-class hosts pass **`activity_execution_mode: "host_mediated"`** on start/resume/submit (runtime default remains **`in_process`** for backward-compatible demos — see **ADR-0002**).
+4. Host calls **`workflow_resume`** with **`resumePayload`** after **`interrupt`** milestones, and **`workflow_submit_activity`** when **`phase`** is **`awaiting_activity`** on a **`host_mediated`** boundary (operator walkthrough [`../arc42-assets/runbooks/mcp-stdio-host-smoke.md`](../arc42-assets/runbooks/mcp-stdio-host-smoke.md), end-user guide [`../../user/host-mediated-activities.md`](../../user/host-mediated-activities.md)). Assistant-class hosts pass **`activity_execution_mode: "host_mediated"`** on start/resume/submit (runtime default remains **`in_process`** for backward-compatible demos — see **ADR-0002**).
 
 **Integration parity harness:** `conformance/vectors/parity/` runs table-driven scenarios against the application port and MCP handlers in-process ([`../arc42-assets/contracts/integration-parity-matrix.md`](../arc42-assets/contracts/integration-parity-matrix.md)). Status correlation is asserted by **`parity.r3.delegate_status_correlation`** and **`parity.r3.subworkflow_status_correlation`** (`conformance/vectors/parity/r3-*-status-correlation.vector.json`).
 
@@ -83,7 +83,7 @@ Detailed stepping (replay spine):
 
 **Checkpointing:** Checkpoint events emit at deterministic graph-walker boundaries; parallel-branch checkpoints can carry **`parallelSpan`** snapshots (parallel node id, join target, branch label, branch entry) alongside inlined state excerpts for correlated recovery submits.
 
-Further operator procedure: [`../arc42-assets/runbooks/mcp-stdio-host-smoke.md`](../arc42-assets/runbooks/mcp-stdio-host-smoke.md).
+Further operator procedure: [`../arc42-assets/runbooks/mcp-stdio-host-smoke.md`](../arc42-assets/runbooks/mcp-stdio-host-smoke.md). End-user integration guide: [`../../user/host-mediated-activities.md`](../../user/host-mediated-activities.md). Lighthouse **`classify`** + **`open_ticket`** host-mediated parity: conformance vector **`parity.r2.host_mediated_lighthouse_classify`** (`conformance/vectors/parity/host-mediated-lighthouse-classify.vector.json`).
 
 ## 6.5 Scenario: Conformance replay vector (`kind: "replay"`)
 

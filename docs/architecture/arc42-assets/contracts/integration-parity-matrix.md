@@ -9,7 +9,7 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 | Start execution | `workflow_start` | `startWorkflow` | `POST /v1/workflows/{wf_id}/executions` | `parity.*` start steps |
 | Observe phase | `workflow_status` | `getWorkflowStatus` | `GET /v1/executions/{exec_id}` | all parity vectors with `status` steps |
 | Continue interrupt | `workflow_resume` | `resumeWorkflow` | `POST /v1/executions/{exec_id}:resume` | `parity.r2.interrupt_resume` |
-| Complete host activity | `workflow_submit_activity` | `submitWorkflowActivity` | (host-mediated; REST TBD) | `parity.r2.host_mediated_submit`, `parity.r2.parallel_join` |
+| Complete host activity | `workflow_submit_activity` | `submitWorkflowActivity` | (host-mediated; REST TBD) | `parity.r2.host_mediated_submit`, `parity.r2.host_mediated_lighthouse_classify`, `parity.r2.parallel_join` |
 
 ### Core orchestration parity (implemented)
 
@@ -18,6 +18,7 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 | `parity.r2.linear_complete` | `examples/lighthouse-customer-routing.workflow.json` | start → completed; status → completed |
 | `parity.r2.interrupt_resume` | lighthouse | start → interrupted; status; resume → completed |
 | `parity.r2.host_mediated_submit` | `examples/conformance-host-activity-linear.workflow.json` | start → awaiting_activity; submit → completed |
+| `parity.r2.host_mediated_lighthouse_classify` | `examples/lighthouse-customer-routing.workflow.json` | host_mediated start → classify submit → open_ticket submit → completed |
 | `parity.r2.parallel_join` | `examples/conformance-host-activity-parallel.workflow.json` | start with `parallel_span`; submit with span correlation → completed |
 
 ### Composition parity (implemented)
