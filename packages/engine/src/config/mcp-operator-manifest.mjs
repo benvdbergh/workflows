@@ -11,7 +11,8 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** @typedef {{ command: string, args: string[], env: Record<string, string> }} McpStdioServerDefinition */
-/** @typedef {{ mcpServers: Record<string, McpStdioServerDefinition> }} NormalizedMcpOperatorManifest */
+/** @typedef {{ server: string, tool: string }} DelegateAgentBinding */
+/** @typedef {{ mcpServers: Record<string, McpStdioServerDefinition>, delegateAgents?: Record<string, DelegateAgentBinding> }} NormalizedMcpOperatorManifest */
 
 /**
  * @returns {string}
@@ -74,7 +75,22 @@ export function normalizeMcpOperatorManifest(data) {
       env: s.env && typeof s.env === "object" && !Array.isArray(s.env) ? { ...s.env } : {},
     };
   }
-  return { mcpServers };
+  /** @type {Record<string, DelegateAgentBinding> | undefined} */
+  let delegateAgents;
+  const rawAgents = data.delegateAgents;
+  if (rawAgents && typeof rawAgents === "object" && !Array.isArray(rawAgents)) {
+    delegateAgents = {};
+    for (const agentId of Object.keys(rawAgents)) {
+      const binding = rawAgents[agentId];
+      if (binding && typeof binding === "object") {
+        delegateAgents[agentId] = {
+          server: binding.server,
+          tool: binding.tool,
+        };
+      }
+    }
+  }
+  return delegateAgents ? { mcpServers, delegateAgents } : { mcpServers };
 }
 
 /**

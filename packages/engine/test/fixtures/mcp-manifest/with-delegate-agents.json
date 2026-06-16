@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "echoSrv": {
+      "command": "node",
+      "args": ["./mcp-echo-server.mjs"]
+    }
+  },
+  "delegateAgents": {
+    "urn:test:agents:echo": {
+      "server": "echoSrv",
+      "tool": "echo"
+    }
+  }
+}
