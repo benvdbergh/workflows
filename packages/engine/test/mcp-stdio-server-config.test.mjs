@@ -7,9 +7,15 @@ import { describe, it } from "node:test";
 import {
   formatMcpManifestValidationErrors,
   loadEngineDirectActivityExecutor,
+  loadProductionActivityExecutor,
+  loadStepHandlerRegistryFromEnv,
+  resolveLlmOperatorConfigFromEnv,
   resolveWorkflowEngineMcpConfigPath,
 } from "../src/adapters/mcp/stdio-server-config.mjs";
 import { createWorkflowApplicationPort } from "../src/application/workflow-application-port.mjs";
+import { buildCompositeActivityExecutor } from "../src/orchestrator/composite-activity-executor.mjs";
+import { LlmActivityExecutor } from "../src/orchestrator/llm-activity-executor.mjs";
+import { StepActivityExecutor } from "../src/orchestrator/step-activity-executor.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
 
 const echoServerPath = fileURLToPath(new URL("./fixtures/mcp-echo-stdio-server.mjs", import.meta.url));
@@ -112,9 +118,10 @@ describe("createWorkflowApplicationPort + engine-direct executor", () => {
       })
     );
 
-    const loaded = await loadEngineDirectActivityExecutor(manifestPath);
+    const loaded = await loadProductionActivityExecutor({ manifestPath, env: {} });
     assert.equal(loaded.ok, true);
     if (!loaded.ok) return;
+    assert.ok(loaded.executor);
 
     const store = new MemoryExecutionHistoryStore();
     const port = createWorkflowApplicationPort({ store, activityExecutor: loaded.executor });
@@ -130,6 +137,134 @@ describe("createWorkflowApplicationPort + engine-direct executor", () => {
     assert.ok(completed.length >= 1);
     const last = completed[completed.length - 1];
     assert.deepEqual(last.payload.result.echoed, { via: "port" });
+  });
+});
+
+describe("loadProductionActivityExecutor", () => {
+  it("returns undefined executor when no operator config is present", async () => {
+    const r = await loadProductionActivityExecutor({
+      manifestPath: null,
+      llmConfig: null,
+      stepHandlerRegistry: null,
+      env: {},
+    });
+    assert.equal(r.ok, true);
+    if (r.ok) assert.equal(r.executor, undefined);
+  });
+
+  it("builds composite when manifest and LLM config are set", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "wf-mcp-"));
+    const manifestPath = path.join(dir, "mcp.json");
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        mcpServers: {
+          echoSrv: {
+            command: process.execPath,
+            args: [echoServerPath],
+            env: {},
+          },
+        },
+      })
+    );
+    const r = await loadProductionActivityExecutor({
+      manifestPath,
+      llmConfig: { apiKeyEnv: "TEST_LLM_KEY" },
+      env: { TEST_LLM_KEY: "sk-test" },
+    });
+    assert.equal(r.ok, true);
+    if (r.ok) assert.ok(r.executor);
+  });
+});
+
+describe("resolveLlmOperatorConfigFromEnv", () => {
+  it("parses inline JSON", () => {
+    const cfg = resolveLlmOperatorConfigFromEnv(
+      { WORKFLOW_ENGINE_LLM_CONFIG: '{"apiKeyEnv":"OPENAI_API_KEY"}' },
+      process.cwd()
+    );
+    assert.deepEqual(cfg, { apiKeyEnv: "OPENAI_API_KEY" });
+  });
+});
+
+describe("loadStepHandlerRegistryFromEnv", () => {
+  it("registers static outputs from inline JSON", () => {
+    const registry = loadStepHandlerRegistryFromEnv(
+      { WORKFLOW_ENGINE_STEP_HANDLERS: '{"urn:test:handler":{"value":42}}' },
+      process.cwd()
+    );
+    assert.ok(registry);
+    assert.ok(registry.get("urn:test:handler"));
+  });
+});
+
+describe("CompositeActivityExecutor integration", () => {
+  it("routes tool_call to MCP, llm_call to LLM adapter, step to handler registry", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "wf-mcp-"));
+    const manifestPath = path.join(dir, "manifest.json");
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        mcpServers: {
+          echoSrv: {
+            command: process.execPath,
+            args: [echoServerPath],
+            env: {},
+          },
+        },
+      })
+    );
+
+    const toolLoaded = await loadEngineDirectActivityExecutor(manifestPath);
+    assert.equal(toolLoaded.ok, true);
+    if (!toolLoaded.ok) return;
+
+    const stepRegistry = loadStepHandlerRegistryFromEnv(
+      { WORKFLOW_ENGINE_STEP_HANDLERS: '{"urn:composite:test":{"stepValue":"ok"}}' },
+      dir
+    );
+    assert.ok(stepRegistry);
+
+    /** @type {import("../src/orchestrator/llm-activity-executor.mjs").LlmProvider} */
+    const provider = {
+      async chatCompletion() {
+        return { content: JSON.stringify({ intent: "composite-llm" }) };
+      },
+    };
+
+    const composite = buildCompositeActivityExecutor({
+      tool_call: toolLoaded.executor,
+      llm_call: new LlmActivityExecutor({
+        operatorConfig: { apiKeyEnv: "K" },
+        env: { K: "sk" },
+        provider,
+      }),
+      step: new StepActivityExecutor({ registry: stepRegistry }),
+    });
+
+    const tool = await composite.executeActivity({
+      executionId: "composite-1",
+      node: { id: "tool-node", type: "tool_call", config: { server: "echoSrv", tool: "echo", arguments: { x: 1 } } },
+      state: {},
+    });
+    assert.equal(tool.ok, true);
+    if (tool.ok) assert.deepEqual(tool.output.echoed, { x: 1 });
+
+    const llm = await composite.executeActivity({
+      executionId: "composite-1",
+      node: { id: "llm-node", type: "llm_call", config: { model: "stub" } },
+      state: {},
+    });
+    assert.equal(llm.ok, true);
+    if (llm.ok) assert.equal(llm.output.intent, "composite-llm");
+
+    const step = await composite.executeActivity({
+      executionId: "composite-1",
+      node: { id: "step-node", type: "step", config: { handler: "urn:composite:test" } },
+      state: {},
+    });
+    assert.equal(step.ok, true);
+    if (step.ok) assert.equal(step.output.stepValue, "ok");
   });
 });
 
