@@ -2,7 +2,7 @@
 
 This is the **canonical operator guide** for running `@agent-workflow/engine` through MCP stdio. Use a **development setup** (local `mcp-stdio-server.mjs` from a clone) only when modifying the engine or adapter.
 
-> **Read order:** start here for wiring and tools → [MCP stdio host smoke runbook](../architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md) (QA acceptance) → [Lighthouse MCP walkthrough](../architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md) (guided demo) → [operator manifest contract](../architecture/arc42-assets/contracts/mcp-operator-manifest.md) (JSON schema).
+> **Read order:** start here for wiring and tools → [Host-mediated activities](host-mediated-activities.md) (assistant hosts) → [MCP stdio host smoke runbook](../architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md) (QA acceptance) → [Lighthouse MCP walkthrough](../architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md) (guided demo) → [operator manifest contract](../architecture/arc42-assets/contracts/mcp-operator-manifest.md) (JSON schema).
 
 ## Package and bins
 
@@ -79,7 +79,7 @@ See the [engine package README](https://github.com/benvdbergh/workflows/blob/mai
 1. **`workflow_start`** — pass `definition` (workflow JSON object) and `input` (initial state seed).
 2. **`workflow_status`** — repeat until `completed`, `failed`, or `awaiting_resume`.
 3. **`workflow_resume`** — when status shows an interrupt; pass `resume_payload` matching the node's `resume_schema`.
-4. **`workflow_submit_activity`** — when the engine requests a host-mediated `tool_call` or parallel activity.
+4. **`workflow_submit_activity`** — when the engine requests a host-mediated `llm_call`, `tool_call`, or `step`. Pass **`activity_execution_mode: "host_mediated"`** on start/resume/submit when the host owns credentials. See [Host-mediated activities](host-mediated-activities.md).
 
 ### Stable error codes
 
@@ -133,5 +133,6 @@ Operator checklist: [Security (operators)](security-operators.md).
 
 ## Further reading (repository)
 
+- [Host-mediated activities](host-mediated-activities.md)
 - [Lighthouse MCP walkthrough](https://github.com/benvdbergh/workflows/blob/main/docs/architecture/arc42-assets/demos/lighthouse-mcp-host-guided-demo-walkthrough.md)
 - [MCP stdio host smoke runbook](https://github.com/benvdbergh/workflows/blob/main/docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md)

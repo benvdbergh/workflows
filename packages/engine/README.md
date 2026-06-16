@@ -73,6 +73,8 @@ This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `wo
 
 Operator smoke runbook: `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`.
 
+**Assistant hosts** that own LLM/tool credentials should pass `activity_execution_mode: "host_mediated"` and complete activities via `workflow_submit_activity`. End-user guide: [`docs/user/host-mediated-activities.md`](../../docs/user/host-mediated-activities.md) ([ADR-0002](../../docs/architecture/adr/ADR-0002-host-mediated-activity-execution.md)).
+
 ### Engine-direct `tool_call` execution (optional)
 
 By default, `workflows-engine-mcp` uses the **in-process stub** executor for activity placeholders when **no operator activity config** is set. That default is intended for **local demo and smoke tests only** — not a silent production fallback. For production, configure at least one real sub-executor (see **Composite activity routing** below).
