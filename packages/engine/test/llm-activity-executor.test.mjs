@@ -262,12 +262,12 @@ describe("LlmActivityExecutor with linear runner", () => {
       nodes: [
         { id: "begin", type: "start", config: { input_schema: { type: "object" } } },
         { id: "classify", type: "llm_call", config: { model: "m", user_prompt: "u" } },
-        { id: "finish", type: "end", config: { result: { jq: "." } } },
+        { id: "finish", type: "end", config: { output_mapping: "{ ok: true }" } },
       ],
       edges: [
-        { from: "__start__", to: "begin" },
-        { from: "begin", to: "classify" },
-        { from: "classify", to: "finish" },
+        { source: "__start__", target: "begin" },
+        { source: "begin", target: "classify" },
+        { source: "classify", target: "finish" },
       ],
     };
     const store = new MemoryExecutionHistoryStore();
