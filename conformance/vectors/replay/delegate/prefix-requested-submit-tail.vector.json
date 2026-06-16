@@ -1,0 +1,81 @@
+{
+  "id": "replay.delegate.prefix_requested_submit_tail",
+  "description": "Replay prefix ends at ActivityRequested for agent_delegate; host_mediated yields; submit completes; tail commands are deterministic.",
+  "kind": "replay",
+  "definition": "examples/conformance-agent-delegate-linear.workflow.json",
+  "input": { "task": "add unit tests" },
+  "activityExecutionMode": "host_mediated",
+  "assertNoDelegateExecutorInvocation": true,
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "conformance-agent-delegate-linear",
+        "workflowVersion": "1.0.0",
+        "inputKeys": ["task"]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "start", "state": { "task": "add unit tests" } }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "implement" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "implement" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": {
+        "nodeId": "implement",
+        "nodeType": "agent_delegate",
+        "agentId": "coder",
+        "protocol": "a2a",
+        "delegateCorrelationId": "replay.delegate.prefix_requested_submit_tail::exec:delegate:implement",
+        "delegateInput": { "task": "add unit tests" }
+      }
+    }
+  ],
+  "activitySubmissions": [
+    {
+      "nodeId": "implement",
+      "outcome": {
+        "ok": true,
+        "delegateCorrelationId": "replay.delegate.prefix_requested_submit_tail::exec:delegate:implement",
+        "externalTaskId": "a2a-task-replay-submit",
+        "result": { "patch": "// host replay submit", "delegate_status": "completed" }
+      }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "CompleteNode", "nodeId": "implement" },
+      { "name": "ScheduleNode", "nodeId": "end" },
+      { "name": "CompleteNode", "nodeId": "end" }
+    ]
+  }
+}

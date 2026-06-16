@@ -17,7 +17,7 @@ import {
  * @property {Record<string, unknown>} [input]
  * @property {Record<string, unknown>} [resumePayload]
  * @property {string} [nodeId]
- * @property {{ ok: true; result?: Record<string, unknown> } | { ok: false; error: string; code?: string }} [outcome]
+ * @property {{ ok: true; result?: Record<string, unknown>; delegateCorrelationId?: string; delegate_correlation_id?: string; externalTaskId?: string; external_task_id?: string } | { ok: false; error: string; code?: string }} [outcome]
  * @property {"in_process" | "host_mediated"} [activityExecutionMode]
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
  * @property {object} [expectedParallelSpan]
@@ -76,6 +76,9 @@ function normalizePortSnapshot(op, portResult, isError, errorCode) {
       ...(r.delegateCorrelationId !== undefined
         ? { delegate_correlation_id: r.delegateCorrelationId }
         : {}),
+      ...(r.agentId !== undefined ? { agent_id: r.agentId } : {}),
+      ...(r.protocol !== undefined ? { protocol: r.protocol } : {}),
+      ...(r.delegateInput !== undefined ? { delegate_input: r.delegateInput } : {}),
       ...(r.childExecutionId !== undefined ? { child_execution_id: r.childExecutionId } : {}),
       ...(r.parentExecutionId !== undefined ? { parent_execution_id: r.parentExecutionId } : {}),
     };
@@ -95,6 +98,12 @@ function normalizePortSnapshot(op, portResult, isError, errorCode) {
     ...(r.nodeId !== undefined ? { node_id: r.nodeId } : {}),
     ...(r.state !== undefined ? { state: r.state } : {}),
     ...(r.code !== undefined ? { code: r.code } : {}),
+    ...(r.agentId !== undefined ? { agent_id: r.agentId } : {}),
+    ...(r.protocol !== undefined ? { protocol: r.protocol } : {}),
+    ...(r.delegateInput !== undefined ? { delegate_input: r.delegateInput } : {}),
+    ...(r.delegateCorrelationId !== undefined
+      ? { delegate_correlation_id: r.delegateCorrelationId }
+      : {}),
     ...(parallelSpan ? { parallel_span: parallelSpanToMcp(parallelSpan) } : {}),
   };
 }
@@ -126,6 +135,9 @@ function normalizeMcpSnapshot(op, mcpResult) {
     ...(s.delegate_correlation_id !== undefined
       ? { delegate_correlation_id: s.delegate_correlation_id }
       : {}),
+    ...(s.agent_id !== undefined ? { agent_id: s.agent_id } : {}),
+    ...(s.protocol !== undefined ? { protocol: s.protocol } : {}),
+    ...(s.delegate_input !== undefined ? { delegate_input: s.delegate_input } : {}),
     ...(s.child_execution_id !== undefined ? { child_execution_id: s.child_execution_id } : {}),
     ...(s.parent_execution_id !== undefined ? { parent_execution_id: s.parent_execution_id } : {}),
     ...(s.parallel_span !== undefined ? { parallel_span: s.parallel_span } : {}),
@@ -153,7 +165,51 @@ function snapshotMatchesExpect(snapshot, expect) {
  * @param {Record<string, unknown>} b
  */
 function snapshotsEqual(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return JSON.stringify(a, Object.keys(a).sort()) === JSON.stringify(b, Object.keys(b).sort());
+}
+
+/**
+ * @param {ParityStep["outcome"]} outcome
+ */
+function normalizeSubmitOutcomeForPort(outcome) {
+  if (!outcome || outcome.ok !== true) {
+    return outcome ?? { ok: true, result: {} };
+  }
+  return {
+    ok: true,
+    ...(outcome.result !== undefined ? { result: outcome.result } : {}),
+    ...((outcome.delegateCorrelationId ?? outcome.delegate_correlation_id) !== undefined
+      ? {
+          delegateCorrelationId:
+            outcome.delegateCorrelationId ?? outcome.delegate_correlation_id,
+        }
+      : {}),
+    ...((outcome.externalTaskId ?? outcome.external_task_id) !== undefined
+      ? { externalTaskId: outcome.externalTaskId ?? outcome.external_task_id }
+      : {}),
+  };
+}
+
+/**
+ * @param {ParityStep["outcome"]} outcome
+ */
+function normalizeSubmitOutcomeForMcp(outcome) {
+  if (!outcome || outcome.ok !== true) {
+    return outcome ?? { ok: true, result: {} };
+  }
+  return {
+    ok: true,
+    ...(outcome.result !== undefined ? { result: outcome.result } : {}),
+    ...((outcome.delegateCorrelationId ?? outcome.delegate_correlation_id) !== undefined
+      ? {
+          delegate_correlation_id:
+            outcome.delegateCorrelationId ?? outcome.delegate_correlation_id,
+        }
+      : {}),
+    ...((outcome.externalTaskId ?? outcome.external_task_id) !== undefined
+      ? { external_task_id: outcome.externalTaskId ?? outcome.external_task_id }
+      : {}),
+  };
 }
 
 /**
@@ -249,13 +305,15 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
 
   if (step.op === "submit_activity") {
     const expectedParallelSpan = step.expectedParallelSpan;
+    const portOutcome = normalizeSubmitOutcomeForPort(step.outcome);
+    const mcpOutcome = normalizeSubmitOutcomeForMcp(step.outcome);
     if (surface === "port") {
       const portResult = await port.submitWorkflowActivity({
         executionId,
         definition,
         input: scenarioInput,
         nodeId: step.nodeId ?? "",
-        outcome: step.outcome ?? { ok: true, result: {} },
+        outcome: portOutcome,
         ...(expectedParallelSpan ? { expectedParallelSpan } : {}),
         ...(activityMode ? { activityExecutionMode: activityMode } : {}),
       });
@@ -283,7 +341,7 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
       definition,
       input: scenarioInput,
       node_id: step.nodeId ?? "",
-      outcome: step.outcome ?? { ok: true, result: {} },
+      outcome: mcpOutcome,
       ...(mcpParallelSpan ? { parallel_span: mcpParallelSpan } : {}),
       ...(activityMode ? { activity_execution_mode: activityMode } : {}),
     });
