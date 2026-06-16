@@ -105,6 +105,22 @@ const activityExecutor = new LlmActivityExecutor({
 
 Inject a custom **`LlmProvider`** for tests or non-OpenAI backends; the default uses fetch against `/chat/completions` with no extra SDK. Structured outputs are validated with AJV when `output_schema` is set. Failures return stable codes: `LLM_CONFIG_INVALID`, `LLM_CREDENTIALS_MISSING`, `LLM_PROVIDER_ERROR`, `LLM_OUTPUT_VALIDATION_FAILED` (surfaced as `ActivityFailed` in execution history).
 
+#### Prompt resolution (`buildLlmChatMessages`)
+
+`LlmActivityExecutor` builds the provider chat payload from `node.config` and the current workflow **`state`** via `buildLlmChatMessages`:
+
+| Message | Source |
+|---------|--------|
+| `system` | `config.system_prompt` when present — passed through as a **literal string** |
+| `user` | `config.user_prompt` or `config.prompt` (alias) when present — **literal string**; otherwise `JSON.stringify(state)` when state has keys; otherwise the fixed fallback `"Respond according to the system instructions."` |
+
+**No jq or state templating.** Unlike `agent_delegate`, `subworkflow`, and engine-direct `tool_call` nodes (which resolve `config.input_mapping` with jq), `llm_call` prompts are **not** evaluated against workflow state. Placeholders in `system_prompt` or `user_prompt` are sent to the provider unchanged.
+
+When prompts must be derived from state (for example inserting `ticket_text` into a user message), use one of:
+
+- A preceding **`set_state`** node to shape state, then omit `user_prompt` so the executor serializes state into the user message (lighthouse `classify` uses this pattern).
+- **`activity_execution_mode: "host_mediated"`** so the host templates prompts from `node.config` and `state` before calling its LLM and submitting the outcome (see [`docs/user/host-mediated-activities.md`](../../docs/user/host-mediated-activities.md)).
+
 ### Engine-direct `step` execution (`StepActivityExecutor`)
 
 `StepActivityExecutor` implements the **`ActivityExecutor`** port for **`step`** nodes. It reads `node.config.handler` (a string URN) and looks up the implementation in an operator-provided **`StepHandlerRegistry`** registered at bootstrap — not in workflow JSON.
@@ -120,6 +136,8 @@ const activityExecutor = new StepActivityExecutor({ registry: registry.createFro
 ```
 
 **v1 sandboxing:** handlers run in the **same Node.js process** as the engine (in-process dispatch). There is no worker isolation, VM sandbox, or resource cap in this profile milestone — treat registered handlers as trusted operator code. Isolated worker processes are deferred to a later release.
+
+**`WORKFLOW_ENGINE_STEP_HANDLERS` is static output only.** The MCP stdio bin reads this env var as a JSON map of handler URN → **fixed output object**. Each entry is wrapped as an async handler that **returns that object unchanged** — there is no way to supply programmatic logic (no I/O, no state inspection, no side effects). Use this for smoke tests and conformance-style fixtures. For real handler code, register async functions via `StepHandlerRegistry.register` at library bootstrap (see example above) and pass the frozen registry to `StepActivityExecutor` / `createWorkflowApplicationPort`.
 
 Stable failure codes: `STEP_CONFIG_INVALID` (missing/invalid `handler`), `HANDLER_NOT_FOUND` (URN not registered), `HANDLER_ERROR` (handler threw). Success merges handler output into workflow state per `state_schema` reducers.
 
@@ -150,9 +168,18 @@ Pass the composite (or any custom `ActivityExecutor`) to `createWorkflowApplicat
 |---------|----------------|
 | `WORKFLOW_ENGINE_MCP_CONFIG` / `--mcp-config` | `tool_call` → `McpManifestActivityExecutor` |
 | `WORKFLOW_ENGINE_LLM_CONFIG` (inline JSON or file path) | `llm_call` → `LlmActivityExecutor` |
-| `WORKFLOW_ENGINE_STEP_HANDLERS` (inline JSON or file path; URN → static output map) | `step` → `StepActivityExecutor` |
+| `WORKFLOW_ENGINE_STEP_HANDLERS` (inline JSON or file path; **static** URN → output map only — not programmatic handlers) | `step` → `StepActivityExecutor` |
 
 When **none** of these are set, the MCP adapter omits `activityExecutor` and the walker uses **`StubActivityExecutor`** (demo/local only). Set **`WORKFLOW_ENGINE_PROFILE=demo`** to add stub **fallback** inside a partial composite (unconfigured node types return `{}` instead of `COMPOSITE_EXECUTOR_NOT_CONFIGURED`). Do **not** rely on stub fallback in production deployments.
+
+On successful startup, `workflows-engine-mcp` writes a structured **activity routing** summary to stderr so operators can see which node types are production-configured vs missing before workflows fail at runtime:
+
+```
+[engine-mcp-stdio] activity routing: llm_call=production, tool_call=missing, step=missing
+[engine-mcp-stdio] demo stub fallback: inactive
+```
+
+Route values: **`production`** (env/config present), **`missing`** (partial composite, no demo fallback — hits `COMPOSITE_EXECUTOR_NOT_CONFIGURED` at runtime), **`stub(demo)`** (unconfigured but covered by `WORKFLOW_ENGINE_PROFILE=demo` fallback), **`stub(default)`** (no operator activity config; full in-process stub mode).
 
 ### Delegate routing (`CompositeDelegateExecutor`)
 
@@ -165,6 +192,8 @@ When **none** of these are set, the MCP adapter omits `activityExecutor` and the
 | `SdkDelegateExecutor` | `sdk` | In-process `Map<agent_id, handler>` (extension point for embedded agents) |
 
 Route multiple protocols with **`buildCompositeDelegateExecutor({ a2a, mcp, sdk })`**. Stable failure codes include **`DELEGATE_AGENT_NOT_FOUND`**, **`DELEGATE_PROTOCOL_ERROR`**, and **`DELEGATE_PROTOCOL_UNSUPPORTED`**. See [A2A delegate mapping](../../docs/user/a2a-delegate-mapping.md) and [MCP operator manifest](../../docs/architecture/arc42-assets/contracts/mcp-operator-manifest.md).
+
+> **Operator constraints:** **`A2ADelegateExecutor`** runs submit + poll **inside** the control-plane call (`workflow_start`, resume, or in-process continuation). Poll may block up to **`pollTimeoutMs`** (default **120s**); MCP stdio hosts often timeout sooner. Poll **throws** on A2A **`input-required`** — it does not yield. **`McpDelegateExecutor`** is **single-shot** (one stdio `tools/call`; no status poll loop). For long-running, interactive, or **`input-required`** delegates, pass **`activity_execution_mode: "host_mediated"`** and complete via **`workflow_submit_activity`** ([host-mediated guide](../../docs/user/host-mediated-activities.md), [A2A input-required migration](../../docs/user/a2a-delegate-mapping.md#migrating-from-in-process-a2a-when-a-task-needs-input)).
 
 ```js
 import {
@@ -182,6 +211,17 @@ const delegateExecutor = buildCompositeDelegateExecutor({
   }),
 });
 ```
+
+**`workflows-engine-mcp` wiring:** when any operator config is present, the stdio bin loads a composite via `loadProductionDelegateExecutor`:
+
+| Env var | Sub-executor |
+|---------|----------------|
+| `WORKFLOW_ENGINE_A2A_CONFIG` (inline JSON or file path) | `a2a` → `A2ADelegateExecutor` |
+| `WORKFLOW_ENGINE_MCP_CONFIG` / `--mcp-config` (`delegateAgents` in manifest) | `mcp` → `McpDelegateExecutor` |
+
+When **none** of these are set, the MCP adapter omits `delegateExecutor` and the walker uses **`MockA2ADelegateExecutor`** (demo/local only). Set **`WORKFLOW_ENGINE_PROFILE=demo`** to add mock **fallback** inside a partial composite (unconfigured protocols succeed with in-process mock output instead of `DELEGATE_PROTOCOL_UNSUPPORTED`). Do **not** rely on mock fallback in production deployments.
+
+Invalid `WORKFLOW_ENGINE_A2A_CONFIG` (missing `baseUrl`) or an invalid operator manifest fails **at MCP stdio startup** with readable stderr messages (same pattern as activity bootstrap).
 
 ### Host compatibility constraints for no-install use
 

@@ -13,6 +13,20 @@ Assistant-class MCP hosts (Cursor, Claude Desktop, Codex-style clients) already 
 
 The runtime default is **`in_process`** for backward-compatible smoke tests. Assistant hosts **must opt in** to `host_mediated` on every control-plane call that can continue execution (see [ADR-0002](../architecture/adr/ADR-0002-host-mediated-activity-execution.md)).
 
+## Templated `llm_call` prompts: host-mediated vs engine-direct
+
+The reference engine's **`LlmActivityExecutor`** (engine-direct / `in_process`) resolves `llm_call` prompts as **literal strings** from `config.system_prompt` and `config.user_prompt` / `config.prompt`. It does **not** evaluate jq expressions or substitute state into prompt text. If `user_prompt` is omitted, the user message is `JSON.stringify(state)` when state has keys, or the fixed fallback `"Respond according to the system instructions."` when state is empty.
+
+| Need | Recommended mode |
+|------|------------------|
+| Static prompts only | Either mode; engine-direct is fine when operator config supplies provider credentials |
+| jq or custom templating from workflow state | **`host_mediated`** — read `node.config` and `state` from the pending `awaiting_activity` / `workflow_status` response, build the provider request in the host, then `workflow_submit_activity` |
+| Engine-side state shaping without host templating | **`in_process`** with a preceding **`set_state`** node, then literal prompts or omit `user_prompt` to rely on the JSON.stringify(state) fallback |
+
+**Contrast with `agent_delegate`:** delegate nodes resolve `config.input_mapping` with jq (same machinery as `subworkflow` and engine-direct `tool_call`). `llm_call` has no `input_mapping` field in the current profile.
+
+**Lighthouse example:** `classify` sets only `system_prompt` and omits `user_prompt`. Engine-direct execution sends the serialized workflow state (for example `{ "ticket_text": "…" }`) as the user message. A host-mediated integration **may** instead format `ticket_text` into a richer prompt before calling its LLM.
+
 ## Opt-in: `activity_execution_mode`
 
 Pass **`activity_execution_mode: "host_mediated"`** on:
@@ -67,6 +81,8 @@ For each activity boundary the engine yields **`awaiting_activity`**. The host l
 Success outcomes use `{ "ok": true, "result": { ... } }` (merged into workflow state per node completion). Failures use `{ "ok": false, "error": "...", "code": "..." }`.
 
 For **`agent_delegate`** nodes, include the **`delegate_correlation_id`** from the pending `ActivityRequested` (also exposed on start/status responses). Optionally pass **`external_task_id`** for the host-side agent task reference. The engine validates that the submitted correlation id matches the pending request before recording `ActivityCompleted`.
+
+**Interactive A2A delegates (`input-required`):** In-process **`A2ADelegateExecutor`** poll throws when the A2A task status is `input-required` — it cannot yield mid-poll. Assistant hosts **must** use `host_mediated` from the first control-plane call for delegates that may need human input or multi-turn agent prompts, and poll the A2A task **out of band** before submitting the final outcome. See [A2A delegate mapping — migrating from in-process A2A](a2a-delegate-mapping.md#migrating-from-in-process-a2a-when-a-task-needs-input).
 
 ```json
 {
@@ -159,6 +175,7 @@ Conformance vectors: `parity.r3.host_mediated_delegate_submit` (port/MCP parity)
 
 ## Related documentation
 
+- [A2A delegate mapping](a2a-delegate-mapping.md) — HTTP task API, in-process poll constraints, and **`input-required`** migration path
 - [Run with MCP](mcp-operator-guide.md) — package install, tool reference, development setup
 - [ADR-0002: Host-mediated activity execution](../architecture/adr/ADR-0002-host-mediated-activity-execution.md)
 - [Engine package README](https://github.com/benvdbergh/workflows/blob/main/packages/engine/README.md) — library API and MCP tool schemas

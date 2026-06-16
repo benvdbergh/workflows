@@ -11,10 +11,20 @@ import { fileURLToPath } from "node:url";
 import { readAndValidateMcpOperatorManifestFile } from "../../config/mcp-operator-manifest.mjs";
 import { StubActivityExecutor } from "../../orchestrator/activity-executor.mjs";
 import {
+  A2ADelegateExecutor,
+  parseA2AOperatorConfig,
+} from "../../orchestrator/a2a-delegate-executor.mjs";
+import {
   buildCompositeActivityExecutor,
   CompositeActivityExecutor,
 } from "../../orchestrator/composite-activity-executor.mjs";
+import {
+  buildCompositeDelegateExecutor,
+  CompositeDelegateExecutor,
+} from "../../orchestrator/composite-delegate-executor.mjs";
+import { MockA2ADelegateExecutor } from "../../orchestrator/delegate-executor.mjs";
 import { LlmActivityExecutor } from "../../orchestrator/llm-activity-executor.mjs";
+import { McpDelegateExecutor } from "../../orchestrator/mcp-delegate-executor.mjs";
 import { McpManifestActivityExecutor } from "../../orchestrator/mcp-stdio-activity-executor.mjs";
 import {
   StepActivityExecutor,
@@ -90,9 +100,32 @@ export function resolveLlmOperatorConfigFromEnv(env = process.env, cwd = process
 }
 
 /**
+ * Reads A2A operator config from `WORKFLOW_ENGINE_A2A_CONFIG` (inline JSON or file path).
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {string} [cwd]
+ * @returns {import("../../orchestrator/a2a-delegate-executor.mjs").A2AOperatorConfig | null}
+ */
+export function resolveA2AOperatorConfigFromEnv(env = process.env, cwd = process.cwd()) {
+  const raw = env.WORKFLOW_ENGINE_A2A_CONFIG;
+  if (!raw || String(raw).trim() === "") {
+    return null;
+  }
+  const parsed = parseJsonEnvOrFilePath(raw, cwd, "WORKFLOW_ENGINE_A2A_CONFIG");
+  return /** @type {import("../../orchestrator/a2a-delegate-executor.mjs").A2AOperatorConfig} */ (parsed);
+}
+
+/**
  * Loads a frozen {@link StepHandlerRegistry} from `WORKFLOW_ENGINE_STEP_HANDLERS`.
- * Value is inline JSON or a file path. Each key is a handler URN; each value is the static handler output
- * (same shape as conformance `stepHandlers` vectors).
+ *
+ * **Static-output bootstrap only** — not programmatic handler registration. The env value is inline JSON
+ * or a file path to a JSON object. Each key is a handler URN; each value is a **fixed output object**
+ * (same shape as conformance `stepHandlers` vectors). Every entry is registered as
+ * `async () => output` — the returned object is never computed from workflow state, node config, or I/O.
+ *
+ * For async handler functions that inspect {@link import("../../orchestrator/step-activity-executor.mjs").StepHandlerContext}
+ * or perform side effects, use {@link StepHandlerRegistry#register} at library bootstrap and pass the
+ * frozen registry to {@link StepActivityExecutor} (see `packages/engine/README.md`).
  *
  * @param {NodeJS.ProcessEnv} [env]
  * @param {string} [cwd]
@@ -132,6 +165,59 @@ export function formatMcpManifestValidationErrors(errors) {
   return lines.join("\n");
 }
 
+/** @typedef {"production" | "stub(demo)" | "missing" | "stub(default)"} ActivityRouteStatus */
+
+/**
+ * @typedef {{
+ *   llm_call: ActivityRouteStatus;
+ *   tool_call: ActivityRouteStatus;
+ *   step: ActivityRouteStatus;
+ *   demoStubFallback: boolean;
+ * }} ActivityRoutingSummary
+ */
+
+/**
+ * @param {{
+ *   hasLlm: boolean;
+ *   hasTool: boolean;
+ *   hasStep: boolean;
+ *   demoStubFallback: boolean;
+ *   compositeMode: boolean;
+ * }} params
+ * @returns {ActivityRoutingSummary}
+ */
+export function buildActivityRoutingSummary(params) {
+  /** @param {boolean} configured */
+  const status = (configured) => {
+    if (configured) {
+      return /** @type {ActivityRouteStatus} */ ("production");
+    }
+    if (!params.compositeMode) {
+      return /** @type {ActivityRouteStatus} */ ("stub(default)");
+    }
+    if (params.demoStubFallback) {
+      return /** @type {ActivityRouteStatus} */ ("stub(demo)");
+    }
+    return /** @type {ActivityRouteStatus} */ ("missing");
+  };
+  return {
+    llm_call: status(params.hasLlm),
+    tool_call: status(params.hasTool),
+    step: status(params.hasStep),
+    demoStubFallback: params.demoStubFallback,
+  };
+}
+
+/**
+ * @param {ActivityRoutingSummary} summary
+ * @returns {string}
+ */
+export function formatActivityRoutingSummaryLog(summary) {
+  const routes = [`llm_call=${summary.llm_call}`, `tool_call=${summary.tool_call}`, `step=${summary.step}`].join(", ");
+  const fallback = summary.demoStubFallback ? "active" : "inactive";
+  return `[engine-mcp-stdio] activity routing: ${routes}\n[engine-mcp-stdio] demo stub fallback: ${fallback}\n`;
+}
+
 /**
  * @param {string} manifestPath
  * @param {{ cwd?: string }} [options]
@@ -163,7 +249,7 @@ export async function loadEngineDirectActivityExecutor(manifestPath, options = {
  *   profile?: string | null;
  * }} [options]
  * @returns {Promise<
- *   | { ok: true; executor: CompositeActivityExecutor | undefined }
+ *   | { ok: true; executor: CompositeActivityExecutor | undefined; routingSummary: ActivityRoutingSummary }
  *   | { ok: false; errors: ReadonlyArray<{ instancePath?: string; keyword: string; message?: string }> }
  *   | { ok: false; error: string }
  * >}
@@ -180,37 +266,144 @@ export async function loadProductionActivityExecutor(options = {}) {
   const manifestPath =
     options.manifestPath !== undefined ? options.manifestPath : resolveWorkflowEngineMcpConfigPath(process.argv, cwd);
 
+  let hasTool = false;
   if (manifestPath) {
     const loaded = await loadEngineDirectActivityExecutor(manifestPath, { cwd });
     if (!loaded.ok) {
       return loaded;
     }
     subExecutors.tool_call = loaded.executor;
+    hasTool = true;
   }
 
   const llmConfig =
     options.llmConfig !== undefined ? options.llmConfig : resolveLlmOperatorConfigFromEnv(env, cwd);
+  let hasLlm = false;
   if (llmConfig) {
     subExecutors.llm_call = new LlmActivityExecutor({ operatorConfig: llmConfig, env });
+    hasLlm = true;
   }
 
   const stepRegistry =
     options.stepHandlerRegistry !== undefined
       ? options.stepHandlerRegistry
       : loadStepHandlerRegistryFromEnv(env, cwd);
+  let hasStep = false;
   if (stepRegistry) {
     subExecutors.step = new StepActivityExecutor({ registry: stepRegistry });
+    hasStep = true;
   }
 
-  if (!subExecutors.step && !subExecutors.llm_call && !subExecutors.tool_call) {
-    return { ok: true, executor: undefined };
+  if (!hasStep && !hasLlm && !hasTool) {
+    return {
+      ok: true,
+      executor: undefined,
+      routingSummary: buildActivityRoutingSummary({
+        hasLlm: false,
+        hasTool: false,
+        hasStep: false,
+        demoStubFallback: demoProfile,
+        compositeMode: false,
+      }),
+    };
   }
 
   if (demoProfile) {
     subExecutors.fallback = new StubActivityExecutor();
   }
 
-  return { ok: true, executor: buildCompositeActivityExecutor(subExecutors) };
+  return {
+    ok: true,
+    executor: buildCompositeActivityExecutor(subExecutors),
+    routingSummary: buildActivityRoutingSummary({
+      hasLlm,
+      hasTool,
+      hasStep,
+      demoStubFallback: demoProfile,
+      compositeMode: true,
+    }),
+  };
+}
+
+/**
+ * @param {string} manifestPath
+ * @param {{ cwd?: string }} [options]
+ * @returns {Promise<
+ *   | { ok: true; executor: import("../../orchestrator/mcp-delegate-executor.mjs").McpDelegateExecutor | undefined }
+ *   | { ok: false; errors: ReadonlyArray<{ instancePath?: string; keyword: string; message?: string }> }
+ * >}
+ */
+export async function loadEngineDirectMcpDelegateExecutor(manifestPath, options = {}) {
+  const result = await readAndValidateMcpOperatorManifestFile(manifestPath, options);
+  if (!result.ok) {
+    return { ok: false, errors: result.errors };
+  }
+  if (!result.manifest.delegateAgents) {
+    return { ok: true, executor: undefined };
+  }
+  const executor = new McpDelegateExecutor({
+    manifest: result.manifest,
+    clientName: "@agent-workflow/workflows-engine-mcp",
+    clientVersion: enginePackageVersion,
+  });
+  return { ok: true, executor };
+}
+
+/**
+ * @param {{
+ *   manifestPath?: string | null;
+ *   a2aConfig?: import("../../orchestrator/a2a-delegate-executor.mjs").A2AOperatorConfig | null;
+ *   env?: NodeJS.ProcessEnv;
+ *   cwd?: string;
+ *   profile?: string | null;
+ * }} [options]
+ * @returns {Promise<
+ *   | { ok: true; executor: CompositeDelegateExecutor | undefined }
+ *   | { ok: false; errors: ReadonlyArray<{ instancePath?: string; keyword: string; message?: string }> }
+ *   | { ok: false; error: string }
+ * >}
+ */
+export async function loadProductionDelegateExecutor(options = {}) {
+  const cwd = options.cwd ?? process.cwd();
+  const env = options.env ?? process.env;
+  const profile = options.profile ?? env.WORKFLOW_ENGINE_PROFILE ?? null;
+  const demoProfile = profile === "demo";
+
+  /** @type {Partial<{ a2a: import("../../orchestrator/delegate-executor.mjs").DelegateExecutor; mcp: import("../../orchestrator/delegate-executor.mjs").DelegateExecutor; fallback?: import("../../orchestrator/delegate-executor.mjs").DelegateExecutor }>} */
+  const subExecutors = {};
+
+  const manifestPath =
+    options.manifestPath !== undefined ? options.manifestPath : resolveWorkflowEngineMcpConfigPath(process.argv, cwd);
+
+  if (manifestPath) {
+    const loaded = await loadEngineDirectMcpDelegateExecutor(manifestPath, { cwd });
+    if (!loaded.ok) {
+      return loaded;
+    }
+    if (loaded.executor) {
+      subExecutors.mcp = loaded.executor;
+    }
+  }
+
+  const a2aConfig =
+    options.a2aConfig !== undefined ? options.a2aConfig : resolveA2AOperatorConfigFromEnv(env, cwd);
+  if (a2aConfig) {
+    const parsed = parseA2AOperatorConfig(a2aConfig);
+    if (!parsed.ok) {
+      return { ok: false, error: parsed.error };
+    }
+    subExecutors.a2a = new A2ADelegateExecutor({ operatorConfig: a2aConfig, env });
+  }
+
+  if (!subExecutors.a2a && !subExecutors.mcp) {
+    return { ok: true, executor: undefined };
+  }
+
+  if (demoProfile) {
+    subExecutors.fallback = new MockA2ADelegateExecutor();
+  }
+
+  return { ok: true, executor: buildCompositeDelegateExecutor(subExecutors) };
 }
 
 export { enginePackageVersion };

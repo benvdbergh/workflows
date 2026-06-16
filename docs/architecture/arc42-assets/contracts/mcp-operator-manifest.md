@@ -1,6 +1,6 @@
 # MCP operator manifest (engine reference)
 
-Last updated: 2026-05-04
+Last updated: 2026-06-17
 
 ## Purpose
 
@@ -29,6 +29,8 @@ For **`agent_delegate`** nodes with `protocol: "mcp"`, the reference engine's **
 | `delegateAgents.<agent_id>.tool` | MCP tool name passed to `tools/call` |
 
 The resolved `input_mapping` payload is sent as the MCP tool `arguments` object. Stable failure codes: **`DELEGATE_AGENT_NOT_FOUND`** (unknown agent or server label), **`DELEGATE_PROTOCOL_ERROR`** (MCP wire/tool failure), **`DELEGATE_PROTOCOL_UNSUPPORTED`** (wrong protocol for the executor).
+
+**Single-shot semantics (vs A2A poll):** `McpDelegateExecutor` performs **one** MCP stdio `tools/call` per `agent_delegate` node and maps the tool result to delegate output. It does **not** implement an A2A-style submit + status poll loop — there is no engine-side wait for `working` → `completed`, and no handling of **`input-required`** mid-delegation. Contrast with **`A2ADelegateExecutor`** (`protocol: "a2a"`), which submits an HTTP task and polls until terminal status (default **`pollTimeoutMs` 120s**), blocking the calling control-plane operation for the duration. For long-running, interactive, or multi-turn delegates, operators should use **`activity_execution_mode: "host_mediated"`** and complete the delegate via `workflow_submit_activity` (see [A2A delegate mapping](../../../user/a2a-delegate-mapping.md) and [Host-mediated activities](../../../user/host-mediated-activities.md)).
 
 Example fragment:
 
@@ -69,6 +71,8 @@ Library helpers above apply when tooling calls `resolveMcpOperatorManifestPath()
 - CLI flag **`--mcp-config <path>`** after the bin name (overrides the env var when both are set).
 
 That startup path is **independent** of `AGENT_WORKFLOW_MCP_MANIFEST` and `<cwd>/.agent-workflow/mcp.json`. See `packages/engine/README.md` (engine-direct section) and [ADR-0003](../../adr/ADR-0003-engine-direct-mcp-activity-execution.md).
+
+For **`agent_delegate`** nodes with `protocol: "mcp"`, the same `WORKFLOW_ENGINE_MCP_CONFIG` / `--mcp-config` manifest is used to bootstrap **`McpDelegateExecutor`** when `delegateAgents` is present (`loadProductionDelegateExecutor` in `workflows-engine-mcp`). For `protocol: "a2a"`, set **`WORKFLOW_ENGINE_A2A_CONFIG`** (inline JSON or file path) with `baseUrl` and `apiKeyEnv` — see `packages/engine/README.md` (delegate routing section).
 
 ## CLI validation
 
