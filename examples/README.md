@@ -11,7 +11,7 @@ Golden definitions and **trace companions** for the engine profile ([docs/engine
 | [r2-research-parallel.workflow.json](./r2-research-parallel.workflow.json) | Parallel research branches with `join: all`. |
 | [r2-parallel-join-any.workflow.json](./r2-parallel-join-any.workflow.json) | Parallel join `any` policy. |
 | [r2-parallel-join-n2-of-3.workflow.json](./r2-parallel-join-n2-of-3.workflow.json) | Parallel join `n_of_m` policy. |
-| [r3-multi-agent-coding.workflow.json](./r3-multi-agent-coding.workflow.json) | Multi-agent coding with `agent_delegate`. |
+| [r3-multi-agent-coding.workflow.json](./r3-multi-agent-coding.workflow.json) | Multi-agent coding with `agent_delegate`. Default engine uses mock A2A; opt-in production path: [A2A delegate mapping](../docs/user/a2a-delegate-mapping.md) and `npm test -- --test-name-pattern "r3-multi-agent-coding implement"`. |
 | [r3-unit-tests-child.workflow.json](./r3-unit-tests-child.workflow.json) | Child workflow for subworkflow demos. |
 | [conformance-agent-delegate-linear.workflow.json](./conformance-agent-delegate-linear.workflow.json) | Conformance: delegate linear path. |
 | [conformance-subworkflow-parent.workflow.json](./conformance-subworkflow-parent.workflow.json) | Conformance: subworkflow parent. |

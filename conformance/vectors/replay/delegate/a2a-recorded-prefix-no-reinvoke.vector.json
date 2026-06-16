@@ -1,0 +1,79 @@
+{
+  "id": "replay.delegate.a2a_recorded_prefix_no_reinvoke",
+  "description": "Recorded ActivityCompleted from A2A delegate (externalTaskId from HTTP task); tail replay must not invoke executeDelegate.",
+  "kind": "replay",
+  "definition": "examples/conformance-agent-delegate-linear.workflow.json",
+  "input": { "task": "add unit tests" },
+  "assertNoDelegateExecutorInvocation": true,
+  "historyPrefix": [
+    {
+      "kind": "event",
+      "name": "ExecutionStarted",
+      "payload": {
+        "workflowName": "conformance-agent-delegate-linear",
+        "workflowVersion": "1.0.0",
+        "inputKeys": ["task"]
+      }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "start" }
+    },
+    {
+      "kind": "command",
+      "name": "CompleteNode",
+      "payload": { "nodeId": "start", "output": {} }
+    },
+    {
+      "kind": "event",
+      "name": "StateUpdated",
+      "payload": { "nodeId": "start", "state": { "task": "add unit tests" } }
+    },
+    {
+      "kind": "command",
+      "name": "ScheduleNode",
+      "payload": { "nodeId": "implement" }
+    },
+    {
+      "kind": "event",
+      "name": "NodeScheduled",
+      "payload": { "nodeId": "implement" }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityRequested",
+      "payload": {
+        "nodeId": "implement",
+        "nodeType": "agent_delegate",
+        "agentId": "coder",
+        "protocol": "a2a",
+        "delegateCorrelationId": "replay.delegate.a2a_recorded_prefix_no_reinvoke::exec:delegate:implement",
+        "delegateInput": { "task": "add unit tests" }
+      }
+    },
+    {
+      "kind": "event",
+      "name": "ActivityCompleted",
+      "payload": {
+        "nodeId": "implement",
+        "result": { "patch": "// A2A HTTP patch", "delegate_status": "completed" },
+        "delegateCorrelationId": "replay.delegate.a2a_recorded_prefix_no_reinvoke::exec:delegate:implement",
+        "externalTaskId": "a2a-task-http-42"
+      }
+    }
+  ],
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "CompleteNode", "nodeId": "implement" },
+      { "name": "ScheduleNode", "nodeId": "end" },
+      { "name": "CompleteNode", "nodeId": "end" }
+    ]
+  }
+}

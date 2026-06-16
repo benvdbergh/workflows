@@ -373,6 +373,7 @@ export function createWorkflowApplicationPort(deps) {
         executionId,
         store,
         ...(activityExecutor ? { activityExecutor } : {}),
+        ...(delegateExecutor ? { delegateExecutor } : {}),
         ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
       });
 
@@ -505,6 +506,7 @@ export function createWorkflowApplicationPort(deps) {
         ...(request.stubActivityOutputs ? { stubActivityOutputs: request.stubActivityOutputs } : {}),
         ...(request.activityExecutor ? { activityExecutor: request.activityExecutor } : {}),
         ...(!request.activityExecutor && activityExecutor ? { activityExecutor } : {}),
+        ...(delegateExecutor ? { delegateExecutor } : {}),
       });
 
       return {

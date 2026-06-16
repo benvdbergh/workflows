@@ -33,6 +33,14 @@ export {
   mintDelegateCorrelationId,
 } from "./orchestrator/delegate-executor.mjs";
 export {
+  A2ADelegateExecutor,
+  HttpA2ATransport,
+  parseA2AOperatorConfig,
+  parseA2ATaskResponse,
+  pollA2ATaskUntilTerminal,
+  resolveA2AApiKey,
+} from "./orchestrator/a2a-delegate-executor.mjs";
+export {
   callMcpToolStdio,
   DEFAULT_MCP_ACTIVITY_TOOL_TIMEOUT_MS,
   mapMcpCallToolResultToActivityResult,

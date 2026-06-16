@@ -6,6 +6,7 @@ export const USER_DOC_FILES = [
   "getting-started.md",
   "mcp-operator-guide.md",
   "host-mediated-activities.md",
+  "a2a-delegate-mapping.md",
   "authoring-workflows.md",
   "node-reference.md",
   "state-jq-reducers.md",

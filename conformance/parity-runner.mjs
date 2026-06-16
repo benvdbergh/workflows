@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
+  A2ADelegateExecutor,
   createMcpWorkflowToolHandlers,
   createWorkflowApplicationPort,
   MemoryExecutionHistoryStore,
   StubActivityExecutor,
 } from "../packages/engine/src/index.mjs";
+import { createA2AMockHttpServer } from "../packages/engine/test/helpers/a2a-mock-http-server.mjs";
 
 /**
  * @typedef {"start" | "status" | "resume" | "submit_activity"} ParityOp
@@ -35,6 +37,7 @@ import {
  * @property {string} [pendingReason]
  * @property {string} definition
  * @property {string} executionId
+ * @property {boolean} [useProductionA2ADelegate] When true, wire A2ADelegateExecutor against in-process mock A2A HTTP.
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
  * @property {ParityStep[]} steps
  */
@@ -358,6 +361,30 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
 const allowPending =
   process.env.CONFORMANCE_ALLOW_PENDING === "1" || process.env.CONFORMANCE_ALLOW_PENDING === "true";
 
+/**
+ * @param {ParityVector} vector
+ * @returns {Promise<{ delegateExecutor?: import("../packages/engine/src/orchestrator/delegate-executor.mjs").DelegateExecutor; closeMockA2A?: () => Promise<void> }>}
+ */
+async function resolveParityDelegateExecutor(vector) {
+  if (!vector.useProductionA2ADelegate) {
+    return {};
+  }
+  const mock = createA2AMockHttpServer({ workingPolls: 1 });
+  const { baseUrl, close } = await mock.listen();
+  return {
+    delegateExecutor: new A2ADelegateExecutor({
+      operatorConfig: {
+        baseUrl,
+        apiKeyEnv: "CONFORMANCE_A2A_API_KEY",
+        pollIntervalMs: 10,
+        pollTimeoutMs: 5_000,
+      },
+      env: { CONFORMANCE_A2A_API_KEY: "conformance-a2a-token" },
+    }),
+    closeMockA2A: close,
+  };
+}
+
 export async function runParityVector(vector, repoRoot) {
   if (vector.pending) {
     const reason = vector.pendingReason ?? "Scenario pending implementation";
@@ -378,6 +405,7 @@ export async function runParityVector(vector, repoRoot) {
   const definitionPath = path.resolve(repoRoot, vector.definition);
   const definition = JSON.parse(readFileSync(definitionPath, "utf8"));
   const scenarioInput = vector.steps.find((s) => s.input)?.input ?? {};
+  const { delegateExecutor, closeMockA2A } = await resolveParityDelegateExecutor(vector);
 
   /**
    * @param {"port" | "mcp"} surface
@@ -389,6 +417,7 @@ export async function runParityVector(vector, repoRoot) {
       ...(vector.stubActivityOutputs
         ? { activityExecutor: new StubActivityExecutor(vector.stubActivityOutputs) }
         : {}),
+      ...(delegateExecutor ? { delegateExecutor } : {}),
     });
     const handlers = createMcpWorkflowToolHandlers(port);
     /** @type {Record<string, unknown>[]} */
@@ -437,24 +466,30 @@ export async function runParityVector(vector, repoRoot) {
     return { passed: true, snapshots };
   }
 
-  const portRun = await runScenario("port");
-  if (!portRun.passed) {
-    return portRun;
-  }
-  const mcpRun = await runScenario("mcp");
-  if (!mcpRun.passed) {
-    return mcpRun;
-  }
+  try {
+    const portRun = await runScenario("port");
+    if (!portRun.passed) {
+      return portRun;
+    }
+    const mcpRun = await runScenario("mcp");
+    if (!mcpRun.passed) {
+      return mcpRun;
+    }
 
-  for (let i = 0; i < portRun.snapshots.length; i += 1) {
-    if (!snapshotsEqual(portRun.snapshots[i], mcpRun.snapshots[i])) {
-      return {
-        passed: false,
-        reason: `Step index ${i} (${vector.steps[i].op}): port and MCP normalized snapshots differ`,
-        context: { port: portRun.snapshots[i], mcp: mcpRun.snapshots[i] },
-      };
+    for (let i = 0; i < portRun.snapshots.length; i += 1) {
+      if (!snapshotsEqual(portRun.snapshots[i], mcpRun.snapshots[i])) {
+        return {
+          passed: false,
+          reason: `Step index ${i} (${vector.steps[i].op}): port and MCP normalized snapshots differ`,
+          context: { port: portRun.snapshots[i], mcp: mcpRun.snapshots[i] },
+        };
+      }
+    }
+
+    return { passed: true, context: { stepCount: vector.steps.length } };
+  } finally {
+    if (closeMockA2A) {
+      await closeMockA2A();
     }
   }
-
-  return { passed: true, context: { stepCount: vector.steps.length } };
 }
