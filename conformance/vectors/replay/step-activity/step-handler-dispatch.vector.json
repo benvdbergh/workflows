@@ -1,0 +1,21 @@
+{
+  "id": "replay.step_activity.step_handler_dispatch",
+  "description": "In-process StepActivityExecutor dispatches a registered handler URN and completes a minimal start → step → end workflow.",
+  "kind": "replay",
+  "definition": "examples/conformance-step-handler.workflow.json",
+  "input": {},
+  "stepHandlers": {
+    "urn:conformance:step:test-handler": { "value": "dispatched" }
+  },
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "ScheduleNode", "nodeId": "begin" },
+      { "name": "CompleteNode", "nodeId": "begin" },
+      { "name": "ScheduleNode", "nodeId": "dispatch" },
+      { "name": "CompleteNode", "nodeId": "dispatch" },
+      { "name": "ScheduleNode", "nodeId": "finish" },
+      { "name": "CompleteNode", "nodeId": "finish" }
+    ]
+  }
+}

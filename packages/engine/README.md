@@ -103,6 +103,24 @@ const activityExecutor = new LlmActivityExecutor({
 
 Inject a custom **`LlmProvider`** for tests or non-OpenAI backends; the default uses fetch against `/chat/completions` with no extra SDK. Structured outputs are validated with AJV when `output_schema` is set. Failures return stable codes: `LLM_CONFIG_INVALID`, `LLM_CREDENTIALS_MISSING`, `LLM_PROVIDER_ERROR`, `LLM_OUTPUT_VALIDATION_FAILED` (surfaced as `ActivityFailed` in execution history).
 
+### Engine-direct `step` execution (`StepActivityExecutor`)
+
+`StepActivityExecutor` implements the **`ActivityExecutor`** port for **`step`** nodes. It reads `node.config.handler` (a string URN) and looks up the implementation in an operator-provided **`StepHandlerRegistry`** registered at bootstrap — not in workflow JSON.
+
+```js
+import { StepActivityExecutor, StepHandlerRegistry, runGraphWorkflow } from "@agent-workflow/engine";
+
+const registry = new StepHandlerRegistry();
+registry.register("urn:my-app:handlers:lookup-customer", async (ctx) => {
+  return { customerId: "c-1", name: "Ada" };
+});
+const activityExecutor = new StepActivityExecutor({ registry: registry.createFrozenCopy() });
+```
+
+**v1 sandboxing:** handlers run in the **same Node.js process** as the engine (in-process dispatch). There is no worker isolation, VM sandbox, or resource cap in this profile milestone — treat registered handlers as trusted operator code. Isolated worker processes are deferred to a later release.
+
+Stable failure codes: `STEP_CONFIG_INVALID` (missing/invalid `handler`), `HANDLER_NOT_FOUND` (URN not registered), `HANDLER_ERROR` (handler threw). Success merges handler output into workflow state per `state_schema` reducers.
+
 ### Host compatibility constraints for no-install use
 
 - **Node runtime:** Node.js `>=22.5.0` is required (uses `node:sqlite`).
