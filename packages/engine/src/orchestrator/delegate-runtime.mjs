@@ -31,11 +31,20 @@ function unpackReplayDelegateResult(stored) {
  * @param {ReplayHydrationResult} args.replay
  * @param {DelegateExecutor} args.delegateExecutor
  * @param {boolean} [args.assertNoDelegateExecutorInvocation]
+ * @param {"in_process" | "host_mediated"} [args.activityExecutionMode]
  * @param {(name: string, payload: Record<string, unknown>) => number} args.appendEvt
  * @param {{ json: (data: unknown, query: string) => Promise<unknown> }} args.jq
  * @returns {Promise<
  *   | { kind: "completed"; output: Record<string, unknown> }
  *   | { kind: "failed"; error: string; code?: string }
+ *   | {
+ *       kind: "awaiting_activity";
+ *       nodeId: string;
+ *       agentId: string;
+ *       protocol: string;
+ *       delegateCorrelationId: string;
+ *       delegateInput: Record<string, unknown>;
+ *     }
  * >}
  */
 export async function executeDelegateNode(args) {
@@ -47,6 +56,7 @@ export async function executeDelegateNode(args) {
     replay,
     delegateExecutor,
     assertNoDelegateExecutorInvocation = false,
+    activityExecutionMode = "in_process",
     appendEvt,
     jq,
   } = args;
@@ -89,8 +99,54 @@ export async function executeDelegateNode(args) {
     return { kind: "completed", output };
   }
 
-  if (assertNoDelegateExecutorInvocation) {
-    return { kind: "failed", error: "agent_delegate invocation not allowed in this run" };
+  if (activityExecutionMode === "host_mediated") {
+    for (let i = replay.events.length - 1; i >= 0; i -= 1) {
+      const row = replay.events[i];
+      if (row.name !== "ActivityRequested" || row.payload?.nodeId !== node.id) {
+        continue;
+      }
+      if (row.payload?.nodeType !== "agent_delegate") {
+        break;
+      }
+      const hasLaterCompletion = replay.events.some(
+        (later) =>
+          later.seq > row.seq &&
+          later.name === "ActivityCompleted" &&
+          later.payload?.nodeId === node.id
+      );
+      if (hasLaterCompletion) {
+        break;
+      }
+      const pendingAgentId = typeof row.payload?.agentId === "string" ? row.payload.agentId : agentId;
+      const pendingProtocol = typeof row.payload?.protocol === "string" ? row.payload.protocol : protocol;
+      const pendingCorrelationId =
+        typeof row.payload?.delegateCorrelationId === "string"
+          ? row.payload.delegateCorrelationId
+          : mintDelegateCorrelationId(executionId, node.id);
+      const pendingInput =
+        row.payload?.delegateInput &&
+        typeof row.payload.delegateInput === "object" &&
+        !Array.isArray(row.payload.delegateInput)
+          ? /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(row.payload.delegateInput)))
+          : undefined;
+      let resolvedInput = pendingInput;
+      if (!resolvedInput) {
+        try {
+          resolvedInput = await applyInputMapping(state, inputMapping, jq);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { kind: "failed", error: msg };
+        }
+      }
+      return {
+        kind: "awaiting_activity",
+        nodeId: node.id,
+        agentId: pendingAgentId,
+        protocol: pendingProtocol,
+        delegateCorrelationId: pendingCorrelationId,
+        delegateInput: resolvedInput,
+      };
+    }
   }
 
   let delegateInput;
@@ -108,7 +164,23 @@ export async function executeDelegateNode(args) {
     agentId,
     protocol,
     delegateCorrelationId: preCorrelationId,
+    delegateInput: JSON.parse(JSON.stringify(delegateInput)),
   });
+
+  if (activityExecutionMode === "host_mediated") {
+    return {
+      kind: "awaiting_activity",
+      nodeId: node.id,
+      agentId,
+      protocol,
+      delegateCorrelationId: preCorrelationId,
+      delegateInput: JSON.parse(JSON.stringify(delegateInput)),
+    };
+  }
+
+  if (assertNoDelegateExecutorInvocation) {
+    return { kind: "failed", error: "agent_delegate invocation not allowed in this run" };
+  }
 
   const delegateResult = await delegateExecutor.executeDelegate({
     executionId,

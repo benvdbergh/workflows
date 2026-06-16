@@ -1,0 +1,22 @@
+{
+  "id": "parity.r3.a2a_delegate_executor",
+  "description": "agent_delegate completes via production A2ADelegateExecutor against in-process mock A2A HTTP server.",
+  "kind": "parity",
+  "useProductionA2ADelegate": true,
+  "definition": "examples/conformance-agent-delegate-linear.workflow.json",
+  "executionId": "parity-a2a-delegate-1",
+  "steps": [
+    {
+      "op": "start",
+      "input": { "task": "implement feature X" },
+      "expect": { "status": "completed" }
+    },
+    {
+      "op": "status",
+      "expect": {
+        "phase": "completed",
+        "delegate_correlation_id": "parity-a2a-delegate-1:delegate:implement"
+      }
+    }
+  ]
+}

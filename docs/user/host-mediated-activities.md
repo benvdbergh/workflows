@@ -42,9 +42,9 @@ Expected response: `status: "awaiting_activity"` with `node_id: "classify"` (fir
 
 For each activity boundary the engine yields **`awaiting_activity`**. The host loop is:
 
-1. **Read pending context** — from the tool result or `workflow_status`: `execution_id`, `node_id`, optional `parallel_span`, and workflow `state`.
-2. **Resolve the node** — look up `node_id` in the same `definition` object passed to `workflow_start` (type: `step`, `llm_call`, or `tool_call`; `config` holds model, tool, handler URN, etc.).
-3. **Perform work out of band** — invoke the host's LLM API, MCP `tools/call`, or registered step handler. Credentials and side effects stay on the host; the engine does not call your tools in this mode.
+1. **Read pending context** — from the tool result or `workflow_status`: `execution_id`, `node_id`, optional `parallel_span`, workflow `state`, and for **`agent_delegate`** nodes also `agent_id`, `protocol`, `delegate_input`, and `delegate_correlation_id`.
+2. **Resolve the node** — look up `node_id` in the same `definition` object passed to `workflow_start` (type: `step`, `llm_call`, `tool_call`, or `agent_delegate`; `config` holds model, tool, handler URN, or delegate target).
+3. **Perform work out of band** — invoke the host's LLM API, MCP `tools/call`, registered step handler, or external agent runtime (A2A/MCP/SDK per `agent_delegate` `protocol`). Credentials and side effects stay on the host; the engine does not call your tools or agents in this mode.
 4. **Submit the outcome** — call `workflow_submit_activity` with the **same** `definition` and `input` as the original start, matching `node_id`, and a typed `outcome`.
 5. **Repeat** — until status is `completed`, `failed`, or `interrupted` (then use `workflow_resume` for interrupt nodes).
 
@@ -65,6 +65,24 @@ For each activity boundary the engine yields **`awaiting_activity`**. The host l
 ```
 
 Success outcomes use `{ "ok": true, "result": { ... } }` (merged into workflow state per node completion). Failures use `{ "ok": false, "error": "...", "code": "..." }`.
+
+For **`agent_delegate`** nodes, include the **`delegate_correlation_id`** from the pending `ActivityRequested` (also exposed on start/status responses). Optionally pass **`external_task_id`** for the host-side agent task reference. The engine validates that the submitted correlation id matches the pending request before recording `ActivityCompleted`.
+
+```json
+{
+  "execution_id": "multi-agent-1",
+  "definition": "<same object as workflow_start>",
+  "input": { "task": "implement feature X" },
+  "node_id": "implement",
+  "activity_execution_mode": "host_mediated",
+  "outcome": {
+    "ok": true,
+    "delegate_correlation_id": "multi-agent-1:delegate:implement",
+    "external_task_id": "a2a-task-abc123",
+    "result": { "patch": "// agent output", "delegate_status": "completed" }
+  }
+}
+```
 
 Under **`parallel`**, include the same **`parallel_span`** the engine returned when submitting for a branch activity (see [MCP stdio host smoke runbook](../architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md)).
 
@@ -124,6 +142,20 @@ Fixture: `examples/lighthouse-customer-routing.workflow.json`.
 | 3. Complete `open_ticket` (`tool_call`) | Host calls `support-mcp` / `create_ticket`; submit tool result | `completed` with mapped intent/confidence |
 
 Conformance parity vector `parity.r2.host_mediated_lighthouse_classify` exercises the billing path (`classify` → `open_ticket` → `finish`) with simulated host submits.
+
+## `agent_delegate` host loop
+
+Fixture: `examples/conformance-agent-delegate-linear.workflow.json` (start → `implement` agent_delegate → end).
+
+| Step | Host action | Expected engine status |
+|------|-------------|------------------------|
+| 1. `workflow_start` with `host_mediated` | Pass `{ task }` input | `awaiting_activity`, `node_id: "implement"`, `agent_id: "coder"`, `protocol: "a2a"`, `delegate_input`, `delegate_correlation_id` |
+| 2. Invoke external agent | Host runs A2A/MCP/SDK agent using `delegate_input`; no engine delegate port call | (out of band) |
+| 3. `workflow_submit_activity` | Submit `result` plus matching `delegate_correlation_id` (and optional `external_task_id`) | `completed` with delegate output merged into state |
+
+The engine records `ActivityRequested` with `agentId`, `protocol`, `delegateInput`, and `delegateCorrelationId` in history. Replay with a prefix that already includes `ActivityCompleted` for the delegate node does **not** re-invoke the host or delegate port.
+
+Conformance vectors: `parity.r3.host_mediated_delegate_submit` (port/MCP parity) and `replay.delegate.prefix_requested_submit_tail` (prefix + submit replay tail).
 
 ## Related documentation
 

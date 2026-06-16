@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
+  A2ADelegateExecutor,
   createMcpWorkflowToolHandlers,
   createWorkflowApplicationPort,
   MemoryExecutionHistoryStore,
   StubActivityExecutor,
 } from "../packages/engine/src/index.mjs";
+import { createA2AMockHttpServer } from "../packages/engine/test/helpers/a2a-mock-http-server.mjs";
 
 /**
  * @typedef {"start" | "status" | "resume" | "submit_activity"} ParityOp
@@ -17,7 +19,7 @@ import {
  * @property {Record<string, unknown>} [input]
  * @property {Record<string, unknown>} [resumePayload]
  * @property {string} [nodeId]
- * @property {{ ok: true; result?: Record<string, unknown> } | { ok: false; error: string; code?: string }} [outcome]
+ * @property {{ ok: true; result?: Record<string, unknown>; delegateCorrelationId?: string; delegate_correlation_id?: string; externalTaskId?: string; external_task_id?: string } | { ok: false; error: string; code?: string }} [outcome]
  * @property {"in_process" | "host_mediated"} [activityExecutionMode]
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
  * @property {object} [expectedParallelSpan]
@@ -35,6 +37,7 @@ import {
  * @property {string} [pendingReason]
  * @property {string} definition
  * @property {string} executionId
+ * @property {boolean} [useProductionA2ADelegate] When true, wire A2ADelegateExecutor against in-process mock A2A HTTP.
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
  * @property {ParityStep[]} steps
  */
@@ -76,6 +79,9 @@ function normalizePortSnapshot(op, portResult, isError, errorCode) {
       ...(r.delegateCorrelationId !== undefined
         ? { delegate_correlation_id: r.delegateCorrelationId }
         : {}),
+      ...(r.agentId !== undefined ? { agent_id: r.agentId } : {}),
+      ...(r.protocol !== undefined ? { protocol: r.protocol } : {}),
+      ...(r.delegateInput !== undefined ? { delegate_input: r.delegateInput } : {}),
       ...(r.childExecutionId !== undefined ? { child_execution_id: r.childExecutionId } : {}),
       ...(r.parentExecutionId !== undefined ? { parent_execution_id: r.parentExecutionId } : {}),
     };
@@ -95,6 +101,12 @@ function normalizePortSnapshot(op, portResult, isError, errorCode) {
     ...(r.nodeId !== undefined ? { node_id: r.nodeId } : {}),
     ...(r.state !== undefined ? { state: r.state } : {}),
     ...(r.code !== undefined ? { code: r.code } : {}),
+    ...(r.agentId !== undefined ? { agent_id: r.agentId } : {}),
+    ...(r.protocol !== undefined ? { protocol: r.protocol } : {}),
+    ...(r.delegateInput !== undefined ? { delegate_input: r.delegateInput } : {}),
+    ...(r.delegateCorrelationId !== undefined
+      ? { delegate_correlation_id: r.delegateCorrelationId }
+      : {}),
     ...(parallelSpan ? { parallel_span: parallelSpanToMcp(parallelSpan) } : {}),
   };
 }
@@ -126,6 +138,9 @@ function normalizeMcpSnapshot(op, mcpResult) {
     ...(s.delegate_correlation_id !== undefined
       ? { delegate_correlation_id: s.delegate_correlation_id }
       : {}),
+    ...(s.agent_id !== undefined ? { agent_id: s.agent_id } : {}),
+    ...(s.protocol !== undefined ? { protocol: s.protocol } : {}),
+    ...(s.delegate_input !== undefined ? { delegate_input: s.delegate_input } : {}),
     ...(s.child_execution_id !== undefined ? { child_execution_id: s.child_execution_id } : {}),
     ...(s.parent_execution_id !== undefined ? { parent_execution_id: s.parent_execution_id } : {}),
     ...(s.parallel_span !== undefined ? { parallel_span: s.parallel_span } : {}),
@@ -153,7 +168,51 @@ function snapshotMatchesExpect(snapshot, expect) {
  * @param {Record<string, unknown>} b
  */
 function snapshotsEqual(a, b) {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return JSON.stringify(a, Object.keys(a).sort()) === JSON.stringify(b, Object.keys(b).sort());
+}
+
+/**
+ * @param {ParityStep["outcome"]} outcome
+ */
+function normalizeSubmitOutcomeForPort(outcome) {
+  if (!outcome || outcome.ok !== true) {
+    return outcome ?? { ok: true, result: {} };
+  }
+  return {
+    ok: true,
+    ...(outcome.result !== undefined ? { result: outcome.result } : {}),
+    ...((outcome.delegateCorrelationId ?? outcome.delegate_correlation_id) !== undefined
+      ? {
+          delegateCorrelationId:
+            outcome.delegateCorrelationId ?? outcome.delegate_correlation_id,
+        }
+      : {}),
+    ...((outcome.externalTaskId ?? outcome.external_task_id) !== undefined
+      ? { externalTaskId: outcome.externalTaskId ?? outcome.external_task_id }
+      : {}),
+  };
+}
+
+/**
+ * @param {ParityStep["outcome"]} outcome
+ */
+function normalizeSubmitOutcomeForMcp(outcome) {
+  if (!outcome || outcome.ok !== true) {
+    return outcome ?? { ok: true, result: {} };
+  }
+  return {
+    ok: true,
+    ...(outcome.result !== undefined ? { result: outcome.result } : {}),
+    ...((outcome.delegateCorrelationId ?? outcome.delegate_correlation_id) !== undefined
+      ? {
+          delegate_correlation_id:
+            outcome.delegateCorrelationId ?? outcome.delegate_correlation_id,
+        }
+      : {}),
+    ...((outcome.externalTaskId ?? outcome.external_task_id) !== undefined
+      ? { external_task_id: outcome.externalTaskId ?? outcome.external_task_id }
+      : {}),
+  };
 }
 
 /**
@@ -249,13 +308,15 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
 
   if (step.op === "submit_activity") {
     const expectedParallelSpan = step.expectedParallelSpan;
+    const portOutcome = normalizeSubmitOutcomeForPort(step.outcome);
+    const mcpOutcome = normalizeSubmitOutcomeForMcp(step.outcome);
     if (surface === "port") {
       const portResult = await port.submitWorkflowActivity({
         executionId,
         definition,
         input: scenarioInput,
         nodeId: step.nodeId ?? "",
-        outcome: step.outcome ?? { ok: true, result: {} },
+        outcome: portOutcome,
         ...(expectedParallelSpan ? { expectedParallelSpan } : {}),
         ...(activityMode ? { activityExecutionMode: activityMode } : {}),
       });
@@ -283,7 +344,7 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
       definition,
       input: scenarioInput,
       node_id: step.nodeId ?? "",
-      outcome: step.outcome ?? { ok: true, result: {} },
+      outcome: mcpOutcome,
       ...(mcpParallelSpan ? { parallel_span: mcpParallelSpan } : {}),
       ...(activityMode ? { activity_execution_mode: activityMode } : {}),
     });
@@ -299,6 +360,30 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
  */
 const allowPending =
   process.env.CONFORMANCE_ALLOW_PENDING === "1" || process.env.CONFORMANCE_ALLOW_PENDING === "true";
+
+/**
+ * @param {ParityVector} vector
+ * @returns {Promise<{ delegateExecutor?: import("../packages/engine/src/orchestrator/delegate-executor.mjs").DelegateExecutor; closeMockA2A?: () => Promise<void> }>}
+ */
+async function resolveParityDelegateExecutor(vector) {
+  if (!vector.useProductionA2ADelegate) {
+    return {};
+  }
+  const mock = createA2AMockHttpServer({ workingPolls: 1 });
+  const { baseUrl, close } = await mock.listen();
+  return {
+    delegateExecutor: new A2ADelegateExecutor({
+      operatorConfig: {
+        baseUrl,
+        apiKeyEnv: "CONFORMANCE_A2A_API_KEY",
+        pollIntervalMs: 10,
+        pollTimeoutMs: 5_000,
+      },
+      env: { CONFORMANCE_A2A_API_KEY: "conformance-a2a-token" },
+    }),
+    closeMockA2A: close,
+  };
+}
 
 export async function runParityVector(vector, repoRoot) {
   if (vector.pending) {
@@ -320,6 +405,7 @@ export async function runParityVector(vector, repoRoot) {
   const definitionPath = path.resolve(repoRoot, vector.definition);
   const definition = JSON.parse(readFileSync(definitionPath, "utf8"));
   const scenarioInput = vector.steps.find((s) => s.input)?.input ?? {};
+  const { delegateExecutor, closeMockA2A } = await resolveParityDelegateExecutor(vector);
 
   /**
    * @param {"port" | "mcp"} surface
@@ -331,6 +417,7 @@ export async function runParityVector(vector, repoRoot) {
       ...(vector.stubActivityOutputs
         ? { activityExecutor: new StubActivityExecutor(vector.stubActivityOutputs) }
         : {}),
+      ...(delegateExecutor ? { delegateExecutor } : {}),
     });
     const handlers = createMcpWorkflowToolHandlers(port);
     /** @type {Record<string, unknown>[]} */
@@ -379,24 +466,30 @@ export async function runParityVector(vector, repoRoot) {
     return { passed: true, snapshots };
   }
 
-  const portRun = await runScenario("port");
-  if (!portRun.passed) {
-    return portRun;
-  }
-  const mcpRun = await runScenario("mcp");
-  if (!mcpRun.passed) {
-    return mcpRun;
-  }
+  try {
+    const portRun = await runScenario("port");
+    if (!portRun.passed) {
+      return portRun;
+    }
+    const mcpRun = await runScenario("mcp");
+    if (!mcpRun.passed) {
+      return mcpRun;
+    }
 
-  for (let i = 0; i < portRun.snapshots.length; i += 1) {
-    if (!snapshotsEqual(portRun.snapshots[i], mcpRun.snapshots[i])) {
-      return {
-        passed: false,
-        reason: `Step index ${i} (${vector.steps[i].op}): port and MCP normalized snapshots differ`,
-        context: { port: portRun.snapshots[i], mcp: mcpRun.snapshots[i] },
-      };
+    for (let i = 0; i < portRun.snapshots.length; i += 1) {
+      if (!snapshotsEqual(portRun.snapshots[i], mcpRun.snapshots[i])) {
+        return {
+          passed: false,
+          reason: `Step index ${i} (${vector.steps[i].op}): port and MCP normalized snapshots differ`,
+          context: { port: portRun.snapshots[i], mcp: mcpRun.snapshots[i] },
+        };
+      }
+    }
+
+    return { passed: true, context: { stepCount: vector.steps.length } };
+  } finally {
+    if (closeMockA2A) {
+      await closeMockA2A();
     }
   }
-
-  return { passed: true, context: { stepCount: vector.steps.length } };
 }

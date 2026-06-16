@@ -154,6 +154,35 @@ Pass the composite (or any custom `ActivityExecutor`) to `createWorkflowApplicat
 
 When **none** of these are set, the MCP adapter omits `activityExecutor` and the walker uses **`StubActivityExecutor`** (demo/local only). Set **`WORKFLOW_ENGINE_PROFILE=demo`** to add stub **fallback** inside a partial composite (unconfigured node types return `{}` instead of `COMPOSITE_EXECUTOR_NOT_CONFIGURED`). Do **not** rely on stub fallback in production deployments.
 
+### Delegate routing (`CompositeDelegateExecutor`)
+
+**`agent_delegate`** nodes run through a **`DelegateExecutor`** port (`executeDelegate(ctx)`). Omit `delegateExecutor` to use **`MockA2ADelegateExecutor`** (offline demos). Production adapters:
+
+| Executor | Protocol | Wiring |
+|----------|----------|--------|
+| `A2ADelegateExecutor` | `a2a` | HTTP submit + poll (`operatorConfig.baseUrl`, `apiKeyEnv`) |
+| `McpDelegateExecutor` | `mcp` | Operator manifest `delegateAgents` → MCP stdio `tools/call` |
+| `SdkDelegateExecutor` | `sdk` | In-process `Map<agent_id, handler>` (extension point for embedded agents) |
+
+Route multiple protocols with **`buildCompositeDelegateExecutor({ a2a, mcp, sdk })`**. Stable failure codes include **`DELEGATE_AGENT_NOT_FOUND`**, **`DELEGATE_PROTOCOL_ERROR`**, and **`DELEGATE_PROTOCOL_UNSUPPORTED`**. See [A2A delegate mapping](../../docs/user/a2a-delegate-mapping.md) and [MCP operator manifest](../../docs/architecture/arc42-assets/contracts/mcp-operator-manifest.md).
+
+```js
+import {
+  buildCompositeDelegateExecutor,
+  McpDelegateExecutor,
+  SdkDelegateExecutor,
+} from "@agent-workflow/engine";
+
+const delegateExecutor = buildCompositeDelegateExecutor({
+  mcp: new McpDelegateExecutor({ manifest }),
+  sdk: new SdkDelegateExecutor({
+    handlers: {
+      "urn:my-app:agents:local": async (input) => ({ patch: input.task }),
+    },
+  }),
+});
+```
+
 ### Host compatibility constraints for no-install use
 
 - **Node runtime:** Node.js `>=22.5.0` is required (uses `node:sqlite`).

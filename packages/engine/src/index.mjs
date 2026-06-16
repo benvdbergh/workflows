@@ -33,6 +33,27 @@ export {
   mintDelegateCorrelationId,
 } from "./orchestrator/delegate-executor.mjs";
 export {
+  A2ADelegateExecutor,
+  HttpA2ATransport,
+  parseA2AOperatorConfig,
+  parseA2ATaskResponse,
+  pollA2ATaskUntilTerminal,
+  resolveA2AApiKey,
+} from "./orchestrator/a2a-delegate-executor.mjs";
+export {
+  buildCompositeDelegateExecutor,
+  CompositeDelegateExecutor,
+} from "./orchestrator/composite-delegate-executor.mjs";
+export {
+  mapMcpActivityResultToDelegateResult,
+  McpDelegateExecutor,
+  resolveDelegateAgentBinding,
+} from "./orchestrator/mcp-delegate-executor.mjs";
+export {
+  normalizeSdkDelegateHandlers,
+  SdkDelegateExecutor,
+} from "./orchestrator/sdk-delegate-executor.mjs";
+export {
   callMcpToolStdio,
   DEFAULT_MCP_ACTIVITY_TOOL_TIMEOUT_MS,
   mapMcpCallToolResultToActivityResult,

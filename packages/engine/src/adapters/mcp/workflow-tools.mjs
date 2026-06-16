@@ -61,6 +61,20 @@ function withStructuredJsonInText(headline, structured) {
   return `${headline}\n\nStructured result (JSON):\n${JSON.stringify(structured, null, 2)}`;
 }
 
+/**
+ * @param {Record<string, unknown>} parsed
+ */
+function awaitingDelegateFieldsFromPort(parsed) {
+  return {
+    ...(parsed.agentId !== undefined ? { agent_id: parsed.agentId } : {}),
+    ...(parsed.protocol !== undefined ? { protocol: parsed.protocol } : {}),
+    ...(parsed.delegateInput !== undefined ? { delegate_input: parsed.delegateInput } : {}),
+    ...(parsed.delegateCorrelationId !== undefined
+      ? { delegate_correlation_id: parsed.delegateCorrelationId }
+      : {}),
+  };
+}
+
 function startResponseFromPort(parsed) {
   const parallelSpan = parsed.parallelSpan;
   const response = {
@@ -81,6 +95,7 @@ function startResponseFromPort(parsed) {
           },
         }
       : {}),
+    ...awaitingDelegateFieldsFromPort(parsed),
   };
   return workflowStartResultSchema.parse(response);
 }
@@ -99,6 +114,9 @@ function statusResponseFromPort(parsed) {
       : {}),
     ...(parsed.childExecutionId !== undefined ? { child_execution_id: parsed.childExecutionId } : {}),
     ...(parsed.parentExecutionId !== undefined ? { parent_execution_id: parsed.parentExecutionId } : {}),
+    ...(parsed.agentId !== undefined ? { agent_id: parsed.agentId } : {}),
+    ...(parsed.protocol !== undefined ? { protocol: parsed.protocol } : {}),
+    ...(parsed.delegateInput !== undefined ? { delegate_input: parsed.delegateInput } : {}),
   };
   return workflowStatusResultSchema.parse(response);
 }
@@ -126,6 +144,7 @@ function resumeResponseFromPort(parsed) {
           },
         }
       : {}),
+    ...awaitingDelegateFieldsFromPort(parsed),
   };
   return workflowResumeResultSchema.parse(response);
 }
@@ -154,6 +173,7 @@ function submitActivityResponseFromPort(parsed) {
           },
         }
       : {}),
+    ...awaitingDelegateFieldsFromPort(parsed),
   };
   return workflowSubmitActivityResultSchema.parse(response);
 }
@@ -305,7 +325,19 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
           definition: parsed.definition,
           input: parsed.input,
           nodeId: parsed.node_id,
-          outcome: parsed.outcome,
+          outcome:
+            parsed.outcome.ok === true
+              ? {
+                  ok: true,
+                  ...(parsed.outcome.result !== undefined ? { result: parsed.outcome.result } : {}),
+                  ...(parsed.outcome.delegate_correlation_id !== undefined
+                    ? { delegateCorrelationId: parsed.outcome.delegate_correlation_id }
+                    : {}),
+                  ...(parsed.outcome.external_task_id !== undefined
+                    ? { externalTaskId: parsed.outcome.external_task_id }
+                    : {}),
+                }
+              : parsed.outcome,
           ...(expectedParallelSpan ? { expectedParallelSpan } : {}),
           ...(parsed.activity_execution_mode ? { activityExecutionMode: parsed.activity_execution_mode } : {}),
         });

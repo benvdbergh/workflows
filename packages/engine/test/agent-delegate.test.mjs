@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
-import { runGraphWorkflow, resumeGraphWorkflow } from "../src/orchestrator/workflow-graph-walker.mjs";
+import { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome } from "../src/orchestrator/workflow-graph-walker.mjs";
 import { hydrateReplayContext } from "../src/orchestrator/replay-loader.mjs";
 import {
   RejectingDelegateExecutor,
@@ -66,6 +66,92 @@ describe("agent_delegate", () => {
     assert.ok(completed);
     assert.equal(completed.payload?.delegateCorrelationId, requested.payload?.delegateCorrelationId);
     assert.equal(typeof completed.payload?.externalTaskId, "string");
+  });
+
+  it("host_mediated yields awaiting_activity with delegate context without invoking delegate port", async () => {
+    const definition = loadJson("examples/conformance-agent-delegate-linear.workflow.json");
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "test-delegate-host-mediated";
+    const correlationId = mintDelegateCorrelationId(executionId, "implement");
+
+    const out = await runGraphWorkflow({
+      definition,
+      input: { task: "host delegate task" },
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+      delegateExecutor: new RejectingDelegateExecutor(),
+    });
+
+    assert.equal(out.status, "awaiting_activity");
+    assert.equal(out.nodeId, "implement");
+    assert.equal(out.agentId, "coder");
+    assert.equal(out.protocol, "a2a");
+    assert.equal(out.delegateCorrelationId, correlationId);
+    assert.deepEqual(out.delegateInput, { task: "host delegate task" });
+
+    const rows = store.listByExecution(executionId);
+    const requested = rows.find((r) => r.name === "ActivityRequested" && r.payload?.nodeId === "implement");
+    assert.ok(requested);
+    assert.deepEqual(requested.payload?.delegateInput, { task: "host delegate task" });
+    assert.equal(requested.payload?.delegateCorrelationId, correlationId);
+  });
+
+  it("submitActivityOutcome completes host_mediated agent_delegate with correlation validation", async () => {
+    const definition = loadJson("examples/conformance-agent-delegate-linear.workflow.json");
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "test-delegate-host-submit";
+    const correlationId = mintDelegateCorrelationId(executionId, "implement");
+
+    const pending = await runGraphWorkflow({
+      definition,
+      input: { task: "submit path" },
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+      delegateExecutor: new RejectingDelegateExecutor(),
+    });
+    assert.equal(pending.status, "awaiting_activity");
+
+    const badCorrelation = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input: { task: "submit path" },
+      nodeId: "implement",
+      outcome: {
+        ok: true,
+        delegateCorrelationId: "wrong-correlation",
+        result: { patch: "// bad" },
+      },
+    });
+    assert.equal(badCorrelation.status, "failed");
+    assert.equal(badCorrelation.code, "SUBMIT_VALIDATION_ERROR");
+
+    const done = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input: { task: "submit path" },
+      nodeId: "implement",
+      outcome: {
+        ok: true,
+        delegateCorrelationId: correlationId,
+        externalTaskId: "a2a-task-host-submit",
+        result: { patch: "// host patch", delegate_status: "completed" },
+      },
+      activityExecutionMode: "host_mediated",
+    });
+
+    assert.equal(done.status, "completed");
+    assert.equal(done.finalState?.patch, "// host patch");
+
+    const completed = store
+      .listByExecution(executionId)
+      .find((r) => r.name === "ActivityCompleted" && r.payload?.nodeId === "implement" && r.payload?.replayed !== true);
+    assert.ok(completed);
+    assert.equal(completed.payload?.delegateCorrelationId, correlationId);
+    assert.equal(completed.payload?.externalTaskId, "a2a-task-host-submit");
   });
 
   it("replay with ActivityCompleted prefix does not invoke delegate port", async () => {
@@ -159,13 +245,15 @@ describe("agent_delegate", () => {
       1,
       "replay must not append a second ActivityRequested for agent_delegate"
     );
-    const replayedCompleted = rows.filter(
-      (r) =>
-        r.name === "ActivityCompleted" &&
-        r.payload?.nodeId === "implement" &&
-        r.payload?.replayed === true
+    assert.ok(
+      rows.some(
+        (r) =>
+          r.kind === "command" &&
+          r.name === "CompleteNode" &&
+          r.payload?.nodeId === "implement"
+      ),
+      "continuation must CompleteNode after historical ActivityCompleted"
     );
-    assert.equal(replayedCompleted.length, 1);
   });
 
   it("r3 multi-agent coding workflow runs implement as agent_delegate then subworkflow", async () => {

@@ -56,6 +56,7 @@ nav:
   - Getting started: getting-started.md
   - Run with MCP: mcp-operator-guide.md
   - Host-mediated activities: host-mediated-activities.md
+  - A2A delegate mapping: a2a-delegate-mapping.md
   - Author workflows:
       - Overview: authoring-workflows.md
       - Node reference: node-reference.md

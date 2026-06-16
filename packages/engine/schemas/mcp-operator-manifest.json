@@ -10,9 +10,22 @@
       "type": "object",
       "minProperties": 1,
       "additionalProperties": { "$ref": "#/$defs/stdioTransport" }
+    },
+    "delegateAgents": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/delegateAgentBinding" }
     }
   },
   "$defs": {
+    "delegateAgentBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["server", "tool"],
+      "properties": {
+        "server": { "type": "string", "minLength": 1 },
+        "tool": { "type": "string", "minLength": 1 }
+      }
+    },
     "stdioTransport": {
       "type": "object",
       "additionalProperties": false,

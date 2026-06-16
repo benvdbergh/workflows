@@ -36,6 +36,8 @@ export const workflowParallelSpanSchema = z.object({
 const activityOutcomeSuccessSchema = z.object({
   ok: z.literal(true),
   result: z.object({}).passthrough().optional(),
+  delegate_correlation_id: z.string().optional(),
+  external_task_id: z.string().optional(),
 });
 
 const activityOutcomeFailureSchema = z.object({
@@ -68,6 +70,10 @@ export const workflowStartResultSchema = z.object({
   node_id: z.string().optional(),
   state: z.object({}).passthrough().optional(),
   parallel_span: workflowParallelSpanSchema.optional(),
+  agent_id: z.string().optional(),
+  protocol: z.string().optional(),
+  delegate_input: z.object({}).passthrough().optional(),
+  delegate_correlation_id: z.string().optional(),
 });
 
 export const workflowStatusResultSchema = z.object({
@@ -78,6 +84,9 @@ export const workflowStatusResultSchema = z.object({
   delegate_correlation_id: z.string().optional(),
   child_execution_id: z.string().optional(),
   parent_execution_id: z.string().optional(),
+  agent_id: z.string().optional(),
+  protocol: z.string().optional(),
+  delegate_input: z.object({}).passthrough().optional(),
 });
 
 export const workflowResumeResultSchema = z.object({
@@ -89,6 +98,10 @@ export const workflowResumeResultSchema = z.object({
   node_id: z.string().optional(),
   state: z.object({}).passthrough().optional(),
   parallel_span: workflowParallelSpanSchema.optional(),
+  agent_id: z.string().optional(),
+  protocol: z.string().optional(),
+  delegate_input: z.object({}).passthrough().optional(),
+  delegate_correlation_id: z.string().optional(),
 });
 
 export const workflowSubmitActivityResultSchema = z.object({
@@ -101,4 +114,8 @@ export const workflowSubmitActivityResultSchema = z.object({
   state: z.object({}).passthrough().optional(),
   parallel_span: workflowParallelSpanSchema.optional(),
   code: z.string().optional(),
+  agent_id: z.string().optional(),
+  protocol: z.string().optional(),
+  delegate_input: z.object({}).passthrough().optional(),
+  delegate_correlation_id: z.string().optional(),
 });

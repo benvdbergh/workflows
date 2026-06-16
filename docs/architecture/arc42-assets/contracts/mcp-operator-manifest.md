@@ -16,7 +16,40 @@ The schema accepts **only** this top-level shape:
 - Required property: `mcpServers` — object whose keys are server labels and values are **stdio** definitions.
 - Each server **MUST** include `command` (non-empty string).
 - Optional: `args` (array of strings), `env` (object with string values only).
+- Optional: `delegateAgents` — maps workflow `agent_id` strings to MCP `{ server, tool }` bindings for `agent_delegate` nodes with `protocol: "mcp"`. Each binding **MUST** reference a key in `mcpServers`.
 - **No** additional properties are allowed on the root or on each server entry (unknown keys fail validation with AJV instance paths).
+
+## Delegate agent bindings (`delegateAgents`)
+
+For **`agent_delegate`** nodes with `protocol: "mcp"`, the reference engine's **`McpDelegateExecutor`** resolves the workflow `agent_id` to an MCP stdio invocation:
+
+| Manifest key | Purpose |
+|--------------|---------|
+| `delegateAgents.<agent_id>.server` | Label in `mcpServers` for the stdio subprocess |
+| `delegateAgents.<agent_id>.tool` | MCP tool name passed to `tools/call` |
+
+The resolved `input_mapping` payload is sent as the MCP tool `arguments` object. Stable failure codes: **`DELEGATE_AGENT_NOT_FOUND`** (unknown agent or server label), **`DELEGATE_PROTOCOL_ERROR`** (MCP wire/tool failure), **`DELEGATE_PROTOCOL_UNSUPPORTED`** (wrong protocol for the executor).
+
+Example fragment:
+
+```json
+{
+  "mcpServers": {
+    "coderAgent": {
+      "command": "node",
+      "args": ["./agents/coder-mcp-server.mjs"]
+    }
+  },
+  "delegateAgents": {
+    "urn:my-org:agents:coder": {
+      "server": "coderAgent",
+      "tool": "run_task"
+    }
+  }
+}
+```
+
+For in-process bridges without MCP, use **`SdkDelegateExecutor`** with a registered handler map keyed by `agent_id` (`protocol: "sdk"`).
 
 ## Resolution order (file path)
 

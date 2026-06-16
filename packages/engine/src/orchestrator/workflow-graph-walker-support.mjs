@@ -193,8 +193,43 @@ export function findLatestNonCheckpointEvent(rows) {
   return undefined;
 }
 
-/** Node types completed via host `submitActivityOutcome` (step / llm_call / tool_call). */
-const HOST_ACTIVITY_NODE_TYPES = new Set(["step", "llm_call", "tool_call"]);
+/**
+ * Latest `ActivityRequested` that has no later `ActivityCompleted` for the same node (host submit target).
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
+ */
+export function findPendingActivityRequest(rows) {
+  const last = findLatestNonCheckpointEvent(rows);
+  if (last?.kind === "event" && last.name === "ActivityRequested") {
+    return last;
+  }
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (row.kind !== "event" || row.name !== "ActivityRequested") {
+      continue;
+    }
+    const nodeId = typeof row.payload?.nodeId === "string" ? row.payload.nodeId : "";
+    if (!nodeId) {
+      continue;
+    }
+    const hasLaterCompletion = rows.some(
+      (later) =>
+        later.seq > row.seq &&
+        later.kind === "event" &&
+        later.name === "ActivityCompleted" &&
+        later.payload?.nodeId === nodeId
+    );
+    if (!hasLaterCompletion) {
+      return row;
+    }
+    break;
+  }
+  return undefined;
+}
+
+/** Node types completed via host `submitActivityOutcome` (step / llm_call / tool_call / agent_delegate). */
+const HOST_ACTIVITY_NODE_TYPES = new Set(["step", "llm_call", "tool_call", "agent_delegate"]);
 
 /**
  * Host-mediated submit (or in-process crash recovery for placeholder activities) left

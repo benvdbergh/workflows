@@ -42,7 +42,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {object} definition
  * @property {Record<string, unknown>} input
  * @property {string} nodeId
- * @property {{ ok: true; result?: Record<string, unknown> } | { ok: false; error: string; code?: string }} outcome
+ * @property {{ ok: true; result?: Record<string, unknown>; delegateCorrelationId?: string; externalTaskId?: string } | { ok: false; error: string; code?: string }} outcome
  * @property {WorkflowParallelSpan} [expectedParallelSpan]
  * @property {"in_process" | "host_mediated"} [activityExecutionMode]
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
@@ -59,6 +59,10 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {string | undefined} nodeId
  * @property {Record<string, unknown>} [state] Latest workflow state when status is `awaiting_activity`
  * @property {WorkflowParallelSpan} [parallelSpan] When the pending activity runs under a `parallel` branch
+ * @property {string} [agentId] Pending `agent_delegate` target agent id
+ * @property {string} [protocol] Pending `agent_delegate` protocol (`a2a`, `mcp`, `sdk`)
+ * @property {Record<string, unknown>} [delegateInput] Resolved delegate input from `input_mapping`
+ * @property {string} [delegateCorrelationId] Pending delegate correlation id
  */
 
 /**
@@ -70,6 +74,9 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {string | undefined} [delegateCorrelationId] Latest agent_delegate activity correlation
  * @property {string | undefined} [childExecutionId] Active or latest nested child execution id
  * @property {string | undefined} [parentExecutionId] Parent execution when nested or subworkflow context exists
+ * @property {string | undefined} [agentId] Pending `agent_delegate` target agent id when phase is `awaiting_activity`
+ * @property {string | undefined} [protocol] Pending delegate protocol when phase is `awaiting_activity`
+ * @property {Record<string, unknown>} [delegateInput] Resolved delegate input when phase is `awaiting_activity`
  */
 
 /**
@@ -83,6 +90,10 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {string | undefined} nodeId
  * @property {Record<string, unknown>} [state]
  * @property {WorkflowParallelSpan} [parallelSpan]
+ * @property {string} [agentId]
+ * @property {string} [protocol]
+ * @property {Record<string, unknown>} [delegateInput]
+ * @property {string} [delegateCorrelationId]
  */
 
 /**
@@ -96,7 +107,30 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {Record<string, unknown>} [state]
  * @property {WorkflowParallelSpan} [parallelSpan]
  * @property {string | undefined} [code] Stable machine code when `status` is `failed` from submit validation
+ * @property {string} [agentId]
+ * @property {string} [protocol]
+ * @property {Record<string, unknown>} [delegateInput]
+ * @property {string} [delegateCorrelationId]
  */
+
+/**
+ * @param {{
+ *   agentId?: string;
+ *   protocol?: string;
+ *   delegateInput?: Record<string, unknown>;
+ *   delegateCorrelationId?: string;
+ * }} runResult
+ */
+function awaitingDelegateFromRunResult(runResult) {
+  return {
+    ...(runResult.agentId !== undefined ? { agentId: runResult.agentId } : {}),
+    ...(runResult.protocol !== undefined ? { protocol: runResult.protocol } : {}),
+    ...(runResult.delegateInput !== undefined ? { delegateInput: runResult.delegateInput } : {}),
+    ...(runResult.delegateCorrelationId !== undefined
+      ? { delegateCorrelationId: runResult.delegateCorrelationId }
+      : {}),
+  };
+}
 
 /**
  * @param {import("../persistence/types.mjs").HistoryRow[]} rows
@@ -213,14 +247,62 @@ function latestSubworkflowCorrelation(rows, executionId) {
 
 /**
  * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {Pick<WorkflowStatusResponse, "agentId" | "protocol" | "delegateInput" | "delegateCorrelationId">}
+ */
+function latestAwaitingDelegateContext(rows) {
+  const last = findLatestNonCheckpointEvent(rows);
+  if (!last || last.kind !== "event" || last.name !== "ActivityRequested") {
+    return {};
+  }
+  if (last.payload?.nodeType !== "agent_delegate") {
+    return {};
+  }
+  /** @type {Pick<WorkflowStatusResponse, "agentId" | "protocol" | "delegateInput" | "delegateCorrelationId">} */
+  const ctx = {};
+  if (typeof last.payload?.agentId === "string") {
+    ctx.agentId = last.payload.agentId;
+  }
+  if (typeof last.payload?.protocol === "string") {
+    ctx.protocol = last.payload.protocol;
+  }
+  if (
+    last.payload?.delegateInput &&
+    typeof last.payload.delegateInput === "object" &&
+    !Array.isArray(last.payload.delegateInput)
+  ) {
+    ctx.delegateInput = /** @type {Record<string, unknown>} */ (
+      JSON.parse(JSON.stringify(last.payload.delegateInput))
+    );
+  }
+  if (typeof last.payload?.delegateCorrelationId === "string") {
+    ctx.delegateCorrelationId = last.payload.delegateCorrelationId;
+  }
+  return ctx;
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
  * @param {string} executionId
  */
 function projectStatusCorrelation(rows, executionId) {
-  /** @type {Pick<WorkflowStatusResponse, "delegateCorrelationId" | "childExecutionId" | "parentExecutionId">} */
+  /** @type {Pick<WorkflowStatusResponse, "delegateCorrelationId" | "childExecutionId" | "parentExecutionId" | "agentId" | "protocol" | "delegateInput">} */
   const correlation = {};
   const delegateCorrelationId = latestDelegateCorrelationId(rows);
   if (delegateCorrelationId) {
     correlation.delegateCorrelationId = delegateCorrelationId;
+  }
+  const awaitingDelegate = latestAwaitingDelegateContext(rows);
+  if (awaitingDelegate.agentId) {
+    correlation.agentId = awaitingDelegate.agentId;
+  }
+  if (awaitingDelegate.protocol) {
+    correlation.protocol = awaitingDelegate.protocol;
+  }
+  if (awaitingDelegate.delegateInput) {
+    correlation.delegateInput = awaitingDelegate.delegateInput;
+  }
+  if (awaitingDelegate.delegateCorrelationId && !correlation.delegateCorrelationId) {
+    correlation.delegateCorrelationId = awaitingDelegate.delegateCorrelationId;
   }
   const subworkflow = latestSubworkflowCorrelation(rows, executionId);
   if (subworkflow?.childExecutionId) {
@@ -291,6 +373,7 @@ export function createWorkflowApplicationPort(deps) {
         executionId,
         store,
         ...(activityExecutor ? { activityExecutor } : {}),
+        ...(delegateExecutor ? { delegateExecutor } : {}),
         ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
       });
 
@@ -310,6 +393,7 @@ export function createWorkflowApplicationPort(deps) {
               nodeId: runResult.nodeId,
               state: runResult.state,
               ...(runResult.parallelSpan ? { parallelSpan: runResult.parallelSpan } : {}),
+              ...awaitingDelegateFromRunResult(runResult),
             }
           : {}),
       };
@@ -399,6 +483,7 @@ export function createWorkflowApplicationPort(deps) {
               nodeId: runResult.nodeId,
               state: runResult.state,
               ...(runResult.parallelSpan ? { parallelSpan: runResult.parallelSpan } : {}),
+              ...awaitingDelegateFromRunResult(runResult),
             }
           : {}),
       };
@@ -421,6 +506,7 @@ export function createWorkflowApplicationPort(deps) {
         ...(request.stubActivityOutputs ? { stubActivityOutputs: request.stubActivityOutputs } : {}),
         ...(request.activityExecutor ? { activityExecutor: request.activityExecutor } : {}),
         ...(!request.activityExecutor && activityExecutor ? { activityExecutor } : {}),
+        ...(delegateExecutor ? { delegateExecutor } : {}),
       });
 
       return {
@@ -434,6 +520,7 @@ export function createWorkflowApplicationPort(deps) {
               nodeId: result.nodeId,
               ...(result.state ? { state: result.state } : {}),
               ...(result.parallelSpan ? { parallelSpan: result.parallelSpan } : {}),
+              ...awaitingDelegateFromRunResult(result),
             }
           : {}),
       };

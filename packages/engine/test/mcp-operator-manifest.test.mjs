@@ -27,6 +27,17 @@ describe("validateMcpOperatorManifest", () => {
     assert.equal(result.manifest.mcpServers["demo-tool"].env.EXAMPLE_TOKEN, "REDACTED_PLACEHOLDER");
   });
 
+  it("accepts delegateAgents and normalizes bindings", () => {
+    const data = JSON.parse(readFileSync(path.join(fixturesDir, "with-delegate-agents.json"), "utf8"));
+    const result = validateMcpOperatorManifest(data);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.manifest.delegateAgents?.["urn:test:agents:echo"], {
+      server: "echoSrv",
+      tool: "echo",
+    });
+  });
+
   it("rejects unknown top-level keys with actionable errors", () => {
     const data = JSON.parse(readFileSync(path.join(fixturesDir, "unknown-top-level.json"), "utf8"));
     const result = validateMcpOperatorManifest(data);

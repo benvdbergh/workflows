@@ -19,6 +19,19 @@ describe("host-mediated continuation support", () => {
     assert.equal(isPendingActivityCompletionContinuation(rows), true);
   });
 
+  it("detects pending completion when ActivityCompleted lacks CompleteNode for agent_delegate", () => {
+    const rows = [
+      { seq: 1, kind: "event", name: "ExecutionStarted", payload: { inputKeys: [] } },
+      {
+        seq: 2,
+        kind: "event",
+        name: "ActivityCompleted",
+        payload: { nodeId: "implement", nodeType: "agent_delegate", result: { patch: "x" } },
+      },
+    ];
+    assert.equal(isPendingActivityCompletionContinuation(rows), true);
+  });
+
   it("returns false when CompleteNode already follows ActivityCompleted", () => {
     const rows = [
       { seq: 1, kind: "event", name: "ActivityCompleted", payload: { nodeId: "work" } },

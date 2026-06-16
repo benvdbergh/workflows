@@ -37,6 +37,7 @@ import {
   commandIdentity,
   expectedCommandIdentity,
   findLatestNonCheckpointEvent,
+  findPendingActivityRequest,
   isParallelSpanPayload,
   isPendingActivityCompletionContinuation,
   latestPrimaryEvent,
@@ -56,6 +57,7 @@ function loadJq() {
 }
 
 const PLACEHOLDER_TYPES = new Set(["step", "llm_call", "tool_call"]);
+const HOST_SUBMIT_NODE_TYPES = new Set([...PLACEHOLDER_TYPES, "agent_delegate"]);
 
 /**
  * @typedef {import("./workflow-node-execution.mjs").ParallelSpanPayload} ParallelSpanPayload
@@ -80,7 +82,7 @@ const PLACEHOLDER_TYPES = new Set(["step", "llm_call", "tool_call"]);
  *   | { status: "completed"; finalState: Record<string, unknown>; result?: unknown }
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown> }
  *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
- *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload }
+ *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload; agentId?: string; protocol?: string; delegateInput?: Record<string, unknown>; delegateCorrelationId?: string }
  * >}
  */
 export async function runGraphWorkflow(options) {
@@ -330,7 +332,7 @@ export async function runGraphWorkflow(options) {
       const activityNodeId =
         lastCompleted && typeof lastCompleted.payload?.nodeId === "string" ? lastCompleted.payload.nodeId : "";
       const activityNode = activityNodeId ? byId.get(activityNodeId) : undefined;
-      if (!activityNode || !PLACEHOLDER_TYPES.has(activityNode.type)) {
+      if (!activityNode || !HOST_SUBMIT_NODE_TYPES.has(activityNode.type)) {
         throw new Error(`Cannot continue: pending activity node "${activityNodeId}" is missing or invalid.`);
       }
 
@@ -573,9 +575,22 @@ export async function runGraphWorkflow(options) {
           replay,
           delegateExecutor: delegatePort,
           assertNoDelegateExecutorInvocation,
+          activityExecutionMode,
           appendEvt,
           jq,
         });
+        if (del.kind === "awaiting_activity") {
+          return {
+            status: "awaiting_activity",
+            executionId,
+            nodeId: del.nodeId,
+            state: JSON.parse(JSON.stringify(state)),
+            agentId: del.agentId,
+            protocol: del.protocol,
+            delegateInput: del.delegateInput,
+            delegateCorrelationId: del.delegateCorrelationId,
+          };
+        }
         if (del.kind === "failed") {
           appendCmd("FailNode", {
             nodeId: current,
@@ -728,7 +743,7 @@ export async function runGraphWorkflow(options) {
  *   | { status: "completed"; finalState: Record<string, unknown>; result?: unknown }
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown> }
  *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
- *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload }
+ *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload; agentId?: string; protocol?: string; delegateInput?: Record<string, unknown>; delegateCorrelationId?: string }
  * >}
  */
 export async function resumeGraphWorkflow(options) {
@@ -1236,9 +1251,22 @@ export async function resumeGraphWorkflow(options) {
           replay: /** @type {import("./replay-loader.mjs").ReplayHydrationResult} */ (emptyReplay),
           delegateExecutor: delegatePort,
           assertNoDelegateExecutorInvocation,
+          activityExecutionMode,
           appendEvt,
           jq,
         });
+        if (del.kind === "awaiting_activity") {
+          return {
+            status: "awaiting_activity",
+            executionId,
+            nodeId: del.nodeId,
+            state: JSON.parse(JSON.stringify(state)),
+            agentId: del.agentId,
+            protocol: del.protocol,
+            delegateInput: del.delegateInput,
+            delegateCorrelationId: del.delegateCorrelationId,
+          };
+        }
         if (del.kind === "failed") {
           appendCmd("FailNode", {
             nodeId: current,
@@ -1365,7 +1393,7 @@ export async function resumeGraphWorkflow(options) {
  * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store
  * @property {Record<string, unknown>} input Same `input` as the initial `runGraphWorkflow` / `startWorkflow` call (replay reconstruction requires it).
  * @property {string} nodeId Activity node id matching the pending `ActivityRequested` event.
- * @property {{ ok: true; result?: Record<string, unknown> } | { ok: false; error: string; code?: string }} outcome
+ * @property {{ ok: true; result?: Record<string, unknown>; delegateCorrelationId?: string; externalTaskId?: string } | { ok: false; error: string; code?: string }} outcome
  * @property {ParallelSpanPayload} [expectedParallelSpan] Required when the pending request carries `parallelSpan` (parallel branches); must match exactly.
  * @property {"in_process" | "host_mediated"} [activityExecutionMode] Continuation mode for any further activities (default `host_mediated`).
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
@@ -1383,7 +1411,7 @@ export async function resumeGraphWorkflow(options) {
  *   | { status: "completed"; finalState: Record<string, unknown>; result?: unknown }
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown>; code?: string }
  *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
- *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload }
+ *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload; agentId?: string; protocol?: string; delegateInput?: Record<string, unknown>; delegateCorrelationId?: string }
  * >}
  */
 export async function submitActivityOutcome(options) {
@@ -1454,7 +1482,7 @@ export async function submitActivityOutcome(options) {
     return { status: "failed", error: definitionBind.error, code: "SUBMIT_VALIDATION_ERROR" };
   }
 
-  const last = findLatestNonCheckpointEvent(rows);
+  const last = findPendingActivityRequest(rows);
   if (!last || last.kind !== "event" || last.name !== "ActivityRequested") {
     return {
       status: "failed",
@@ -1522,6 +1550,49 @@ export async function submitActivityOutcome(options) {
   const completedNode = validateWorkflowDefinition(definition).ok
     ? /** @type {{ nodes?: Array<{ id: string; type: string }> }} */ (definition).nodes?.find((n) => n.id === nodeId)
     : undefined;
+  const pendingNodeType =
+    typeof last.payload?.nodeType === "string"
+      ? last.payload.nodeType
+      : completedNode?.type;
+  const isDelegateSubmit = pendingNodeType === "agent_delegate";
+  const expectedDelegateCorrelationId =
+    typeof last.payload?.delegateCorrelationId === "string" ? last.payload.delegateCorrelationId : undefined;
+  const submittedDelegateCorrelationId =
+    typeof outcome.delegateCorrelationId === "string"
+      ? outcome.delegateCorrelationId
+      : typeof resultObj.delegateCorrelationId === "string"
+        ? resultObj.delegateCorrelationId
+        : undefined;
+  const submittedExternalTaskId =
+    typeof outcome.externalTaskId === "string"
+      ? outcome.externalTaskId
+      : typeof resultObj.externalTaskId === "string"
+        ? resultObj.externalTaskId
+        : undefined;
+
+  if (isDelegateSubmit) {
+    if (!expectedDelegateCorrelationId) {
+      return {
+        status: "failed",
+        error: "Pending agent_delegate ActivityRequested is missing delegateCorrelationId.",
+        code: "SUBMIT_VALIDATION_ERROR",
+      };
+    }
+    if (submittedDelegateCorrelationId !== expectedDelegateCorrelationId) {
+      return {
+        status: "failed",
+        error: `Activity submit delegateCorrelationId "${submittedDelegateCorrelationId ?? ""}" does not match pending "${expectedDelegateCorrelationId}".`,
+        code: "SUBMIT_VALIDATION_ERROR",
+      };
+    }
+  }
+
+  const storedResult = JSON.parse(JSON.stringify(resultObj));
+  if (isDelegateSubmit) {
+    delete storedResult.delegateCorrelationId;
+    delete storedResult.externalTaskId;
+  }
+
   const pendingSpan = isParallelSpanPayload(reqSpan) ? reqSpan : undefined;
   store.append(executionId, {
     kind: "event",
@@ -1531,7 +1602,11 @@ export async function submitActivityOutcome(options) {
       nodeId,
       ...(completedNode?.type ? { nodeType: completedNode.type } : {}),
       ...(pendingSpan ? { parallelSpan: { ...pendingSpan } } : {}),
-      result: resultObj,
+      result: storedResult,
+      ...(isDelegateSubmit && expectedDelegateCorrelationId
+        ? { delegateCorrelationId: expectedDelegateCorrelationId }
+        : {}),
+      ...(isDelegateSubmit && submittedExternalTaskId ? { externalTaskId: submittedExternalTaskId } : {}),
     },
   });
 

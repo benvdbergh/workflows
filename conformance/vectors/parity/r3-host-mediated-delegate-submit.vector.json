@@ -1,0 +1,45 @@
+{
+  "id": "parity.r3.host_mediated_delegate_submit",
+  "description": "Host-mediated agent_delegate yields awaiting_activity; submit with delegate_correlation_id completes.",
+  "kind": "parity",
+  "definition": "examples/conformance-agent-delegate-linear.workflow.json",
+  "executionId": "parity-host-delegate-1",
+  "steps": [
+    {
+      "op": "start",
+      "input": { "task": "implement feature X" },
+      "activityExecutionMode": "host_mediated",
+      "expect": {
+        "status": "awaiting_activity",
+        "node_id": "implement",
+        "agent_id": "coder",
+        "protocol": "a2a",
+        "delegate_input": { "task": "implement feature X" },
+        "delegate_correlation_id": "parity-host-delegate-1:delegate:implement"
+      }
+    },
+    {
+      "op": "status",
+      "expect": {
+        "phase": "awaiting_activity",
+        "current_node_id": "implement",
+        "agent_id": "coder",
+        "protocol": "a2a",
+        "delegate_input": { "task": "implement feature X" },
+        "delegate_correlation_id": "parity-host-delegate-1:delegate:implement"
+      }
+    },
+    {
+      "op": "submit_activity",
+      "nodeId": "implement",
+      "outcome": {
+        "ok": true,
+        "delegate_correlation_id": "parity-host-delegate-1:delegate:implement",
+        "external_task_id": "a2a-task-host-1",
+        "result": { "patch": "// host delegate patch", "delegate_status": "completed" }
+      },
+      "activityExecutionMode": "host_mediated",
+      "expect": { "status": "completed" }
+    }
+  ]
+}
