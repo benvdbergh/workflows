@@ -62,8 +62,34 @@ Replace `0.1.4` with your target version or `@alpha`.
 |----------|---------|
 | `WORKFLOW_ENGINE_MCP_CONFIG` | JSON config for engine-direct activity manifests |
 | `WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS` | Extend allowed command basenames for engine-direct `tool_call` |
+| `WORKFLOW_ENGINE_LLM_CONFIG` | Inline JSON or file path for `llm_call` operator credentials |
+| `WORKFLOW_ENGINE_STEP_HANDLERS` | Inline JSON or file path: **static** handler URN → output map (see below) |
+| `WORKFLOW_ENGINE_PROFILE` | Set to `demo` for stub fallback on unconfigured node types inside a partial composite |
 
-See the [engine package README](https://github.com/benvdbergh/workflows/blob/main/packages/engine/README.md) for engine-direct manifests.
+See the [engine package README](https://github.com/benvdbergh/workflows/blob/main/packages/engine/README.md) for engine-direct manifests and composite routing.
+
+### `step` handlers via environment (static outputs only)
+
+`WORKFLOW_ENGINE_STEP_HANDLERS` bootstraps `StepActivityExecutor` for `workflows-engine-mcp`. The value is inline JSON or a path to a JSON file whose **keys are handler URNs** and **values are fixed output objects** — the same shape as conformance `stepHandlers` vectors.
+
+**This env var does not register programmatic handlers.** Each URN is wired to an async function that returns the configured JSON object as-is. You cannot run custom code, read workflow state, call external APIs, or branch on inputs through this mechanism. It is intended for smoke tests, demos, and fixture replay — not production step logic.
+
+For programmatic `step` handlers, use the library API at bootstrap:
+
+```js
+import { StepActivityExecutor, StepHandlerRegistry, createWorkflowApplicationPort } from "@agent-workflow/engine";
+
+const registry = new StepHandlerRegistry();
+registry.register("urn:my-app:handlers:lookup-customer", async (ctx) => {
+  // ctx.executionId, ctx.node, ctx.state available
+  return { customerId: "c-1", name: "Ada" };
+});
+
+const activityExecutor = new StepActivityExecutor({ registry: registry.createFrozenCopy() });
+const port = createWorkflowApplicationPort({ store, activityExecutor });
+```
+
+See [`StepHandlerRegistry.register`](https://github.com/benvdbergh/workflows/blob/main/packages/engine/src/orchestrator/step-activity-executor.mjs) in `packages/engine/src/orchestrator/step-activity-executor.mjs` and the [Engine-direct `step` execution](https://github.com/benvdbergh/workflows/blob/main/packages/engine/README.md#engine-direct-step-execution-stepactivityexecutor) section of the engine README.
 
 ## MCP tools
 

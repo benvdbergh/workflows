@@ -2,8 +2,10 @@
 import { createWorkflowApplicationPort } from "./application/workflow-application-port.mjs";
 import { createMcpWorkflowStdioServer } from "./adapters/mcp/stdio-server.mjs";
 import {
+  formatActivityRoutingSummaryLog,
   formatMcpManifestValidationErrors,
   loadProductionActivityExecutor,
+  loadProductionDelegateExecutor,
   resolveWorkflowEngineMcpConfigPath,
 } from "./adapters/mcp/stdio-server-config.mjs";
 import { MemoryExecutionHistoryStore } from "./persistence/memory-history-store.mjs";
@@ -18,9 +20,16 @@ async function main() {
         "Production activity execution (composite router):\n" +
         "  WORKFLOW_ENGINE_MCP_CONFIG — operator MCP manifest for tool_call (or --mcp-config <path>).\n" +
         "  WORKFLOW_ENGINE_LLM_CONFIG — inline JSON or file path for llm_call operator credentials.\n" +
-        "  WORKFLOW_ENGINE_STEP_HANDLERS — inline JSON or file path mapping handler URNs to static outputs.\n" +
+        "  WORKFLOW_ENGINE_STEP_HANDLERS — inline JSON or file path: URN → static output object (not programmatic handlers).\n" +
+        "    For custom handler code, use StepHandlerRegistry.register at library bootstrap (see engine README).\n" +
         "  When none are set, activities use StubActivityExecutor (local demo only; set WORKFLOW_ENGINE_PROFILE=demo\n" +
         "  to enable stub fallback for unconfigured node types inside a partial composite).\n" +
+        "\n" +
+        "Production delegate execution (composite router):\n" +
+        "  WORKFLOW_ENGINE_A2A_CONFIG — inline JSON or file path for a2a operator credentials (baseUrl, apiKeyEnv).\n" +
+        "  WORKFLOW_ENGINE_MCP_CONFIG — operator manifest delegateAgents for mcp protocol (same path as tool_call).\n" +
+        "  When none are set, agent_delegate uses MockA2ADelegateExecutor (local demo only; set\n" +
+        "  WORKFLOW_ENGINE_PROFILE=demo to enable mock fallback for unconfigured protocols inside a partial composite).\n" +
         "  Manifest schema: same as `workflows-engine mcp-manifest validate` (mcpServers stdio subset).\n"
     );
     return;
@@ -28,23 +37,41 @@ async function main() {
 
   const manifestPath = resolveWorkflowEngineMcpConfigPath(process.argv);
   let activityExecutor = undefined;
+  let delegateExecutor = undefined;
   try {
-    const loaded = await loadProductionActivityExecutor({ manifestPath });
-    if (!loaded.ok) {
-      if ("errors" in loaded && loaded.errors) {
+    const [activityLoaded, delegateLoaded] = await Promise.all([
+      loadProductionActivityExecutor({ manifestPath }),
+      loadProductionDelegateExecutor({ manifestPath }),
+    ]);
+    if (!activityLoaded.ok) {
+      if ("errors" in activityLoaded && activityLoaded.errors) {
         process.stderr.write(
-          `[engine-mcp-stdio] Invalid operator manifest at ${manifestPath}:\n${formatMcpManifestValidationErrors(loaded.errors)}\n`
+          `[engine-mcp-stdio] Invalid operator manifest at ${manifestPath}:\n${formatMcpManifestValidationErrors(activityLoaded.errors)}\n`
         );
       } else {
-        process.stderr.write(`[engine-mcp-stdio] Activity executor configuration failed: ${loaded.error}\n`);
+        process.stderr.write(`[engine-mcp-stdio] Activity executor configuration failed: ${activityLoaded.error}\n`);
       }
       process.exitCode = 1;
       return;
     }
-    activityExecutor = loaded.executor;
+    activityExecutor = activityLoaded.executor;
+
+    if (!delegateLoaded.ok) {
+      if ("errors" in delegateLoaded && delegateLoaded.errors) {
+        process.stderr.write(
+          `[engine-mcp-stdio] Invalid operator manifest at ${manifestPath}:\n${formatMcpManifestValidationErrors(delegateLoaded.errors)}\n`
+        );
+      } else {
+        process.stderr.write(`[engine-mcp-stdio] Delegate executor configuration failed: ${delegateLoaded.error}\n`);
+      }
+      process.exitCode = 1;
+      return;
+    }
+    delegateExecutor = delegateLoaded.executor;
+    process.stderr.write(formatActivityRoutingSummaryLog(activityLoaded.routingSummary));
   } catch (err) {
     process.stderr.write(
-      `[engine-mcp-stdio] Activity executor configuration failed: ${err instanceof Error ? err.message : String(err)}\n`
+      `[engine-mcp-stdio] Executor configuration failed: ${err instanceof Error ? err.message : String(err)}\n`
     );
     process.exitCode = 1;
     return;
@@ -54,6 +81,7 @@ async function main() {
   const workflowPort = createWorkflowApplicationPort({
     store,
     ...(activityExecutor ? { activityExecutor } : {}),
+    ...(delegateExecutor ? { delegateExecutor } : {}),
   });
   const server = createMcpWorkflowStdioServer(workflowPort);
 

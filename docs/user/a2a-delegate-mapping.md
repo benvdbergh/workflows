@@ -4,6 +4,8 @@ This guide describes how the reference engine's **`A2ADelegateExecutor`** maps `
 
 For host-driven delegation (no in-process HTTP client), see [Host-mediated activities](host-mediated-activities.md).
 
+> **Operator warning — in-process A2A blocks the control plane:** When a workflow uses **`A2ADelegateExecutor`** (in-process HTTP submit + poll), delegate execution runs **synchronously inside** `workflow_start`, `workflow_resume`, or any continuation that reaches an `agent_delegate` node. The poll loop may run for up to **`pollTimeoutMs`** (default **120 seconds**) before returning or failing. **MCP stdio hosts** (Cursor, Claude Desktop, and similar) often enforce shorter tool-call timeouts and will disconnect mid-poll. For **long-running**, **interactive**, or **`input-required`** A2A tasks, use **`activity_execution_mode: "host_mediated"`** from the first control-plane call so the engine yields `awaiting_activity` and the host delegates out of band. See [Migrating from in-process A2A when a task needs input](#migrating-from-in-process-a2a-when-a-task-needs-input) below.
+
 ## When to use
 
 | Mode | Delegate port | Use case |
@@ -98,11 +100,101 @@ Response `200`:
 Supported `status` values: `submitted`, `working`, `input-required`, `completed`, `failed`.
 
 - The executor polls until `completed` or `failed` (or timeout).
-- `input-required` is **not** handled in-process; use [host-mediated activities](host-mediated-activities.md) so the host can satisfy A2A input prompts and submit via `workflow_submit_activity`.
+- `input-required` is **not** handled in-process — the poll loop **throws** instead of yielding. Use [host-mediated activities](host-mediated-activities.md) so the host can satisfy A2A input prompts and submit via `workflow_submit_activity` (see [Migrating from in-process A2A when a task needs input](#migrating-from-in-process-a2a-when-a-task-needs-input)).
 
 ### Authentication
 
 All requests send `Authorization: Bearer {apiKey}` where `apiKey` is resolved from operator config.
+
+## Migrating from in-process A2A when a task needs input
+
+**Symptom:** A workflow started with in-process `A2ADelegateExecutor` (default MCP stdio path when a custom delegate port is wired, or library use with `activity_execution_mode: "in_process"`) fails or stalls when the A2A runtime returns **`input-required`** on poll — for example:
+
+```
+A2A task "a2a-task-abc123" requires host input (input-required); use host_mediated activity mode for interactive delegates
+```
+
+Or the MCP host times out while `workflow_start` is still inside the poll loop (up to **`pollTimeoutMs`**, default 120s).
+
+**Fix:** Treat interactive delegates as **host-mediated from the start**. Do not rely on in-process poll to bridge human-in-the-loop or multi-turn agent prompts.
+
+### 1. Start with `host_mediated`
+
+Fixture: `examples/conformance-agent-delegate-linear.workflow.json`.
+
+```json
+{
+  "execution_id": "multi-agent-interactive-1",
+  "definition": { "...": "conformance-agent-delegate-linear.workflow.json" },
+  "input": { "task": "implement feature X" },
+  "activity_execution_mode": "host_mediated"
+}
+```
+
+Response (engine yields immediately — no in-process HTTP poll):
+
+```json
+{
+  "status": "awaiting_activity",
+  "node_id": "implement",
+  "agent_id": "coder",
+  "protocol": "a2a",
+  "delegate_input": { "task": "implement feature X" },
+  "delegate_correlation_id": "multi-agent-interactive-1:delegate:implement"
+}
+```
+
+### 2. Host submits A2A task and polls out of band
+
+The host (not the engine) calls `POST {baseUrl}/tasks` with `delegate_input`, then polls `GET {baseUrl}/tasks/{id}` using its own timeout policy.
+
+When the first poll returns **`input-required`**, the host satisfies the prompt (user message, form, tool result) via the A2A runtime's input API, then continues polling until `completed` or `failed` — without holding an MCP stdio tool call open.
+
+Example non-terminal poll (host-side):
+
+```json
+{
+  "id": "a2a-task-abc123",
+  "status": "input-required",
+  "output": { "prompt": "Which API style should the patch use?" }
+}
+```
+
+After the host supplies input and the task reaches **`completed`**:
+
+```json
+{
+  "id": "a2a-task-abc123",
+  "status": "completed",
+  "output": { "patch": "// …", "delegate_status": "completed" }
+}
+```
+
+### 3. Submit delegate outcome to the engine
+
+```json
+{
+  "execution_id": "multi-agent-interactive-1",
+  "definition": "<same object as workflow_start>",
+  "input": { "task": "implement feature X" },
+  "node_id": "implement",
+  "activity_execution_mode": "host_mediated",
+  "outcome": {
+    "ok": true,
+    "delegate_correlation_id": "multi-agent-interactive-1:delegate:implement",
+    "external_task_id": "a2a-task-abc123",
+    "result": { "patch": "// …", "delegate_status": "completed" }
+  }
+}
+```
+
+| In-process A2A | Host-mediated A2A |
+|----------------|-------------------|
+| Poll runs inside `workflow_start` / resume (blocks MCP stdio) | Engine returns `awaiting_activity` immediately |
+| `input-required` → executor throws | Host handles `input-required` and multi-turn poll |
+| Host timeout risk on long delegates | Host controls poll interval and timeouts |
+
+Full host loop: [Host-mediated activities — `agent_delegate` host loop](host-mediated-activities.md#agent_delegate-host-loop).
 
 ## Workflow history correlation
 
