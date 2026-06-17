@@ -20,6 +20,7 @@
     "engine:rest:serve": "node packages/engine/src/rest-server.mjs",
     "conformance": "node conformance/run-conformance.mjs",
     "test": "npm test --workspace=@agent-workflow/engine",
+    "sdk:test": "npm test --workspace=@agent-workflow/sdk",
     "docs:prepare": "node scripts/build-docs-site.mjs",
     "docs:build": "node scripts/build-docs-site.mjs && node scripts/run-mkdocs.mjs build -f website/mkdocs.yml -d site",
     "docs:serve": "node scripts/build-docs-site.mjs && node scripts/run-mkdocs.mjs serve -f website/mkdocs.yml -a localhost:8000"
