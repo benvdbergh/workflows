@@ -1,13 +1,20 @@
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import path from "node:path";
 import {
   A2ADelegateExecutor,
   createMcpWorkflowToolHandlers,
+  createRestWorkflowHandler,
   createWorkflowApplicationPort,
+  DefinitionRegistry,
   MemoryExecutionHistoryStore,
   StubActivityExecutor,
 } from "../packages/engine/src/index.mjs";
 import { createA2AMockHttpServer } from "../packages/engine/test/helpers/a2a-mock-http-server.mjs";
+import { WorkflowClient } from "../packages/sdk/src/index.mjs";
+import { SdkError } from "../packages/sdk/src/errors.mjs";
+
+/** @typedef {"port" | "mcp" | "rest" | "sdk"} ParitySurface */
 
 /**
  * @typedef {"start" | "status" | "resume" | "submit_activity"} ParityOp
@@ -113,14 +120,10 @@ function normalizePortSnapshot(op, portResult, isError, errorCode) {
 
 /**
  * @param {ParityOp} op
- * @param {{ isError?: boolean; structuredContent: Record<string, unknown> }} mcpResult
+ * @param {Record<string, unknown>} transportBody
  */
-function normalizeMcpSnapshot(op, mcpResult) {
-  if (mcpResult.isError) {
-    const err = /** @type {{ code?: string }} */ (mcpResult.structuredContent.error ?? {});
-    return { op, is_error: true, error: { code: err.code } };
-  }
-  const s = mcpResult.structuredContent;
+function normalizeTransportSnapshot(op, transportBody) {
+  const s = transportBody;
   return {
     op,
     is_error: false,
@@ -145,6 +148,112 @@ function normalizeMcpSnapshot(op, mcpResult) {
     ...(s.parent_execution_id !== undefined ? { parent_execution_id: s.parent_execution_id } : {}),
     ...(s.parallel_span !== undefined ? { parallel_span: s.parallel_span } : {}),
   };
+}
+
+/**
+ * @param {ParityOp} op
+ * @param {{ isError?: boolean; structuredContent: Record<string, unknown> }} mcpResult
+ */
+function normalizeMcpSnapshot(op, mcpResult) {
+  if (mcpResult.isError) {
+    const err = /** @type {{ code?: string }} */ (mcpResult.structuredContent.error ?? {});
+    return { op, is_error: true, error: { code: err.code } };
+  }
+  return normalizeTransportSnapshot(op, mcpResult.structuredContent);
+}
+
+/**
+ * @param {ParityOp} op
+ * @param {number} httpStatus
+ * @param {Record<string, unknown> | undefined} body
+ */
+function normalizeRestSnapshot(op, httpStatus, body) {
+  if (httpStatus >= 400) {
+    const err = /** @type {{ code?: string }} */ (body?.error ?? {});
+    return { op, is_error: true, error: { code: err.code } };
+  }
+  return normalizeTransportSnapshot(op, /** @type {Record<string, unknown>} */ (body ?? {}));
+}
+
+/**
+ * @param {ParityOp} op
+ * @param {Record<string, unknown> | undefined} transportBody
+ * @param {unknown} [error]
+ */
+function normalizeSdkSnapshot(op, transportBody, error) {
+  if (error) {
+    const code =
+      error instanceof SdkError
+        ? error.code
+        : error && typeof error === "object" && "code" in error && typeof error.code === "string"
+          ? error.code
+          : "ENGINE_FAILURE";
+    return { op, is_error: true, error: { code } };
+  }
+  return normalizeTransportSnapshot(op, /** @type {Record<string, unknown>} */ (transportBody ?? {}));
+}
+
+/**
+ * @param {string} baseUrl
+ * @param {string} method
+ * @param {string} pathname
+ * @param {unknown} [body]
+ */
+async function restRequestJson(baseUrl, method, pathname, body) {
+  const response = await fetch(`${baseUrl}${pathname}`, {
+    method,
+    headers: body !== undefined ? { "content-type": "application/json" } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const text = await response.text();
+  const parsed = text ? JSON.parse(text) : undefined;
+  return { status: response.status, body: parsed };
+}
+
+/**
+ * @param {object} definition
+ * @param {import("../packages/engine/src/persistence/types.mjs").ExecutionHistoryStore} store
+ * @param {import("../packages/engine/src/orchestrator/delegate-executor.mjs").DelegateExecutor} [delegateExecutor]
+ * @param {Record<string, Record<string, unknown>>} [stubActivityOutputs]
+ */
+export async function createParityRestServer(definition, store, delegateExecutor, stubActivityOutputs) {
+  const definitionRegistry = new DefinitionRegistry();
+  const registered = definitionRegistry.register(definition);
+  const workflowPort = createWorkflowApplicationPort({
+    store,
+    ...(stubActivityOutputs ? { activityExecutor: new StubActivityExecutor(stubActivityOutputs) } : {}),
+    ...(delegateExecutor ? { delegateExecutor } : {}),
+  });
+  const handler = createRestWorkflowHandler(workflowPort, { definitionRegistry, store });
+  const server = createServer((req, res) => {
+    handler(req, res).catch((error) => {
+      if (!res.headersSent) {
+        res.writeHead(500, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { code: "INTERNAL_ERROR", message: String(error) } }));
+      }
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  if (!address || typeof address !== "object") {
+    throw new Error("Failed to bind parity REST server.");
+  }
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const close = () =>
+    new Promise((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve(undefined)));
+    });
+  return { baseUrl, wfId: registered.wf_id, close };
+}
+
+/**
+ * @param {ParityVector} vector
+ */
+export function isR2ParityVector(vector) {
+  return vector.id.startsWith("parity.r2.");
 }
 
 /**
@@ -216,15 +325,33 @@ function normalizeSubmitOutcomeForMcp(outcome) {
 }
 
 /**
- * @param {"port" | "mcp"} surface
+ * @typedef {object} ParityRestContext
+ * @property {string} baseUrl
+ * @property {string} wfId
+ */
+
+/**
+ * @param {ParitySurface} surface
  * @param {import("../packages/engine/src/application/workflow-application-port.mjs").WorkflowApplicationPort} port
  * @param {ReturnType<typeof createMcpWorkflowToolHandlers>} handlers
+ * @param {WorkflowClient | undefined} sdkClient
+ * @param {ParityRestContext | undefined} restContext
  * @param {object} definition
  * @param {string} executionId
  * @param {ParityStep} step
  * @param {Record<string, unknown>} scenarioInput
  */
-async function executeStep(surface, port, handlers, definition, executionId, step, scenarioInput) {
+async function executeStep(
+  surface,
+  port,
+  handlers,
+  sdkClient,
+  restContext,
+  definition,
+  executionId,
+  step,
+  scenarioInput
+) {
   const activityMode = step.activityExecutionMode;
 
   if (step.op === "start") {
@@ -257,16 +384,63 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
         };
       }
     }
-    const mcpResult = await handlers.workflow_start({
-      execution_id: executionId,
-      definition,
-      input: step.input ?? scenarioInput,
-      ...(activityMode ? { activity_execution_mode: activityMode } : {}),
-    });
-    return {
-      snapshot: normalizeMcpSnapshot("start", mcpResult),
-      isError: Boolean(mcpResult.isError),
-    };
+    if (surface === "mcp") {
+      const mcpResult = await handlers.workflow_start({
+        execution_id: executionId,
+        definition,
+        input: step.input ?? scenarioInput,
+        ...(activityMode ? { activity_execution_mode: activityMode } : {}),
+      });
+      return {
+        snapshot: normalizeMcpSnapshot("start", mcpResult),
+        isError: Boolean(mcpResult.isError),
+      };
+    }
+    if (surface === "rest" && restContext) {
+      try {
+        const { status, body } = await restRequestJson(
+          restContext.baseUrl,
+          "POST",
+          `/v1/workflows/${encodeURIComponent(restContext.wfId)}/executions`,
+          {
+            execution_id: executionId,
+            input: step.input ?? scenarioInput,
+            ...(activityMode ? { activity_execution_mode: activityMode } : {}),
+          }
+        );
+        const isError = status >= 400;
+        return {
+          snapshot: normalizeRestSnapshot("start", status, body),
+          isError,
+        };
+      } catch (error) {
+        return {
+          snapshot: normalizeRestSnapshot("start", 500, {
+            error: { code: "INTERNAL_ERROR", message: String(error) },
+          }),
+          isError: true,
+        };
+      }
+    }
+    if (surface === "sdk" && sdkClient) {
+      try {
+        const result = await sdkClient.start({
+          definition,
+          executionId,
+          input: step.input ?? scenarioInput,
+          ...(activityMode ? { activityExecutionMode: activityMode } : {}),
+        });
+        return {
+          snapshot: normalizeSdkSnapshot("start", /** @type {Record<string, unknown>} */ (result)),
+          isError: false,
+        };
+      } catch (error) {
+        return {
+          snapshot: normalizeSdkSnapshot("start", undefined, error),
+          isError: true,
+        };
+      }
+    }
   }
 
   if (step.op === "status") {
@@ -274,8 +448,36 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
       const portResult = await port.getWorkflowStatus({ executionId });
       return { snapshot: normalizePortSnapshot("status", portResult, false, undefined), isError: false };
     }
-    const mcpResult = await handlers.workflow_status({ execution_id: executionId });
-    return { snapshot: normalizeMcpSnapshot("status", mcpResult), isError: Boolean(mcpResult.isError) };
+    if (surface === "mcp") {
+      const mcpResult = await handlers.workflow_status({ execution_id: executionId });
+      return { snapshot: normalizeMcpSnapshot("status", mcpResult), isError: Boolean(mcpResult.isError) };
+    }
+    if (surface === "rest" && restContext) {
+      const { status, body } = await restRequestJson(
+        restContext.baseUrl,
+        "GET",
+        `/v1/executions/${encodeURIComponent(executionId)}`
+      );
+      const isError = status >= 400;
+      return {
+        snapshot: normalizeRestSnapshot("status", status, body),
+        isError,
+      };
+    }
+    if (surface === "sdk" && sdkClient) {
+      try {
+        const result = await sdkClient.getStatus({ executionId });
+        return {
+          snapshot: normalizeSdkSnapshot("status", /** @type {Record<string, unknown>} */ (result)),
+          isError: false,
+        };
+      } catch (error) {
+        return {
+          snapshot: normalizeSdkSnapshot("status", undefined, error),
+          isError: true,
+        };
+      }
+    }
   }
 
   if (step.op === "resume") {
@@ -297,13 +499,51 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
         isError,
       };
     }
-    const mcpResult = await handlers.workflow_resume({
-      execution_id: executionId,
-      definition,
-      resume_payload: step.resumePayload ?? {},
-      ...(activityMode ? { activity_execution_mode: activityMode } : {}),
-    });
-    return { snapshot: normalizeMcpSnapshot("resume", mcpResult), isError: Boolean(mcpResult.isError) };
+    if (surface === "mcp") {
+      const mcpResult = await handlers.workflow_resume({
+        execution_id: executionId,
+        definition,
+        resume_payload: step.resumePayload ?? {},
+        ...(activityMode ? { activity_execution_mode: activityMode } : {}),
+      });
+      return { snapshot: normalizeMcpSnapshot("resume", mcpResult), isError: Boolean(mcpResult.isError) };
+    }
+    if (surface === "rest" && restContext) {
+      const { status, body } = await restRequestJson(
+        restContext.baseUrl,
+        "POST",
+        `/v1/executions/${encodeURIComponent(executionId)}:resume`,
+        {
+          definition,
+          resume_payload: step.resumePayload ?? {},
+          ...(activityMode ? { activity_execution_mode: activityMode } : {}),
+        }
+      );
+      const isError = status >= 400;
+      return {
+        snapshot: normalizeRestSnapshot("resume", status, body),
+        isError,
+      };
+    }
+    if (surface === "sdk" && sdkClient) {
+      try {
+        const result = await sdkClient.resume({
+          executionId,
+          definition,
+          resumePayload: step.resumePayload ?? {},
+          ...(activityMode ? { activityExecutionMode: activityMode } : {}),
+        });
+        return {
+          snapshot: normalizeSdkSnapshot("resume", /** @type {Record<string, unknown>} */ (result)),
+          isError: false,
+        };
+      } catch (error) {
+        return {
+          snapshot: normalizeSdkSnapshot("resume", undefined, error),
+          isError: true,
+        };
+      }
+    }
   }
 
   if (step.op === "submit_activity") {
@@ -339,16 +579,60 @@ async function executeStep(surface, port, handlers, definition, executionId, ste
           branch_entry_node_id: expectedParallelSpan.branchEntryNodeId,
         }
       : undefined;
-    const mcpResult = await handlers.workflow_submit_activity({
-      execution_id: executionId,
-      definition,
-      input: scenarioInput,
-      node_id: step.nodeId ?? "",
-      outcome: mcpOutcome,
-      ...(mcpParallelSpan ? { parallel_span: mcpParallelSpan } : {}),
-      ...(activityMode ? { activity_execution_mode: activityMode } : {}),
-    });
-    return { snapshot: normalizeMcpSnapshot("submit_activity", mcpResult), isError: Boolean(mcpResult.isError) };
+    if (surface === "mcp") {
+      const mcpResult = await handlers.workflow_submit_activity({
+        execution_id: executionId,
+        definition,
+        input: scenarioInput,
+        node_id: step.nodeId ?? "",
+        outcome: mcpOutcome,
+        ...(mcpParallelSpan ? { parallel_span: mcpParallelSpan } : {}),
+        ...(activityMode ? { activity_execution_mode: activityMode } : {}),
+      });
+      return { snapshot: normalizeMcpSnapshot("submit_activity", mcpResult), isError: Boolean(mcpResult.isError) };
+    }
+    if (surface === "rest" && restContext) {
+      const { status, body } = await restRequestJson(
+        restContext.baseUrl,
+        "POST",
+        `/v1/executions/${encodeURIComponent(executionId)}:submit_activity`,
+        {
+          definition,
+          input: scenarioInput,
+          node_id: step.nodeId ?? "",
+          outcome: mcpOutcome,
+          ...(mcpParallelSpan ? { parallel_span: mcpParallelSpan } : {}),
+          ...(activityMode ? { activity_execution_mode: activityMode } : {}),
+        }
+      );
+      const isError = status >= 400;
+      return {
+        snapshot: normalizeRestSnapshot("submit_activity", status, body),
+        isError,
+      };
+    }
+    if (surface === "sdk" && sdkClient) {
+      try {
+        const result = await sdkClient.submitActivity({
+          executionId,
+          definition,
+          input: scenarioInput,
+          nodeId: step.nodeId ?? "",
+          outcome: mcpOutcome,
+          ...(mcpParallelSpan ? { parallelSpan: mcpParallelSpan } : {}),
+          ...(activityMode ? { activityExecutionMode: activityMode } : {}),
+        });
+        return {
+          snapshot: normalizeSdkSnapshot("submit_activity", /** @type {Record<string, unknown>} */ (result)),
+          isError: false,
+        };
+      } catch (error) {
+        return {
+          snapshot: normalizeSdkSnapshot("submit_activity", undefined, error),
+          isError: true,
+        };
+      }
+    }
   }
 
   throw new Error(`Unsupported parity op "${step.op}"`);
@@ -408,7 +692,7 @@ export async function runParityVector(vector, repoRoot) {
   const { delegateExecutor, closeMockA2A } = await resolveParityDelegateExecutor(vector);
 
   /**
-   * @param {"port" | "mcp"} surface
+   * @param {ParitySurface} surface
    */
   async function runScenario(surface) {
     const store = new MemoryExecutionHistoryStore();
@@ -420,50 +704,94 @@ export async function runParityVector(vector, repoRoot) {
       ...(delegateExecutor ? { delegateExecutor } : {}),
     });
     const handlers = createMcpWorkflowToolHandlers(port);
+    const sdkClient = surface === "sdk" ? WorkflowClient.fromPort(port) : undefined;
+    /** @type {ParityRestContext | undefined} */
+    let restContext;
+    /** @type {(() => Promise<void>) | undefined} */
+    let closeRestServer;
+    if (surface === "rest") {
+      const restServer = await createParityRestServer(
+        definition,
+        store,
+        delegateExecutor,
+        vector.stubActivityOutputs
+      );
+      restContext = { baseUrl: restServer.baseUrl, wfId: restServer.wfId };
+      closeRestServer = restServer.close;
+    }
     /** @type {Record<string, unknown>[]} */
     const snapshots = [];
 
-    for (const step of vector.steps) {
-      const { snapshot, isError } = await executeStep(
-        surface,
-        port,
-        handlers,
-        definition,
-        vector.executionId,
-        step,
-        /** @type {Record<string, unknown>} */ (scenarioInput)
-      );
-      snapshots.push(snapshot);
+    try {
+      for (const step of vector.steps) {
+        const { snapshot, isError } = await executeStep(
+          surface,
+          port,
+          handlers,
+          sdkClient,
+          restContext,
+          definition,
+          vector.executionId,
+          step,
+          /** @type {Record<string, unknown>} */ (scenarioInput)
+        );
+        snapshots.push(snapshot);
 
-      if (Boolean(step.expectError) !== isError) {
-        return {
-          passed: false,
-          reason: `Step ${step.op} (${surface}): expected expectError=${Boolean(step.expectError)} but got error=${isError}`,
-          context: { snapshot },
-        };
-      }
-
-      if (step.expectErrorCode && snapshot.error?.code !== step.expectErrorCode) {
-        return {
-          passed: false,
-          reason: `Step ${step.op} (${surface}): expected error code ${step.expectErrorCode}`,
-          context: { snapshot },
-        };
-      }
-
-      if (step.expect && !step.expectError) {
-        const match = snapshotMatchesExpect(snapshot, step.expect);
-        if (!match.ok) {
+        if (Boolean(step.expectError) !== isError) {
           return {
             passed: false,
-            reason: `Step ${step.op} (${surface}): ${match.reason}`,
-            context: { snapshot, expect: step.expect },
+            reason: `Step ${step.op} (${surface}): expected expectError=${Boolean(step.expectError)} but got error=${isError}`,
+            context: { snapshot },
           };
         }
+
+        if (step.expectErrorCode && snapshot.error?.code !== step.expectErrorCode) {
+          return {
+            passed: false,
+            reason: `Step ${step.op} (${surface}): expected error code ${step.expectErrorCode}`,
+            context: { snapshot },
+          };
+        }
+
+        if (step.expect && !step.expectError) {
+          const match = snapshotMatchesExpect(snapshot, step.expect);
+          if (!match.ok) {
+            return {
+              passed: false,
+              reason: `Step ${step.op} (${surface}): ${match.reason}`,
+              context: { snapshot, expect: step.expect },
+            };
+          }
+        }
+      }
+
+      return { passed: true, snapshots };
+    } finally {
+      if (closeRestServer) {
+        await closeRestServer();
       }
     }
+  }
 
-    return { passed: true, snapshots };
+  /**
+   * @param {Record<string, unknown>[]} baseline
+   * @param {ParitySurface} surface
+   */
+  async function assertSurfaceMatchesBaseline(baseline, surface) {
+    const surfaceRun = await runScenario(surface);
+    if (!surfaceRun.passed) {
+      return surfaceRun;
+    }
+    for (let i = 0; i < baseline.length; i += 1) {
+      if (!snapshotsEqual(baseline[i], surfaceRun.snapshots[i])) {
+        return {
+          passed: false,
+          reason: `Step index ${i} (${vector.steps[i].op}): port and ${surface} normalized snapshots differ`,
+          context: { port: baseline[i], [surface]: surfaceRun.snapshots[i] },
+        };
+      }
+    }
+    return { passed: true };
   }
 
   try {
@@ -486,7 +814,22 @@ export async function runParityVector(vector, repoRoot) {
       }
     }
 
-    return { passed: true, context: { stepCount: vector.steps.length } };
+    if (isR2ParityVector(vector)) {
+      for (const surface of /** @type {ParitySurface[]} */ (["rest", "sdk"])) {
+        const adapterRun = await assertSurfaceMatchesBaseline(portRun.snapshots, surface);
+        if (!adapterRun.passed) {
+          return adapterRun;
+        }
+      }
+    }
+
+    return {
+      passed: true,
+      context: {
+        stepCount: vector.steps.length,
+        ...(isR2ParityVector(vector) ? { surfaces: ["port", "mcp", "rest", "sdk"] } : { surfaces: ["port", "mcp"] }),
+      },
+    };
   } finally {
     if (closeMockA2A) {
       await closeMockA2A();
