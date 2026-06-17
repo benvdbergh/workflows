@@ -1,0 +1,518 @@
+openapi: 3.0.3
+info:
+  title: Agent Workflow Protocol — Reference Engine REST Control Plane
+  version: 0.1.5
+  description: |
+    HTTP control-plane adapter for the `@agent-workflow/engine` reference implementation.
+    Maps RFC-05 §5.3 resource paths to `createWorkflowApplicationPort` with the same
+    lifecycle semantics and error codes as the MCP stdio adapter.
+servers:
+  - url: http://127.0.0.1:8787
+    description: Local reference REST server (`workflows-engine-rest`)
+paths:
+  /v1/workflows:
+    post:
+      operationId: registerWorkflowDefinition
+      summary: Register a workflow definition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterWorkflowRequest"
+      responses:
+        "201":
+          description: Definition registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterWorkflowResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/DuplicateWorkflowId"
+  /v1/workflows/{wf_id}:
+    get:
+      operationId: getWorkflowDefinition
+      summary: Fetch a registered workflow definition
+      parameters:
+        - $ref: "#/components/parameters/WfId"
+      responses:
+        "200":
+          description: Registered definition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterWorkflowResponse"
+        "404":
+          $ref: "#/components/responses/WorkflowNotFound"
+  /v1/workflows/{wf_id}/executions:
+    post:
+      operationId: startWorkflowExecution
+      summary: Start an execution for a registered workflow
+      parameters:
+        - $ref: "#/components/parameters/WfId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartExecutionRequest"
+      responses:
+        "200":
+          description: Execution started or reached a terminal/interrupted/awaiting state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowStartResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/WorkflowNotFound"
+        "409":
+          $ref: "#/components/responses/DuplicateExecutionId"
+        "500":
+          $ref: "#/components/responses/EngineFailure"
+  /v1/executions/{exec_id}:
+    get:
+      operationId: getExecutionStatus
+      summary: Read execution phase and cursor metadata
+      parameters:
+        - $ref: "#/components/parameters/ExecId"
+      responses:
+        "200":
+          description: Current execution status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowStatusResult"
+        "404":
+          $ref: "#/components/responses/ExecutionNotFound"
+  /v1/executions/{exec_id}/events:
+    get:
+      operationId: listExecutionEvents
+      summary: Paginated append-only execution history
+      parameters:
+        - $ref: "#/components/parameters/ExecId"
+        - name: from_seq
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: to_seq
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 100
+        - name: cursor
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          description: Alias for `from_seq` when paginating forward
+      responses:
+        "200":
+          description: History page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionEventsPage"
+        "404":
+          $ref: "#/components/responses/ExecutionNotFound"
+  /v1/executions/{exec_id}:resume:
+    post:
+      operationId: resumeExecution
+      summary: Resume an interrupted execution
+      parameters:
+        - $ref: "#/components/parameters/ExecId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResumeExecutionRequest"
+      responses:
+        "200":
+          description: Resume accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowResumeResult"
+        "400":
+          $ref: "#/components/responses/InvalidResumePayload"
+        "500":
+          $ref: "#/components/responses/EngineFailure"
+  /v1/executions/{exec_id}:submit_activity:
+    post:
+      operationId: submitHostMediatedActivity
+      summary: Submit a host-mediated activity outcome
+      parameters:
+        - $ref: "#/components/parameters/ExecId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitActivityRequest"
+      responses:
+        "200":
+          description: Activity outcome accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowSubmitActivityResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/ActivitySubmitConflict"
+        "500":
+          $ref: "#/components/responses/EngineFailure"
+  /v1/executions/{exec_id}:cancel:
+    post:
+      operationId: cancelExecution
+      summary: Cancel a running execution (not implemented in reference port)
+      parameters:
+        - $ref: "#/components/parameters/ExecId"
+      responses:
+        "501":
+          description: Cancel not implemented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /v1/executions/{exec_id}/checkpoint:
+    get:
+      operationId: getExecutionCheckpoint
+      summary: Optional checkpoint introspection
+      parameters:
+        - $ref: "#/components/parameters/ExecId"
+      responses:
+        "200":
+          description: Latest checkpoint event payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckpointResponse"
+        "404":
+          $ref: "#/components/responses/ExecutionNotFound"
+components:
+  parameters:
+    WfId:
+      name: wf_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ExecId:
+      name: exec_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Workflow definition failed schema validation.
+    WorkflowNotFound:
+      description: Workflow definition was not registered
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+          example:
+            error:
+              code: WORKFLOW_NOT_FOUND
+              message: Workflow definition "missing" was not found.
+    ExecutionNotFound:
+      description: Execution identity was not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+          example:
+            error:
+              code: EXECUTION_NOT_FOUND
+              message: Execution "missing" was not found.
+    DuplicateWorkflowId:
+      description: Workflow id already registered
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    DuplicateExecutionId:
+      description: Execution id already exists
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    InvalidResumePayload:
+      description: Resume payload rejected
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    ActivitySubmitConflict:
+      description: Activity submit rejected due to execution state mismatch
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+    EngineFailure:
+      description: Engine reported a workflow failure
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorBody"
+  schemas:
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - EXECUTION_NOT_FOUND
+                - WORKFLOW_NOT_FOUND
+                - DUPLICATE_EXECUTION_ID
+                - DUPLICATE_WORKFLOW_ID
+                - INVALID_RESUME_PAYLOAD
+                - ACTIVITY_SUBMIT_NOT_AWAITING
+                - ACTIVITY_SUBMIT_NODE_MISMATCH
+                - ACTIVITY_SUBMIT_PARALLEL_MISMATCH
+                - SUBMIT_VALIDATION_ERROR
+                - ENGINE_FAILURE
+                - INTERNAL_ERROR
+                - NOT_IMPLEMENTED
+                - NOT_FOUND
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+    RegisterWorkflowRequest:
+      type: object
+      required: [definition]
+      properties:
+        definition:
+          type: object
+          additionalProperties: true
+    RegisterWorkflowResponse:
+      type: object
+      required: [wf_id, definition]
+      properties:
+        wf_id:
+          type: string
+        definition:
+          type: object
+          additionalProperties: true
+    StartExecutionRequest:
+      type: object
+      properties:
+        execution_id:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+        activity_execution_mode:
+          type: string
+          enum: [in_process, host_mediated]
+        allow_existing_execution_id:
+          type: boolean
+    ResumeExecutionRequest:
+      type: object
+      required: [definition, resume_payload]
+      properties:
+        definition:
+          type: object
+          additionalProperties: true
+        resume_payload:
+          type: object
+          additionalProperties: true
+        activity_execution_mode:
+          type: string
+          enum: [in_process, host_mediated]
+    SubmitActivityRequest:
+      type: object
+      required: [definition, node_id, outcome]
+      properties:
+        definition:
+          type: object
+          additionalProperties: true
+        input:
+          type: object
+          additionalProperties: true
+        node_id:
+          type: string
+        outcome:
+          oneOf:
+            - type: object
+              required: [ok]
+              properties:
+                ok:
+                  type: boolean
+                  enum: [true]
+                result:
+                  type: object
+                  additionalProperties: true
+                delegate_correlation_id:
+                  type: string
+                external_task_id:
+                  type: string
+            - type: object
+              required: [ok, error]
+              properties:
+                ok:
+                  type: boolean
+                  enum: [false]
+                error:
+                  type: string
+                code:
+                  type: string
+        parallel_span:
+          $ref: "#/components/schemas/ParallelSpan"
+        activity_execution_mode:
+          type: string
+          enum: [in_process, host_mediated]
+    ParallelSpan:
+      type: object
+      required: [parallel_node_id, join_target_id, branch_name, branch_entry_node_id]
+      properties:
+        parallel_node_id:
+          type: string
+        join_target_id:
+          type: string
+        branch_name:
+          type: string
+        branch_entry_node_id:
+          type: string
+    WorkflowStartResult:
+      type: object
+      required: [execution_id, status]
+      properties:
+        execution_id:
+          type: string
+        status:
+          type: string
+          enum: [completed, failed, interrupted, awaiting_activity]
+        final_state:
+          type: object
+          additionalProperties: true
+        result:
+          nullable: true
+        error:
+          type: string
+        node_id:
+          type: string
+        state:
+          type: object
+          additionalProperties: true
+        parallel_span:
+          $ref: "#/components/schemas/ParallelSpan"
+        agent_id:
+          type: string
+        protocol:
+          type: string
+        delegate_input:
+          type: object
+          additionalProperties: true
+        delegate_correlation_id:
+          type: string
+    WorkflowStatusResult:
+      type: object
+      required: [execution_id, phase]
+      properties:
+        execution_id:
+          type: string
+        phase:
+          type: string
+          enum: [running, completed, failed, interrupted, awaiting_activity]
+        current_node_id:
+          type: string
+        last_error:
+          type: string
+        delegate_correlation_id:
+          type: string
+        child_execution_id:
+          type: string
+        parent_execution_id:
+          type: string
+        agent_id:
+          type: string
+        protocol:
+          type: string
+        delegate_input:
+          type: object
+          additionalProperties: true
+    WorkflowResumeResult:
+      allOf:
+        - $ref: "#/components/schemas/WorkflowStartResult"
+    WorkflowSubmitActivityResult:
+      allOf:
+        - $ref: "#/components/schemas/WorkflowStartResult"
+        - type: object
+          properties:
+            code:
+              type: string
+    HistoryEvent:
+      type: object
+      required: [seq, kind, name, payload]
+      properties:
+        seq:
+          type: integer
+        kind:
+          type: string
+          enum: [command, event]
+        name:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        record_schema_version:
+          type: integer
+    ExecutionEventsPage:
+      type: object
+      required: [execution_id, events]
+      properties:
+        execution_id:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistoryEvent"
+        next_cursor:
+          type: integer
+    CheckpointResponse:
+      type: object
+      required: [execution_id, checkpoint, seq]
+      properties:
+        execution_id:
+          type: string
+        checkpoint:
+          type: object
+          additionalProperties: true
+        seq:
+          type: integer
+        created_at:
+          type: string
+          format: date-time

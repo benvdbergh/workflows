@@ -17,6 +17,7 @@
     "engine:validate": "node packages/engine/src/cli.mjs validate",
     "engine:mcp-manifest:validate": "node packages/engine/src/cli.mjs mcp-manifest validate",
     "engine:mcp:stdio": "node packages/engine/src/mcp-stdio-server.mjs",
+    "engine:rest:serve": "node packages/engine/src/rest-server.mjs",
     "conformance": "node conformance/run-conformance.mjs",
     "test": "npm test --workspace=@agent-workflow/engine",
     "docs:prepare": "node scripts/build-docs-site.mjs",

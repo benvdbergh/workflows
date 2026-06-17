@@ -97,6 +97,15 @@ export { hydrateReplayContext } from "./orchestrator/replay-loader.mjs";
 export { createWorkflowApplicationPort } from "./application/workflow-application-port.mjs";
 export { createMcpWorkflowStdioServer } from "./adapters/mcp/stdio-server.mjs";
 export { createMcpWorkflowToolHandlers } from "./adapters/mcp/workflow-tools.mjs";
+export { createRestWorkflowHandler } from "./adapters/rest/rest-handler.mjs";
+export { DefinitionRegistry } from "./adapters/rest/definition-registry.mjs";
+export {
+  startResponseFromPort,
+  statusResponseFromPort,
+  resumeResponseFromPort,
+  submitActivityResponseFromPort,
+  historyRowToTransport,
+} from "./adapters/transport-response.mjs";
 export { MCP_ADAPTER_ERROR, McpAdapterError } from "./adapters/mcp/errors.mjs";
 export {
   normalizeMcpOperatorManifest,
