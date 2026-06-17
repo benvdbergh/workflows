@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-A specification, contract, and **reference engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The alpha line is `@agent-workflow/engine@0.1.4`. Publish by pushing an annotated `v*` tag on green `master` to trigger `release.yml` (npm, docs, GitHub Release).
+A specification, contract, and **reference engine** repository for the **Agent Workflow Protocol** — a vendor-neutral declarative workflow protocol for AI agent systems. The alpha line is `@agent-workflow/engine@0.1.5`. Publish by pushing an annotated `v*` tag on green `master` to trigger `release.yml` (npm, docs, GitHub Release).
 
 - `docs/user/` — **end-user documentation source** (published to GitHub Pages via `website/`)
 - `docs/whitepaper/` — narrative protocol whitepaper (also on GitHub Pages)

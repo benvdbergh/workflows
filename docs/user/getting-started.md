@@ -9,7 +9,7 @@ This guide walks through validating a workflow and running the **lighthouse** de
 No repository clone required:
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.4 workflows-engine --help
+npx -y -p @agent-workflow/engine@0.1.5 workflows-engine --help
 ```
 
 Pin `@alpha` for the moving pre-release channel, or an exact version for reproducible demos.

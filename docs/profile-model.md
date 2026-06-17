@@ -25,7 +25,7 @@ This document formalizes what adopters **must** implement for **core profile** i
 
 **Core** = required for “passes v1 core profile” conformance once tagged. **Optional** = allowed in documents; engines **may** implement. **Refused** = schema may accept shape but reference engine **rejects** at validate or runtime with a stable code.
 
-| Feature | Tier | Reference engine (`@agent-workflow/engine@0.1.4`) | Notes |
+| Feature | Tier | Reference engine (`@agent-workflow/engine@0.1.5`) | Notes |
 |---------|------|---------------------------------------------------|--------|
 | Top-level `document`, `state_schema`, `nodes`, `edges` | Core | Supported | Root `additionalProperties: false`; no `extensions`. |
 | Node types: `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt` | Core | Supported | Graph walker + linear runner (linear rejects `switch`/`interrupt`). |

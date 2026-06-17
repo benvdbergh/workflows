@@ -1,8 +1,43 @@
 # Alpha changelog (pre-1.0)
 
-**Last reviewed:** 2026-06-16
+**Last reviewed:** 2026-06-17
 
-**Current engine:** `@agent-workflow/engine@0.1.4`. Maintainer process: [release-process.md](../governance/release-process.md). Roadmap: [ROADMAP.md](../../ROADMAP.md).
+**Current engine:** `@agent-workflow/engine@0.1.5`. Maintainer process: [release-process.md](../governance/release-process.md). Roadmap: [ROADMAP.md](../../ROADMAP.md).
+
+## v0.1.5 — 2026-06-17
+
+### Added
+
+- **`LlmActivityExecutor`** — engine-direct `llm_call` with OpenAI-compatible provider wiring and structured output validation (BEN-93).
+- **`StepHandlerRegistry` / `StepActivityExecutor`** — pluggable in-process `step` handlers (BEN-90).
+- **`CompositeActivityExecutor`** — routes activities by node type; MCP stdio production wiring for `tool_call` (BEN-91).
+- **Host-mediated `agent_delegate` lifecycle** — correlation-aware delegate status projection (BEN-95).
+- **Production delegate executors** — `A2ADelegateExecutor`, `McpDelegateExecutor`, `SdkDelegateExecutor`, and `CompositeDelegateExecutor` (BEN-94, BEN-96).
+- **MCP operator manifest validation** — CLI and library exports for Cursor-style `mcpServers` manifests.
+
+### Changed
+
+- MCP stdio adapter can wire composite activity and delegate executors for production operator profiles.
+- Integration parity matrix documents R2/R3 conformance vectors and normalized snapshot format.
+
+### Fixed
+
+- LLM runner integration test aligned with workflow edge schema (BEN-93).
+- **`hono`** dependency bump to satisfy npm audit gate.
+
+### Docs
+
+- [Host-mediated activities](https://benvdbergh.github.io/workflows/latest/user/host-mediated-activities/) guide and lighthouse parity (BEN-92).
+- Operator manifest contract and as-built architecture diagram updates.
+
+### Breaking/Impact Notes
+
+- **Minor (`0.1.5`):** no schema or engine-profile contract changes; new executors are opt-in via application port / MCP wiring. Default in-process stub behavior remains for smoke tests.
+
+### Published URLs
+
+- User docs: https://benvdbergh.github.io/workflows/latest/
+- Schema mirror: https://benvdbergh.github.io/workflows/schemas/0.1.5/workflow-definition.json
 
 ## v0.1.4 — 2026-06-15
 

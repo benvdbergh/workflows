@@ -168,7 +168,7 @@
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-2" value="npm Registry&#10;(registry.npmjs.org)" style="ellipse;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;" parent="OuT24w1vpQ-nGS25mSiP-1" vertex="1">
                     <mxGeometry x="20" y="60" width="180" height="100" as="geometry"/>
                 </mxCell>
-                <mxCell id="OuT24w1vpQ-nGS25mSiP-3" value="npm cache / node_modules&#10;@agent-workflow/engine@0.1.4&#10;(alpha dist-tag)" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-1" vertex="1">
+                <mxCell id="OuT24w1vpQ-nGS25mSiP-3" value="npm cache / node_modules&#10;@agent-workflow/engine@0.1.5&#10;(alpha dist-tag)" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-1" vertex="1">
                     <mxGeometry x="300" y="60" width="160" height="80" as="geometry"/>
                 </mxCell>
                 <mxCell id="OuT24w1vpQ-nGS25mSiP-4" value="MCP Host&#10;(IDE / AI Client)&#10;e.g. Cursor, Claude Desktop" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;whiteSpace=wrap;" parent="OuT24w1vpQ-nGS25mSiP-1" vertex="1">

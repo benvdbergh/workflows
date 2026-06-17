@@ -10,7 +10,7 @@ What the reference engine (`@agent-workflow/engine`) supports today versus what 
 
 ## Feature matrix
 
-| Feature | Tier | Engine `0.1.4` | Notes |
+| Feature | Tier | Engine `0.1.5` | Notes |
 |---------|------|----------------|-------|
 | `document`, `state_schema`, `nodes`, `edges` | Core | Supported | No top-level `extensions` |
 | `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt` | Core | Supported | Graph walker + linear runner |
@@ -31,6 +31,6 @@ What the reference engine (`@agent-workflow/engine`) supports today versus what 
 
 1. **Validates ≠ runs** — `retry`, `timeout`, and `wait.signal` may pass schema but fail or no-op at runtime.
 2. **Register subworkflow refs** — packaged npm installs do not auto-discover child URNs from disk.
-3. **Delegate protocols** — production A2A/MCP/SDK adapters are not bundled; mock A2A only in reference engine.
+3. **Delegate protocols** — production A2A, MCP, and SDK delegate executors ship in the package; wire via application port or MCP operator profile. Mock A2A remains the zero-config default.
 
 Full developer reference: [profile model](https://github.com/benvdbergh/workflows/blob/main/docs/profile-model.md).
