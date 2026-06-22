@@ -17,7 +17,7 @@ import { SdkError } from "../packages/sdk/src/errors.mjs";
 /** @typedef {"port" | "mcp" | "rest" | "sdk"} ParitySurface */
 
 /**
- * @typedef {"start" | "status" | "resume" | "submit_activity"} ParityOp
+ * @typedef {"start" | "status" | "resume" | "submit_activity" | "signal"} ParityOp
  */
 
 /**
@@ -26,6 +26,8 @@ import { SdkError } from "../packages/sdk/src/errors.mjs";
  * @property {Record<string, unknown>} [input]
  * @property {Record<string, unknown>} [resumePayload]
  * @property {string} [nodeId]
+ * @property {string} [signalName]
+ * @property {Record<string, unknown>} [payload]
  * @property {{ ok: true; result?: Record<string, unknown>; delegateCorrelationId?: string; delegate_correlation_id?: string; externalTaskId?: string; external_task_id?: string } | { ok: false; error: string; code?: string }} [outcome]
  * @property {"in_process" | "host_mediated"} [activityExecutionMode]
  * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
@@ -91,6 +93,7 @@ function normalizePortSnapshot(op, portResult, isError, errorCode) {
       ...(r.delegateInput !== undefined ? { delegate_input: r.delegateInput } : {}),
       ...(r.childExecutionId !== undefined ? { child_execution_id: r.childExecutionId } : {}),
       ...(r.parentExecutionId !== undefined ? { parent_execution_id: r.parentExecutionId } : {}),
+      ...(r.signalName !== undefined ? { signal_name: r.signalName } : {}),
     };
   }
   const parallelSpan = /** @type {import("../packages/engine/src/application/workflow-application-port.mjs").WorkflowParallelSpan | undefined} */ (
@@ -115,6 +118,7 @@ function normalizePortSnapshot(op, portResult, isError, errorCode) {
       ? { delegate_correlation_id: r.delegateCorrelationId }
       : {}),
     ...(parallelSpan ? { parallel_span: parallelSpanToMcp(parallelSpan) } : {}),
+    ...(r.signalName !== undefined ? { signal_name: r.signalName } : {}),
   };
 }
 
@@ -147,6 +151,7 @@ function normalizeTransportSnapshot(op, transportBody) {
     ...(s.child_execution_id !== undefined ? { child_execution_id: s.child_execution_id } : {}),
     ...(s.parent_execution_id !== undefined ? { parent_execution_id: s.parent_execution_id } : {}),
     ...(s.parallel_span !== undefined ? { parallel_span: s.parallel_span } : {}),
+    ...(s.signal_name !== undefined ? { signal_name: s.signal_name } : {}),
   };
 }
 
@@ -633,6 +638,40 @@ async function executeStep(
           isError: true,
         };
       }
+    }
+  }
+
+  if (step.op === "signal") {
+    if (surface === "port") {
+      const portResult = await port.signalWorkflow({
+        executionId,
+        definition,
+        input: scenarioInput,
+        signalName: step.signalName ?? "",
+        ...(step.payload !== undefined ? { payload: step.payload } : {}),
+        ...(activityMode ? { activityExecutionMode: activityMode } : {}),
+      });
+      const isError = portResult.status === "failed";
+      return {
+        snapshot: normalizePortSnapshot(
+          "signal",
+          portResult,
+          isError,
+          isError ? portResult.code ?? "ENGINE_FAILURE" : undefined
+        ),
+        isError,
+      };
+    }
+    if (surface === "mcp") {
+      const mcpResult = await handlers.workflow_signal({
+        execution_id: executionId,
+        definition,
+        input: scenarioInput,
+        signal_name: step.signalName ?? "",
+        ...(step.payload !== undefined ? { payload: step.payload } : {}),
+        ...(activityMode ? { activity_execution_mode: activityMode } : {}),
+      });
+      return { snapshot: normalizeMcpSnapshot("signal", mcpResult), isError: Boolean(mcpResult.isError) };
     }
   }
 

@@ -199,6 +199,58 @@ export function findLatestNonCheckpointEvent(rows) {
  * @param {import("../persistence/types.mjs").HistoryRow[]} rows
  * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
  */
+/**
+ * Latest `SignalWaitStarted` without a later `SignalReceived` for the same node.
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
+ */
+export function findPendingSignalWait(rows) {
+  const last = findLatestNonCheckpointEvent(rows);
+  if (last?.kind === "event" && last.name === "SignalWaitStarted") {
+    const nodeId = typeof last.payload?.nodeId === "string" ? last.payload.nodeId : "";
+    if (!nodeId) {
+      return undefined;
+    }
+    const hasReceived = rows.some(
+      (later) =>
+        later.seq > last.seq &&
+        later.kind === "event" &&
+        later.name === "SignalReceived" &&
+        later.payload?.nodeId === nodeId
+    );
+    if (!hasReceived) {
+      return last;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * `SignalReceived` was appended for a wait node but the walker has not completed that node yet.
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {boolean}
+ */
+export function isPendingSignalWaitContinuation(rows) {
+  const last = findLatestNonCheckpointEvent(rows);
+  if (!last || last.kind !== "event" || last.name !== "SignalReceived") {
+    return false;
+  }
+  const nodeId = typeof last.payload?.nodeId === "string" ? last.payload.nodeId : "";
+  if (!nodeId) {
+    return false;
+  }
+  const hasCompleteNode = rows.some(
+    (r) =>
+      r.kind === "command" &&
+      r.name === "CompleteNode" &&
+      r.payload?.nodeId === nodeId &&
+      r.seq > last.seq
+  );
+  return !hasCompleteNode;
+}
+
 export function findPendingActivityRequest(rows) {
   const last = findLatestNonCheckpointEvent(rows);
   if (last?.kind === "event" && last.name === "ActivityRequested") {

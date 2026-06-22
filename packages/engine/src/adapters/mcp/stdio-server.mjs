@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   workflowResumeArgsSchema,
+  workflowSignalArgsSchema,
   workflowStartArgsSchema,
   workflowStatusArgsSchema,
   workflowSubmitActivityArgsSchema,
@@ -14,7 +15,7 @@ const enginePackageJsonPath = fileURLToPath(new URL("../../../package.json", imp
 const enginePackageVersion = JSON.parse(readFileSync(enginePackageJsonPath, "utf8")).version;
 
 /**
- * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function }} workflowPort
+ * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function }} workflowPort
  */
 export function createMcpWorkflowStdioServer(workflowPort) {
   const server = new McpServer({
@@ -62,6 +63,17 @@ export function createMcpWorkflowStdioServer(workflowPort) {
       inputSchema: workflowSubmitActivityArgsSchema,
     },
     (args) => handlers.workflow_submit_activity(args)
+  );
+
+  server.registerTool(
+    "workflow_signal",
+    {
+      title: "Deliver workflow signal",
+      description:
+        "Deliver an external signal to unblock a wait node with config.kind signal. Requires the same definition and input as the initial start.",
+      inputSchema: workflowSignalArgsSchema,
+    },
+    (args) => handlers.workflow_signal(args)
   );
 
   return {

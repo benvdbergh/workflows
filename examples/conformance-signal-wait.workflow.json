@@ -1,0 +1,25 @@
+{
+  "document": {
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
+    "name": "conformance-signal-wait",
+    "version": "1.0.0"
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {}
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "await_approval",
+      "type": "wait",
+      "config": { "kind": "signal", "signal": "approved" }
+    },
+    { "id": "end", "type": "end", "config": { "output_mapping": "true" } }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "start" },
+    { "source": "start", "target": "await_approval" },
+    { "source": "await_approval", "target": "end" }
+  ]
+}

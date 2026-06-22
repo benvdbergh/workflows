@@ -226,14 +226,25 @@ export async function runPlaceholderActivityStep(args) {
  * @param {(name: string, payload: Record<string, unknown>) => { replayed: boolean }} appendCmd
  * @param {(name: string, payload: Record<string, unknown>) => number} appendEvt
  * @param {object | undefined} config
+ * @param {{ signalAlreadyReceived?: boolean }} [options]
+ * @returns {Promise<void | { kind: "awaiting_signal"; nodeId: string; signalName: string }>}
  */
-export async function runWaitNodeExecution(nodeId, scheduled, appendCmd, appendEvt, config) {
+export async function runWaitNodeExecution(nodeId, scheduled, appendCmd, appendEvt, config, options = {}) {
   const wcfg = config && typeof config === "object" ? config : {};
-  const kind = /** @type {{ kind?: string }} */ (wcfg).kind;
+  const kind = /** @type {{ kind?: string; signal?: string }} */ (wcfg).kind;
   if (kind === "signal") {
-    throw new Error(
-      'wait kind "signal" requires a host to deliver workflow_signal (not implemented in this engine profile)'
-    );
+    const signalName = typeof wcfg.signal === "string" ? wcfg.signal.trim() : "";
+    if (!signalName) {
+      throw new Error('wait kind "signal": config.signal is required');
+    }
+    appendCmd("StartSignalWait", { nodeId, signalName });
+    if (!scheduled.replayed) {
+      appendEvt("SignalWaitStarted", { nodeId, signalName });
+    }
+    if (options.signalAlreadyReceived) {
+      return;
+    }
+    return { kind: "awaiting_signal", nodeId, signalName };
   }
   let waitMs = 0;
   let untilIso;

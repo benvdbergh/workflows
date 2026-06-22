@@ -61,9 +61,18 @@ export const workflowSubmitActivityArgsSchema = z.object({
   activity_execution_mode: activityExecutionModeSchema.optional(),
 });
 
+export const workflowSignalArgsSchema = z.object({
+  execution_id: z.string().min(1),
+  definition: z.object({}).passthrough(),
+  input: z.object({}).passthrough(),
+  signal_name: z.string().min(1),
+  payload: z.object({}).passthrough().optional(),
+  activity_execution_mode: activityExecutionModeSchema.optional(),
+});
+
 export const workflowStartResultSchema = z.object({
   execution_id: z.string(),
-  status: z.enum(["completed", "failed", "interrupted", "awaiting_activity"]),
+  status: z.enum(["completed", "failed", "interrupted", "awaiting_activity", "awaiting_signal"]),
   final_state: z.object({}).passthrough().optional(),
   result: z.unknown().optional(),
   error: z.string().optional(),
@@ -74,11 +83,12 @@ export const workflowStartResultSchema = z.object({
   protocol: z.string().optional(),
   delegate_input: z.object({}).passthrough().optional(),
   delegate_correlation_id: z.string().optional(),
+  signal_name: z.string().optional(),
 });
 
 export const workflowStatusResultSchema = z.object({
   execution_id: z.string(),
-  phase: z.enum(["running", "completed", "failed", "interrupted", "awaiting_activity"]),
+  phase: z.enum(["running", "completed", "failed", "interrupted", "awaiting_activity", "awaiting_signal"]),
   current_node_id: z.string().optional(),
   last_error: z.string().optional(),
   delegate_correlation_id: z.string().optional(),
@@ -87,11 +97,12 @@ export const workflowStatusResultSchema = z.object({
   agent_id: z.string().optional(),
   protocol: z.string().optional(),
   delegate_input: z.object({}).passthrough().optional(),
+  signal_name: z.string().optional(),
 });
 
 export const workflowResumeResultSchema = z.object({
   execution_id: z.string(),
-  status: z.enum(["completed", "failed", "interrupted", "awaiting_activity"]),
+  status: z.enum(["completed", "failed", "interrupted", "awaiting_activity", "awaiting_signal"]),
   final_state: z.object({}).passthrough().optional(),
   result: z.unknown().optional(),
   error: z.string().optional(),
@@ -106,7 +117,7 @@ export const workflowResumeResultSchema = z.object({
 
 export const workflowSubmitActivityResultSchema = z.object({
   execution_id: z.string(),
-  status: z.enum(["completed", "failed", "interrupted", "awaiting_activity"]),
+  status: z.enum(["completed", "failed", "interrupted", "awaiting_activity", "awaiting_signal"]),
   final_state: z.object({}).passthrough().optional(),
   result: z.unknown().optional(),
   error: z.string().optional(),
@@ -118,4 +129,21 @@ export const workflowSubmitActivityResultSchema = z.object({
   protocol: z.string().optional(),
   delegate_input: z.object({}).passthrough().optional(),
   delegate_correlation_id: z.string().optional(),
+});
+
+export const workflowSignalResultSchema = z.object({
+  execution_id: z.string(),
+  status: z.enum(["completed", "failed", "interrupted", "awaiting_activity", "awaiting_signal"]),
+  final_state: z.object({}).passthrough().optional(),
+  result: z.unknown().optional(),
+  error: z.string().optional(),
+  node_id: z.string().optional(),
+  state: z.object({}).passthrough().optional(),
+  parallel_span: workflowParallelSpanSchema.optional(),
+  code: z.string().optional(),
+  agent_id: z.string().optional(),
+  protocol: z.string().optional(),
+  delegate_input: z.object({}).passthrough().optional(),
+  delegate_correlation_id: z.string().optional(),
+  signal_name: z.string().optional(),
 });

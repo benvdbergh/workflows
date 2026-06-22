@@ -3,6 +3,7 @@ import {
   workflowStartResultSchema,
   workflowStatusResultSchema,
   workflowSubmitActivityResultSchema,
+  workflowSignalResultSchema,
 } from "./mcp/contracts.mjs";
 
 /**
@@ -16,6 +17,12 @@ function awaitingDelegateFieldsFromPort(parsed) {
     ...(parsed.delegateCorrelationId !== undefined
       ? { delegate_correlation_id: parsed.delegateCorrelationId }
       : {}),
+  };
+}
+
+function awaitingSignalFieldsFromPort(parsed) {
+  return {
+    ...(parsed.signalName !== undefined ? { signal_name: parsed.signalName } : {}),
   };
 }
 
@@ -48,6 +55,7 @@ export function startResponseFromPort(parsed) {
     ...(parsed.state !== undefined ? { state: parsed.state } : {}),
     ...parallelSpanToTransport(parsed.parallelSpan),
     ...awaitingDelegateFieldsFromPort(parsed),
+    ...awaitingSignalFieldsFromPort(parsed),
   };
   return workflowStartResultSchema.parse(response);
 }
@@ -69,6 +77,7 @@ export function statusResponseFromPort(parsed) {
     ...(parsed.agentId !== undefined ? { agent_id: parsed.agentId } : {}),
     ...(parsed.protocol !== undefined ? { protocol: parsed.protocol } : {}),
     ...(parsed.delegateInput !== undefined ? { delegate_input: parsed.delegateInput } : {}),
+    ...awaitingSignalFieldsFromPort(parsed),
   };
   return workflowStatusResultSchema.parse(response);
 }
@@ -87,6 +96,7 @@ export function resumeResponseFromPort(parsed) {
     ...(parsed.state !== undefined ? { state: parsed.state } : {}),
     ...parallelSpanToTransport(parsed.parallelSpan),
     ...awaitingDelegateFieldsFromPort(parsed),
+    ...awaitingSignalFieldsFromPort(parsed),
   };
   return workflowResumeResultSchema.parse(response);
 }
@@ -106,8 +116,29 @@ export function submitActivityResponseFromPort(parsed) {
     ...(parsed.code !== undefined ? { code: parsed.code } : {}),
     ...parallelSpanToTransport(parsed.parallelSpan),
     ...awaitingDelegateFieldsFromPort(parsed),
+    ...awaitingSignalFieldsFromPort(parsed),
   };
   return workflowSubmitActivityResultSchema.parse(response);
+}
+
+/**
+ * @param {unknown} parsed
+ */
+export function signalResponseFromPort(parsed) {
+  const response = {
+    execution_id: parsed.executionId,
+    status: parsed.status,
+    ...(parsed.finalState !== undefined ? { final_state: parsed.finalState } : {}),
+    ...(parsed.result !== undefined ? { result: parsed.result } : {}),
+    ...(parsed.error !== undefined ? { error: parsed.error } : {}),
+    ...(parsed.nodeId !== undefined ? { node_id: parsed.nodeId } : {}),
+    ...(parsed.state !== undefined ? { state: parsed.state } : {}),
+    ...(parsed.code !== undefined ? { code: parsed.code } : {}),
+    ...parallelSpanToTransport(parsed.parallelSpan),
+    ...awaitingDelegateFieldsFromPort(parsed),
+    ...awaitingSignalFieldsFromPort(parsed),
+  };
+  return workflowSignalResultSchema.parse(response);
 }
 
 /**

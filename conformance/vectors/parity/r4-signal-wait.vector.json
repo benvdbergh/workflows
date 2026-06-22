@@ -1,0 +1,23 @@
+{
+  "id": "parity.r4.signal_wait",
+  "description": "Signal wait unblocks via workflow_signal and completes.",
+  "kind": "parity",
+  "definition": "examples/conformance-signal-wait.workflow.json",
+  "executionId": "parity-signal-wait-1",
+  "steps": [
+    {
+      "op": "start",
+      "input": {},
+      "expect": { "status": "awaiting_signal", "node_id": "await_approval", "signal_name": "approved" }
+    },
+    {
+      "op": "status",
+      "expect": { "phase": "awaiting_signal", "current_node_id": "await_approval", "signal_name": "approved" }
+    },
+    {
+      "op": "signal",
+      "signalName": "approved",
+      "expect": { "status": "completed", "result": true }
+    }
+  ]
+}

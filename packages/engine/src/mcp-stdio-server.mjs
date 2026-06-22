@@ -15,7 +15,7 @@ async function main() {
   if (args.includes("--help") || args.includes("-h")) {
     process.stdout.write(
       "Usage: workflows-engine-mcp [--mcp-config <path>]\n" +
-        "Starts MCP stdio adapter with workflow_start/workflow_status/workflow_resume/workflow_submit_activity tools.\n" +
+        "Starts MCP stdio adapter with workflow_start/workflow_status/workflow_resume/workflow_submit_activity/workflow_signal tools.\n" +
         "\n" +
         "Production activity execution (composite router):\n" +
         "  WORKFLOW_ENGINE_MCP_CONFIG — operator MCP manifest for tool_call (or --mcp-config <path>).\n" +

@@ -96,6 +96,7 @@ describe("MCP workflow adapter tool handlers", () => {
       getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
       resumeWorkflow: unusedPortFn("resumeWorkflow"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
+      signalWorkflow: unusedPortFn("signalWorkflow"),
     });
 
     const response = await handlers.workflow_start({
@@ -116,6 +117,7 @@ describe("MCP workflow adapter tool handlers", () => {
       getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
       resumeWorkflow: unusedPortFn("resumeWorkflow"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
+      signalWorkflow: unusedPortFn("signalWorkflow"),
     });
 
     const response = await handlers.workflow_start({
@@ -241,6 +243,7 @@ describe("MCP workflow adapter tool handlers", () => {
       startWorkflow: unusedPortFn("startWorkflow"),
       getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
+      signalWorkflow: unusedPortFn("signalWorkflow"),
       async resumeWorkflow() {
         return {
           executionId: "exec-55",
@@ -266,6 +269,7 @@ describe("MCP workflow adapter tool handlers", () => {
       startWorkflow: unusedPortFn("startWorkflow"),
       getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
+      signalWorkflow: unusedPortFn("signalWorkflow"),
       async resumeWorkflow() {
         return {
           executionId: "exec-unknown",
@@ -322,6 +326,7 @@ describe("MCP workflow adapter tool handlers", () => {
       getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
       resumeWorkflow: unusedPortFn("resumeWorkflow"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
+      signalWorkflow: unusedPortFn("signalWorkflow"),
     });
 
     const response = await handlers.workflow_start({
@@ -419,5 +424,54 @@ describe("MCP workflow adapter tool handlers", () => {
 
     assert.equal(response.isError, true);
     assert.equal(response.structuredContent.error.code, "VALIDATION_ERROR");
+  });
+
+  function signalWaitDefinition() {
+    const root = findWorkflowRepoRoot(__dirname);
+    return JSON.parse(
+      readFileSync(path.join(root, "examples", "conformance-signal-wait.workflow.json"), "utf8")
+    );
+  }
+
+  it("workflow_signal completes signal wait run", async () => {
+    const definition = signalWaitDefinition();
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const executionId = "exec-mcp-signal-ok";
+    const input = {};
+
+    const started = await handlers.workflow_start({
+      execution_id: executionId,
+      definition,
+      input,
+    });
+    assert.equal(started.structuredContent.status, "awaiting_signal");
+    assert.equal(started.structuredContent.node_id, "await_approval");
+    assert.equal(started.structuredContent.signal_name, "approved");
+
+    const signaled = await handlers.workflow_signal({
+      execution_id: executionId,
+      definition,
+      input,
+      signal_name: "approved",
+    });
+    assert.equal(signaled.isError, undefined);
+    assert.equal(signaled.structuredContent.status, "completed");
+    assert.equal(signaled.structuredContent.result, true);
+  });
+
+  it("workflow_signal maps stale delivery to SIGNAL_NOT_AWAITING", async () => {
+    const definition = signalWaitDefinition();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store: new MemoryExecutionHistoryStore() }));
+
+    const response = await handlers.workflow_signal({
+      execution_id: "no-such-exec",
+      definition,
+      input: {},
+      signal_name: "approved",
+    });
+
+    assert.equal(response.isError, true);
+    assert.equal(response.structuredContent.error.code, "SIGNAL_NOT_AWAITING");
   });
 });

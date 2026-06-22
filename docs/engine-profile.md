@@ -44,7 +44,7 @@ These discriminators **MUST** be supported by the workflow schema bundle and hon
 | `switch` | Conditional routing via `config.cases` (`when` jq expression, `target` node id) and optional `config.default`. |
 | `interrupt` | Human-in-the-loop; `config` **MUST** include `resume_schema` and **MUST** include `prompt` or a resolvable reference per RFC; optional `timeout`. |
 | `parallel` | Fork/join per RFC-03: `config.join` is `all` \| `any` \| `n_of_m` (with `n`), `config.branches` is `{ name, entry }[]` where `entry` is the first node id of a branch. Exactly **one** static edge leaves the parallel node to the **join target**; each branch must reach that target via its own linear chain (see golden `examples/r2-research-parallel.workflow.json`). |
-| `wait` | `config.kind`: `duration` (requires `duration_ms` or parseable `duration` string), `until` (ISO-8601 `until` timestamp), or `signal` (**requires host**; unsupported in bare engine — fails at runtime). |
+| `wait` | `config.kind`: `duration` (requires `duration_ms` or parseable `duration` string), `until` (ISO-8601 `until` timestamp), or `signal` (requires host `workflow_signal`; emits `StartSignalWait` / `SignalWaitStarted` and resumes on `DeliverSignal` / `SignalReceived`). |
 | `set_state` | `config.assignments`: map of state keys to `{ "jq": "<expr>" }` or `{ "literal": <value> }`; merged with `state_schema` reducers. |
 | `subworkflow` | Nested workflow per RFC-03: `config.workflow_ref` (URI/registry id), required `config.input_mapping`; optional `version_pin`. Child runs use a distinct `executionId`; parent merges child `finalState` into parent state. Max nested depth default 4. |
 | `agent_delegate` | Delegation per RFC-03: required `config.agent_id`, `config.protocol` (`a2a` \| `mcp` \| `sdk`), required `config.input_mapping`. Engine emits `ActivityRequested` / `ActivityCompleted` with `delegateCorrelationId` and `externalTaskId`. Reference engine includes in-process mock A2A (`submitted` → `working` → `completed`). |
@@ -125,12 +125,13 @@ The full taxonomies are [RFC-04 §4.4](RFC/rfc-04-execution-model.md#44-command-
 - `ScheduleNode`, `CompleteNode`, `FailNode`
 - `RaiseInterrupt`, `ResumeInterrupt`
 - `StartParallel`, `JoinParallel`, `CancelParallelBranch`, `StartTimer`
+- `StartSignalWait`, `DeliverSignal`
 - `StartSubworkflow`, `CompleteSubworkflow`
 
 **Commands — out of scope**
 
 - `CancelTimer` (reserved; not emitted by current reference `wait` paths)
-- `EmitSignal`
+- `EmitSignal` (RFC alias; reference engine uses `DeliverSignal`)
 
 **Events — in scope (minimum observable history)**
 
@@ -141,6 +142,7 @@ The full taxonomies are [RFC-04 §4.4](RFC/rfc-04-execution-model.md#44-command-
 - `InterruptRaised`, `InterruptResumed`
 - `ExecutionCompleted`, `ExecutionFailed`
 - `ParallelForked`, `ParallelJoined`, `ParallelBranchCancelled`, `TimerStarted`, `TimerFired`
+- `SignalWaitStarted`, `SignalReceived`
 - `SubworkflowStarted`, `SubworkflowCompleted` (payloads include `childExecutionId`, `parentExecutionId`, `workflowRef`, `nodeId`)
 
 **Events — optional / phased**

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
+import { deliverSignalOutcome, resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 import { RedactingExecutionHistoryStore } from "../persistence/redacting-history-store.mjs";
 
@@ -52,7 +52,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
 /**
  * @typedef {object} WorkflowStartResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} status
  * @property {Record<string, unknown> | undefined} finalState
  * @property {unknown} [result]
  * @property {string | undefined} error
@@ -68,7 +68,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
 /**
  * @typedef {object} WorkflowStatusResponse
  * @property {string} executionId
- * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity"} phase
+ * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} phase
  * @property {string | undefined} currentNodeId
  * @property {string | undefined} lastError
  * @property {string | undefined} [delegateCorrelationId] Latest agent_delegate activity correlation
@@ -77,12 +77,13 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {string | undefined} [agentId] Pending `agent_delegate` target agent id when phase is `awaiting_activity`
  * @property {string | undefined} [protocol] Pending delegate protocol when phase is `awaiting_activity`
  * @property {Record<string, unknown>} [delegateInput] Resolved delegate input when phase is `awaiting_activity`
+ * @property {string} [signalName] Pending signal name when phase is `awaiting_signal`
  */
 
 /**
  * @typedef {object} WorkflowResumeResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} status
  * @property {Record<string, unknown> | undefined} finalState
  * @property {unknown} [result]
  * @property {string | undefined} error
@@ -97,9 +98,39 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  */
 
 /**
+ * @typedef {object} WorkflowSignalRequest
+ * @property {string} executionId
+ * @property {object} definition
+ * @property {Record<string, unknown>} input
+ * @property {string} signalName
+ * @property {Record<string, unknown>} [payload]
+ * @property {"in_process" | "host_mediated"} [activityExecutionMode]
+ * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
+ * @property {import("../orchestrator/activity-executor.mjs").ActivityExecutor} [activityExecutor]
+ */
+
+/**
+ * @typedef {object} WorkflowSignalResponse
+ * @property {string} executionId
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} status
+ * @property {Record<string, unknown> | undefined} [finalState]
+ * @property {unknown} [result]
+ * @property {string | undefined} [error]
+ * @property {string | undefined} [nodeId]
+ * @property {Record<string, unknown>} [state]
+ * @property {WorkflowParallelSpan} [parallelSpan]
+ * @property {string | undefined} [code]
+ * @property {string} [agentId]
+ * @property {string} [protocol]
+ * @property {Record<string, unknown>} [delegateInput]
+ * @property {string} [delegateCorrelationId]
+ * @property {string} [signalName]
+ */
+
+/**
  * @typedef {object} WorkflowSubmitActivityResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} status
  * @property {Record<string, unknown> | undefined} [finalState]
  * @property {unknown} [result]
  * @property {string | undefined} [error]
@@ -129,6 +160,17 @@ function awaitingDelegateFromRunResult(runResult) {
     ...(runResult.delegateCorrelationId !== undefined
       ? { delegateCorrelationId: runResult.delegateCorrelationId }
       : {}),
+  };
+}
+
+/**
+ * @param {{ nodeId?: string; state?: Record<string, unknown>; signalName?: string }} runResult
+ */
+function awaitingSignalFromRunResult(runResult) {
+  return {
+    ...(runResult.nodeId !== undefined ? { nodeId: runResult.nodeId } : {}),
+    ...(runResult.state !== undefined ? { state: runResult.state } : {}),
+    ...(runResult.signalName !== undefined ? { signalName: runResult.signalName } : {}),
   };
 }
 
@@ -396,6 +438,7 @@ export function createWorkflowApplicationPort(deps) {
               ...awaitingDelegateFromRunResult(runResult),
             }
           : {}),
+        ...(runResult.status === "awaiting_signal" ? awaitingSignalFromRunResult(runResult) : {}),
       };
     },
 
@@ -444,6 +487,18 @@ export function createWorkflowApplicationPort(deps) {
           lastError: undefined,
         });
       }
+      if (lastNc?.kind === "event" && lastNc.name === "SignalWaitStarted") {
+        const nid =
+          typeof lastNc.payload?.nodeId === "string" ? lastNc.payload.nodeId : latestNodeId(rows);
+        const signalName =
+          typeof lastNc.payload?.signalName === "string" ? lastNc.payload.signalName : undefined;
+        return buildStatusResponse(request.executionId, rows, {
+          phase: "awaiting_signal",
+          currentNodeId: nid,
+          lastError: undefined,
+          ...(signalName ? { signalName } : {}),
+        });
+      }
       return buildStatusResponse(request.executionId, rows, {
         phase: "running",
         currentNodeId: latestNodeId(rows),
@@ -486,6 +541,7 @@ export function createWorkflowApplicationPort(deps) {
               ...awaitingDelegateFromRunResult(runResult),
             }
           : {}),
+        ...(runResult.status === "awaiting_signal" ? awaitingSignalFromRunResult(runResult) : {}),
       };
     },
 
@@ -523,6 +579,44 @@ export function createWorkflowApplicationPort(deps) {
               ...awaitingDelegateFromRunResult(result),
             }
           : {}),
+        ...(result.status === "awaiting_signal" ? awaitingSignalFromRunResult(result) : {}),
+      };
+    },
+
+    /**
+     * @param {WorkflowSignalRequest} request
+     * @returns {Promise<WorkflowSignalResponse>}
+     */
+    async signalWorkflow(request) {
+      const result = await deliverSignalOutcome({
+        definition: request.definition,
+        executionId: request.executionId,
+        store,
+        input: request.input,
+        signalName: request.signalName,
+        ...(request.payload !== undefined ? { payload: request.payload } : {}),
+        ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
+        ...(request.stubActivityOutputs ? { stubActivityOutputs: request.stubActivityOutputs } : {}),
+        ...(request.activityExecutor ? { activityExecutor: request.activityExecutor } : {}),
+        ...(!request.activityExecutor && activityExecutor ? { activityExecutor } : {}),
+        ...(delegateExecutor ? { delegateExecutor } : {}),
+      });
+
+      return {
+        executionId: request.executionId,
+        status: result.status,
+        ...(result.finalState !== undefined ? { finalState: result.finalState } : {}),
+        ...(result.status === "completed" ? { result: result.result } : {}),
+        ...(result.status === "failed" ? { error: result.error, ...(result.code ? { code: result.code } : {}) } : {}),
+        ...(result.status === "interrupted" || result.status === "awaiting_activity"
+          ? {
+              nodeId: result.nodeId,
+              ...(result.state ? { state: result.state } : {}),
+              ...(result.parallelSpan ? { parallelSpan: result.parallelSpan } : {}),
+              ...awaitingDelegateFromRunResult(result),
+            }
+          : {}),
+        ...(result.status === "awaiting_signal" ? awaitingSignalFromRunResult(result) : {}),
       };
     },
   };

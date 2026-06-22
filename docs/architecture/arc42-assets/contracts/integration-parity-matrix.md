@@ -10,6 +10,7 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 | Observe phase | `workflow_status` | `getWorkflowStatus` | `GET /v1/executions/{exec_id}` | `getStatus` | all parity vectors with `status` steps |
 | Continue interrupt | `workflow_resume` | `resumeWorkflow` | `POST /v1/executions/{exec_id}:resume` | `resume` | `parity.r2.interrupt_resume` |
 | Complete host activity | `workflow_submit_activity` | `submitWorkflowActivity` | `POST /v1/executions/{exec_id}:submit_activity` | `submitActivity` | `parity.r2.host_mediated_submit`, `parity.r2.host_mediated_lighthouse_classify`, `parity.r2.parallel_join` |
+| Deliver signal to wait | `workflow_signal` | `signalWorkflow` | — | — | `parity.r4.signal_wait` |
 
 ### Core orchestration parity (implemented)
 
@@ -20,6 +21,12 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 | `parity.r2.host_mediated_submit` | `examples/conformance-host-activity-linear.workflow.json` | port, MCP, REST, SDK — start → awaiting_activity; submit → completed |
 | `parity.r2.host_mediated_lighthouse_classify` | `examples/lighthouse-customer-routing.workflow.json` | port, MCP, REST, SDK — host_mediated start → classify submit → open_ticket submit → completed |
 | `parity.r2.parallel_join` | `examples/conformance-host-activity-parallel.workflow.json` | port, MCP, REST, SDK — start with `parallel_span`; submit with span correlation → completed |
+
+### Signal wait parity (port + MCP)
+
+| Vector | Workflow fixture | Surfaces exercised |
+|--------|------------------|-------------------|
+| `parity.r4.signal_wait` | `examples/conformance-signal-wait.workflow.json` | port, MCP — start → awaiting_signal; status; signal → completed |
 
 ### Composition parity (port + MCP; REST/SDK deferred to R3 vectors)
 
@@ -37,7 +44,7 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 Harness compares canonical snake_case objects per step:
 
 - Success: `execution_id`, `status` or `phase`, optional `node_id`, `result`, `final_state`, `parallel_span`, `state`, `delegate_correlation_id`, `child_execution_id`, `parent_execution_id`
-- Error: `is_error: true`, `error.code` aligned with MCP adapter codes (`VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, `ACTIVITY_SUBMIT_*`, `ENGINE_FAILURE`, `INTERNAL_ERROR`)
+- Error: `is_error: true`, `error.code` aligned with MCP adapter codes (`VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, `ACTIVITY_SUBMIT_*`, `SIGNAL_*`, `ENGINE_FAILURE`, `INTERNAL_ERROR`)
 
 REST and SDK surfaces use the same normalized snapshot shape as MCP (`normalizeTransportSnapshot` in `conformance/parity-runner.mjs`).
 
@@ -55,7 +62,7 @@ Informative command/event prefix narratives remain under `examples/*.trace.*.jso
 
 ## Deferred MCP tools (RFC-05 §5.2)
 
-Not in MCP adapter or parity matrix until committed: `workflow_cancel`, `workflow_signal`, `workflow_list`.
+Not in MCP adapter or parity matrix until committed: `workflow_cancel`, `workflow_list`.
 
 ## Running parity checks
 

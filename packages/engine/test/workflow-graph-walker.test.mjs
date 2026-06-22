@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
-import { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome } from "../src/orchestrator/workflow-graph-walker.mjs";
+import { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome, deliverSignalOutcome } from "../src/orchestrator/workflow-graph-walker.mjs";
+import { createWorkflowApplicationPort } from "../src/application/workflow-application-port.mjs";
 import { clearWorkflowRefs, registerWorkflowRef } from "../src/orchestrator/workflow-ref-resolver.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -836,5 +837,67 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
     });
     assert.equal(afterSubmit.status, "failed");
     assert.match(afterSubmit.error ?? "", /subworkflow max depth 3 exceeded/);
+  });
+});
+
+function loadSignalWaitFixture() {
+  const root = findWorkflowRepoRoot(__dirname);
+  const p = path.join(root, "examples", "conformance-signal-wait.workflow.json");
+  return JSON.parse(readFileSync(p, "utf8"));
+}
+
+describe("runGraphWorkflow (signal wait)", () => {
+  it("yields awaiting_signal then completes via deliverSignalOutcome", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-signal-wait-linear";
+    const input = {};
+
+    const first = await runGraphWorkflow({ definition, input, executionId, store });
+    assert.equal(first.status, "awaiting_signal");
+    assert.equal(first.nodeId, "await_approval");
+    assert.equal(first.signalName, "approved");
+
+    const rows = store.listByExecution(executionId);
+    assert.ok(rows.some((r) => r.name === "SignalWaitStarted" && r.payload?.nodeId === "await_approval"));
+
+    const badName = await deliverSignalOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      signalName: "wrong",
+    });
+    assert.equal(badName.status, "failed");
+    assert.equal(badName.code, "SIGNAL_NAME_MISMATCH");
+
+    const done = await deliverSignalOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      signalName: "approved",
+      payload: { note: "ok" },
+    });
+    assert.equal(done.status, "completed");
+    assert.equal(done.result, true);
+    const finalRows = store.listByExecution(executionId);
+    assert.ok(finalRows.some((r) => r.name === "SignalReceived"));
+    assert.equal(finalRows.at(-1)?.name, "ExecutionCompleted");
+  });
+
+  it("getWorkflowStatus projects awaiting_signal with signal_name", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const port = createWorkflowApplicationPort({ store });
+    const executionId = "exec-signal-status";
+
+    const started = await port.startWorkflow({ executionId, definition, input: {} });
+    assert.equal(started.status, "awaiting_signal");
+
+    const status = await port.getWorkflowStatus({ executionId });
+    assert.equal(status.phase, "awaiting_signal");
+    assert.equal(status.currentNodeId, "await_approval");
+    assert.equal(status.signalName, "approved");
   });
 });
