@@ -32,10 +32,10 @@ Reference: [`SECURITY.md`](../../SECURITY.md)
 - **Persisted-event secret redaction:** keys `apiKey`, `token`, `password`, `secret` (case-insensitive) redacted via `RedactingExecutionHistoryStore` on all port-backed runs.
 - **Engine-direct command allowlist:** default `node` / `npx` basenames; extend with `WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS` — see [engine-direct-manifest-policy.md](engine-direct-manifest-policy.md).
 - **Definition signing (v1):** JWS compact Ed25519 (`EdDSA`) via `verifyDefinitionSignature`; policy `WORKFLOW_ENGINE_DEFINITION_SIGNING_MODE` (`optional` default, `require` rejects unsigned). See [definition-signing-v1-profile.md](definition-signing-v1-profile.md).
+- **Scoped control-plane auth:** Bearer tokens with scopes `start`, `resume`, `read_history`, `submit_activity` via `WORKFLOW_ENGINE_AUTH_TOKENS`; enforced on REST when configured; MCP stdio relies on OS process isolation. See [mcp-control-plane-auth.md](mcp-control-plane-auth.md) and [ADR-0005](../architecture/adr/ADR-0005-mcp-control-plane-auth.md).
 
 ### Pending (v1 / org)
 
-- **Scoped MCP auth tokens** and action-level authZ on MCP tools (required for R4 GA per `ROADMAP.md`; not implemented in alpha — document as ADR follow-up, no token validation on stdio adapter today).
 - Secret scanning and push protection (org/repo settings).
 - Private GitHub Security Advisories workflow.
 - Full manifest path sandbox and cryptographic **manifest** verification (definition signing v1 is implemented — see [definition-signing-v1-profile.md](definition-signing-v1-profile.md)).

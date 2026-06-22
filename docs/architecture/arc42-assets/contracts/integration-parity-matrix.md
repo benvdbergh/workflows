@@ -58,7 +58,7 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 Harness compares canonical snake_case objects per step:
 
 - Success: `execution_id`, `status` or `phase`, optional `node_id`, `result`, `final_state`, `parallel_span`, `state`, `delegate_correlation_id`, `child_execution_id`, `parent_execution_id`
-- Error: `is_error: true`, `error.code` aligned with MCP adapter codes (`VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, `ACTIVITY_SUBMIT_*`, `SIGNAL_*`, `CANCEL_*`, `ENGINE_FAILURE`, `INTERNAL_ERROR`)
+- Error: `is_error: true`, `error.code` aligned with MCP adapter codes (`AUTH_ERROR`, `VALIDATION_ERROR`, `EXECUTION_NOT_FOUND`, `INVALID_RESUME_PAYLOAD`, `ACTIVITY_SUBMIT_*`, `SIGNAL_*`, `CANCEL_*`, `ENGINE_FAILURE`, `INTERNAL_ERROR`)
 
 REST and SDK surfaces use the same normalized snapshot shape as MCP (`normalizeTransportSnapshot` in `conformance/parity-runner.mjs`).
 

@@ -35,7 +35,12 @@ async function main() {
         "\n" +
         "Definition signing (v1 JWS Ed25519 profile):\n" +
         "  WORKFLOW_ENGINE_DEFINITION_SIGNING_MODE — optional (default) or require.\n" +
-        "  WORKFLOW_ENGINE_SIGNING_PUBLIC_KEYS — inline JSON map { keyId: base64url-spki-or-raw-pub } or file:path.\n"
+        "  WORKFLOW_ENGINE_SIGNING_PUBLIC_KEYS — inline JSON map { keyId: base64url-spki-or-raw-pub } or file:path.\n" +
+        "\n" +
+        "Control-plane auth (stdio boundary):\n" +
+        "  MCP stdio has no Authorization header channel — rely on OS process isolation between host and engine.\n" +
+        "  When WORKFLOW_ENGINE_AUTH_TOKENS is set, REST (`workflows-engine-rest`) enforces Bearer tokens;\n" +
+        "  stdio does not require tokens (backward compatible for local dev). See docs/security/mcp-control-plane-auth.md.\n"
     );
     return;
   }

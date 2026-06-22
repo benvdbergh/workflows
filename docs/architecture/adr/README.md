@@ -55,3 +55,4 @@ Each ADR should include:
 - `ADR-0002-host-mediated-activity-execution.md`
 - `ADR-0003-engine-direct-mcp-activity-execution.md`
 - `ADR-0004-r3-delegation-and-subworkflow.md`
+- `ADR-0005-mcp-control-plane-auth.md`

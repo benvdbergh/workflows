@@ -126,6 +126,19 @@ export {
 } from "./adapters/transport-response.mjs";
 export { MCP_ADAPTER_ERROR, McpAdapterError } from "./adapters/mcp/errors.mjs";
 export {
+  CONTROL_PLANE_SCOPES,
+  TOOL_REQUIRED_SCOPE,
+  authorizeRestRequest,
+  authorizeScope,
+  authorizeToolCall,
+  buildControlPlaneAuthConfig,
+  extractBearerToken,
+  loadControlPlaneAuthConfigFromEnv,
+  parseControlPlaneAuthTokensConfig,
+  resolveRestRouteScope,
+  WORKFLOW_ENGINE_AUTH_TOKENS_ENV,
+} from "./security/control-plane-auth.mjs";
+export {
   normalizeMcpOperatorManifest,
   readAndValidateMcpOperatorManifestFile,
   resolveMcpOperatorManifestPath,

@@ -17,16 +17,18 @@ Condensed operator checklist for running the reference engine in alpha. Full bas
 | Transport validation | AJV on `workflow_start` and `workflow_resume` |
 | Persisted event redaction | Keys matching `apiKey`, `token`, `password`, `secret` (case-insensitive) |
 | Engine-direct commands | Default allowlist: `node`, `npx` basenames |
+| REST control-plane auth | Optional scoped bearer tokens via `WORKFLOW_ENGINE_AUTH_TOKENS` (REST only) |
 
 Extend engine-direct allowlist only with `WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS` and documented manifest policy.
 
-## Not in alpha
+## MCP stdio trust boundary
 
-- Scoped MCP auth tokens on stdio adapter
-- Cryptographic definition signing verification
+Stdio has no Authorization header. Rely on OS process isolation — only trusted hosts should spawn `workflows-engine-mcp`. When tokens are configured, enforcement applies to REST, not stdio. See [mcp-control-plane-auth.md](https://github.com/benvdbergh/workflows/blob/main/docs/security/mcp-control-plane-auth.md).
+
+## Not in alpha (remaining)
+
 - Full manifest path sandbox
-
-Plan for these at GA (R4) if deploying beyond evaluation sandboxes.
+- OAuth/JWT token federation
 
 ## Incident response
 
