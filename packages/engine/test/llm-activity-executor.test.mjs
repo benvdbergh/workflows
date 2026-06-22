@@ -10,26 +10,37 @@ import {
   resolveLlmApiKey,
   validateLlmStructuredOutput,
 } from "../src/orchestrator/llm-activity-executor.mjs";
+import { createEnvSecretResolver } from "../src/security/secret-resolver.mjs";
 
 describe("resolveLlmApiKey", () => {
-  it("reads api key from apiKeyEnv", () => {
-    const r = resolveLlmApiKey({ apiKeyEnv: "OPENAI_API_KEY" }, { OPENAI_API_KEY: "sk-test" });
+  it("reads api key from apiKeyEnv", async () => {
+    const r = await resolveLlmApiKey({ apiKeyEnv: "OPENAI_API_KEY" }, { env: { OPENAI_API_KEY: "sk-test" } });
     assert.equal(r.ok, true);
     if (r.ok) assert.equal(r.apiKey, "sk-test");
   });
 
-  it("fails when env var is missing", () => {
-    const r = resolveLlmApiKey({ apiKeyEnv: "MISSING_KEY" }, {});
+  it("fails when env var is missing", async () => {
+    const r = await resolveLlmApiKey({ apiKeyEnv: "MISSING_KEY" }, { env: {} });
     assert.equal(r.ok, false);
     if (!r.ok) assert.equal(r.code, "LLM_CREDENTIALS_MISSING");
   });
 
-  it("fails for apiKeySecretRef until BEN-103 vault resolver", () => {
-    const r = resolveLlmApiKey({ apiKeySecretRef: "vault/openai" }, {});
+  it("resolves apiKeySecretRef via secretResolver", async () => {
+    const secretResolver = createEnvSecretResolver({ OPENAI_API_KEY: "sk-from-ref" });
+    const r = await resolveLlmApiKey(
+      { apiKeySecretRef: "env:OPENAI_API_KEY" },
+      { env: {}, secretResolver }
+    );
+    assert.equal(r.ok, true);
+    if (r.ok) assert.equal(r.apiKey, "sk-from-ref");
+  });
+
+  it("fails for apiKeySecretRef without secretResolver", async () => {
+    const r = await resolveLlmApiKey({ apiKeySecretRef: "env:OPENAI_API_KEY" }, { env: {} });
     assert.equal(r.ok, false);
     if (!r.ok) {
       assert.equal(r.code, "LLM_CREDENTIALS_MISSING");
-      assert.match(r.error, /BEN-103/);
+      assert.match(r.error, /secretResolver/);
     }
   });
 });
@@ -147,6 +158,7 @@ describe("LlmActivityExecutor", () => {
     }
   });
 
+
   it("validates structured output from mocked provider", async () => {
     /** @type {import("../src/orchestrator/llm-activity-executor.mjs").LlmProvider} */
     const provider = {
@@ -184,6 +196,29 @@ describe("LlmActivityExecutor", () => {
       assert.equal(r.output.intent, "billing");
       assert.equal(r.output.confidence, 0.95);
     }
+  });
+
+  it("resolves apiKeySecretRef at invocation boundary", async () => {
+    /** @type {import("../src/orchestrator/llm-activity-executor.mjs").LlmProvider} */
+    const provider = {
+      async chatCompletion(req) {
+        assert.equal(req.apiKey, "sk-from-ref");
+        return { content: JSON.stringify({ ok: true }) };
+      },
+    };
+    const secretResolver = createEnvSecretResolver({ LLM_KEY: "sk-from-ref" });
+    const ex = new LlmActivityExecutor({
+      operatorConfig: { apiKeySecretRef: "env:LLM_KEY" },
+      env: {},
+      secretResolver,
+      provider,
+    });
+    const r = await ex.executeActivity({
+      executionId: "e1",
+      node: { id: "n1", type: "llm_call", config: { model: "m" } },
+      state: {},
+    });
+    assert.equal(r.ok, true);
   });
 
   it("returns LLM_OUTPUT_VALIDATION_FAILED for schema mismatch", async () => {

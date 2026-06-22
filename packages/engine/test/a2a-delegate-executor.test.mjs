@@ -15,6 +15,7 @@ import {
   pollA2ATaskUntilTerminal,
   resolveA2AApiKey,
 } from "../src/orchestrator/a2a-delegate-executor.mjs";
+import { createEnvSecretResolver } from "../src/security/secret-resolver.mjs";
 import {
   clearWorkflowRefs,
   registerWorkflowRef,
@@ -41,16 +42,26 @@ async function withMockA2AServer(mock, fn) {
 }
 
 describe("resolveA2AApiKey", () => {
-  it("reads api key from apiKeyEnv", () => {
-    const r = resolveA2AApiKey({ apiKeyEnv: "A2A_API_KEY" }, { A2A_API_KEY: "token-1" });
+  it("reads api key from apiKeyEnv", async () => {
+    const r = await resolveA2AApiKey({ apiKeyEnv: "A2A_API_KEY" }, { env: { A2A_API_KEY: "token-1" } });
     assert.equal(r.ok, true);
     if (r.ok) assert.equal(r.apiKey, "token-1");
   });
 
-  it("fails when env var is missing", () => {
-    const r = resolveA2AApiKey({ apiKeyEnv: "MISSING_A2A_KEY" }, {});
+  it("fails when env var is missing", async () => {
+    const r = await resolveA2AApiKey({ apiKeyEnv: "MISSING_A2A_KEY" }, { env: {} });
     assert.equal(r.ok, false);
     if (!r.ok) assert.equal(r.code, "A2A_CREDENTIALS_MISSING");
+  });
+
+  it("resolves apiKeySecretRef via secretResolver", async () => {
+    const secretResolver = createEnvSecretResolver({ A2A_API_KEY: "token-ref" });
+    const r = await resolveA2AApiKey(
+      { apiKeySecretRef: "env:A2A_API_KEY" },
+      { env: {}, secretResolver }
+    );
+    assert.equal(r.ok, true);
+    if (r.ok) assert.equal(r.apiKey, "token-ref");
   });
 });
 
@@ -146,6 +157,31 @@ describe("A2ADelegateExecutor", () => {
         assert.equal(r.output.delegate_status, "completed");
       }
       assert.equal(mock.tasks.size, 1);
+    });
+  });
+
+  it("submits task using apiKeySecretRef credentials", async () => {
+    const mock = createA2AMockHttpServer({ workingPolls: 0 });
+    await withMockA2AServer(mock, async (baseUrl) => {
+      const secretResolver = createEnvSecretResolver({ A2A_TEST_KEY: "secret-ref" });
+      const ex = new A2ADelegateExecutor({
+        operatorConfig: {
+          baseUrl,
+          apiKeySecretRef: "env:A2A_TEST_KEY",
+          pollIntervalMs: 10,
+          pollTimeoutMs: 5_000,
+        },
+        env: {},
+        secretResolver,
+      });
+      const r = await ex.executeDelegate({
+        executionId: "e-ref",
+        node: { id: "implement", type: "agent_delegate", config: { agent_id: "coder" } },
+        state: {},
+        delegateInput: { task: "via ref" },
+        protocol: "a2a",
+      });
+      assert.equal(r.ok, true);
     });
   });
 

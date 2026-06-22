@@ -38,7 +38,7 @@ const port = createWorkflowApplicationPort({
 |-------|----------|-------------|
 | `baseUrl` | Yes | A2A HTTP API root (no trailing slash), e.g. `https://a2a.example.com` |
 | `apiKeyEnv` | Yes* | Env var holding the Bearer token sent as `Authorization: Bearer …` |
-| `apiKeySecretRef` | Yes* | Vault ref (deferred; use `apiKeyEnv` until vault resolver ships) |
+| `apiKeySecretRef` | Yes* | Secret ref (`env:VAR` or `file:path`); see [secret-ref-operator-config.md](../security/secret-ref-operator-config.md) |
 | `pollIntervalMs` | No | Poll interval while status is non-terminal (default `500`) |
 | `pollTimeoutMs` | No | Max wait for `completed` / `failed` (default `120000`) |
 

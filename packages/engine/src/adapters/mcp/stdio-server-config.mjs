@@ -30,6 +30,7 @@ import {
   StepActivityExecutor,
   StepHandlerRegistry,
 } from "../../orchestrator/step-activity-executor.mjs";
+import { createDefaultSecretResolver } from "../../security/secret-resolver.mjs";
 
 const enginePackageJsonPath = fileURLToPath(new URL("../../../package.json", import.meta.url));
 const enginePackageVersion = JSON.parse(readFileSync(enginePackageJsonPath, "utf8")).version;
@@ -244,6 +245,7 @@ export async function loadEngineDirectActivityExecutor(manifestPath, options = {
  *   manifestPath?: string | null;
  *   llmConfig?: import("../../orchestrator/llm-activity-executor.mjs").LlmOperatorConfig | null;
  *   stepHandlerRegistry?: import("../../orchestrator/step-activity-executor.mjs").StepHandlerRegistry | null;
+ *   secretResolver?: import("../../security/secret-resolver.mjs").SecretResolver;
  *   env?: NodeJS.ProcessEnv;
  *   cwd?: string;
  *   profile?: string | null;
@@ -257,6 +259,7 @@ export async function loadEngineDirectActivityExecutor(manifestPath, options = {
 export async function loadProductionActivityExecutor(options = {}) {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
+  const secretResolver = options.secretResolver ?? createDefaultSecretResolver({ env, cwd });
   const profile = options.profile ?? env.WORKFLOW_ENGINE_PROFILE ?? null;
   const demoProfile = profile === "demo";
 
@@ -280,7 +283,7 @@ export async function loadProductionActivityExecutor(options = {}) {
     options.llmConfig !== undefined ? options.llmConfig : resolveLlmOperatorConfigFromEnv(env, cwd);
   let hasLlm = false;
   if (llmConfig) {
-    subExecutors.llm_call = new LlmActivityExecutor({ operatorConfig: llmConfig, env });
+    subExecutors.llm_call = new LlmActivityExecutor({ operatorConfig: llmConfig, env, secretResolver });
     hasLlm = true;
   }
 
@@ -353,6 +356,7 @@ export async function loadEngineDirectMcpDelegateExecutor(manifestPath, options 
  * @param {{
  *   manifestPath?: string | null;
  *   a2aConfig?: import("../../orchestrator/a2a-delegate-executor.mjs").A2AOperatorConfig | null;
+ *   secretResolver?: import("../../security/secret-resolver.mjs").SecretResolver;
  *   env?: NodeJS.ProcessEnv;
  *   cwd?: string;
  *   profile?: string | null;
@@ -366,6 +370,7 @@ export async function loadEngineDirectMcpDelegateExecutor(manifestPath, options 
 export async function loadProductionDelegateExecutor(options = {}) {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
+  const secretResolver = options.secretResolver ?? createDefaultSecretResolver({ env, cwd });
   const profile = options.profile ?? env.WORKFLOW_ENGINE_PROFILE ?? null;
   const demoProfile = profile === "demo";
 
@@ -392,7 +397,7 @@ export async function loadProductionDelegateExecutor(options = {}) {
     if (!parsed.ok) {
       return { ok: false, error: parsed.error };
     }
-    subExecutors.a2a = new A2ADelegateExecutor({ operatorConfig: a2aConfig, env });
+    subExecutors.a2a = new A2ADelegateExecutor({ operatorConfig: a2aConfig, env, secretResolver });
   }
 
   if (!subExecutors.a2a && !subExecutors.mcp) {

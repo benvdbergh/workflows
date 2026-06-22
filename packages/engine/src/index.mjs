@@ -8,6 +8,12 @@
 export * from "./validate.mjs";
 export { verifyDefinitionSignature, extractDefinitionSignature } from "./definition-signing.mjs";
 export {
+  createCompositeSecretResolver,
+  createDefaultSecretResolver,
+  createEnvSecretResolver,
+  createFileSecretResolver,
+} from "./security/secret-resolver.mjs";
+export {
   redactSecretsInPayload,
   isSecretPayloadKey,
   SECRET_PAYLOAD_KEY_NAMES,
