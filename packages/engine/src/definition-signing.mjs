@@ -311,6 +311,26 @@ export function createEdDsaJwsCompact(privateKey, payload, keyId) {
 }
 
 /**
+ * @param {string} compactJws
+ * @returns {{ ok: true; header: Record<string, unknown> } | { ok: false; error: string }}
+ */
+function parseJwsProtectedHeader(compactJws) {
+  const parts = String(compactJws).split(".");
+  if (parts.length !== 3) {
+    return { ok: false, error: "JWS compact serialization must contain three segments" };
+  }
+  try {
+    const header = JSON.parse(Buffer.from(base64UrlDecode(parts[0])).toString("utf8"));
+    if (!header || typeof header !== "object" || Array.isArray(header)) {
+      return { ok: false, error: "JWS protected header is not valid JSON" };
+    }
+    return { ok: true, header };
+  } catch {
+    return { ok: false, error: "JWS protected header is not valid JSON" };
+  }
+}
+
+/**
  * @param {DefinitionSignatureBlock} signature
  * @param {string} payload
  * @param {Record<string, import("node:crypto").KeyObject>} publicKeysById
@@ -326,24 +346,60 @@ function verifySignatureBlock(signature, payload, publicKeysById) {
   if (typeof signature.value !== "string" || signature.value.trim() === "") {
     return { ok: false, error: "Signature block is missing compact JWS value" };
   }
-  const keyIds = Object.keys(publicKeysById);
-  if (keyIds.length === 0) {
+  const configuredKeyIds = Object.keys(publicKeysById);
+  if (configuredKeyIds.length === 0) {
     return { ok: false, error: "Definition signature present but no verification public keys are configured" };
   }
-  if (signature.keyId) {
-    const key = publicKeysById[signature.keyId];
-    if (!key) {
-      return { ok: false, error: `Unknown signature keyId "${signature.keyId}"` };
-    }
-    return verifyEdDsaJwsCompact(signature.value, payload, key, signature.keyId);
+
+  const parsedHeader = parseJwsProtectedHeader(signature.value);
+  if (!parsedHeader.ok) {
+    return parsedHeader;
   }
-  for (const keyId of keyIds) {
-    const result = verifyEdDsaJwsCompact(signature.value, payload, publicKeysById[keyId]);
+  const jwsKid =
+    typeof parsedHeader.header.kid === "string" && parsedHeader.header.kid.trim() !== ""
+      ? parsedHeader.header.kid.trim()
+      : undefined;
+
+  const definitionKeyId =
+    typeof signature.keyId === "string" && signature.keyId.trim() !== ""
+      ? signature.keyId.trim()
+      : undefined;
+  if (definitionKeyId !== undefined && jwsKid !== undefined && definitionKeyId !== jwsKid) {
+    return {
+      ok: false,
+      error: `signature keyId "${definitionKeyId}" does not match JWS protected header kid "${jwsKid}"`,
+    };
+  }
+
+  const keysToTry =
+    jwsKid !== undefined
+      ? Object.hasOwn(publicKeysById, jwsKid)
+        ? [jwsKid]
+        : []
+      : configuredKeyIds;
+
+  if (jwsKid !== undefined && keysToTry.length === 0) {
+    return { ok: false, error: `Unknown JWS kid "${jwsKid}"` };
+  }
+
+  /** @type {string | undefined} */
+  let lastVerifyError;
+  for (const keyId of keysToTry) {
+    const result = verifyEdDsaJwsCompact(
+      signature.value,
+      payload,
+      publicKeysById[keyId],
+      jwsKid
+    );
     if (result.ok) {
       return result;
     }
+    lastVerifyError = result.error;
   }
-  return { ok: false, error: "Ed25519 signature verification failed for all configured public keys" };
+  return {
+    ok: false,
+    error: lastVerifyError ?? "Ed25519 signature verification failed for all configured public keys",
+  };
 }
 
 /**

@@ -30,9 +30,11 @@ A signed definition carries a signature block on `document.signature` (preferred
 |-------|----------|-------------|
 | `alg` | Yes | Must be `"EdDSA"` (Ed25519). |
 | `value` | Yes | JWS compact serialization (three base64url segments). |
-| `keyId` | No | Selects a configured verification public key; when omitted, all configured keys are tried. |
+| `keyId` | No | Optional metadata; when present must match JWS protected header `kid`. Not part of the signed payload — verification selects keys from JWS `kid` only. |
 
 The signature field is **removed** before JSON Schema validation so alpha schema `additionalProperties: false` on `document` is unchanged.
+
+**Key selection:** The engine reads `kid` from the JWS protected header (inside the signed envelope) and looks it up in `WORKFLOW_ENGINE_SIGNING_PUBLIC_KEYS`. When JWS `kid` is omitted, all configured keys are tried. The `document.signature.keyId` field is not used to select verification keys.
 
 ## Signed payload
 
@@ -46,7 +48,7 @@ Verification recomputes this payload and compares it to the decoded JWS payload 
 BASE64URL({"alg":"EdDSA","typ":"JWS","kid":"..."}) . BASE64URL(payload) . BASE64URL(signature)
 ```
 
-- **Protected header:** `alg` = `EdDSA`, `typ` = `JWS`, optional `kid` matching `keyId`.
+- **Protected header:** `alg` = `EdDSA`, `typ` = `JWS`, optional `kid` for verification key lookup (must match `document.signature.keyId` when that field is present).
 - **Signing input:** ASCII bytes of `protected.payload` (two segments joined by `.`).
 - **Signature:** Ed25519 over the signing input (`crypto.sign` / `crypto.verify`).
 

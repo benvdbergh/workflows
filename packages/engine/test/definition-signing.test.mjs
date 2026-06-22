@@ -122,7 +122,7 @@ describe("definition signing v1 (JWS Ed25519)", () => {
     }
   });
 
-  it("unknown keyId fails verification", () => {
+  it("unknown JWS kid fails verification", () => {
     const signed = signDefinitionForTest(minimalDefinition, testPrivateKey, { keyId: "missing-key" });
     const r = verifyDefinitionSignature(signed, {
       policy: { mode: "optional" },
@@ -130,7 +130,20 @@ describe("definition signing v1 (JWS Ed25519)", () => {
     });
     assert.equal(r.ok, false);
     if (!r.ok) {
-      assert.match(r.error, /Unknown signature keyId/);
+      assert.match(r.error, /Unknown JWS kid/);
+    }
+  });
+
+  it("verifies when signature keyId is omitted but JWS kid is present", () => {
+    const signed = signDefinitionForTest(minimalDefinition, testPrivateKey);
+    delete signed.document.signature.keyId;
+    const r = verifyDefinitionSignature(signed, {
+      policy: { mode: "optional" },
+      publicKeysById: testPublicKeys,
+    });
+    assert.equal(r.ok, true);
+    if (r.ok) {
+      assert.equal(r.verified, true);
     }
   });
 
@@ -148,7 +161,7 @@ describe("definition signing v1 (JWS Ed25519)", () => {
     });
     assert.equal(r.ok, false);
     if (!r.ok) {
-      assert.match(r.error, /kid.*does not match signature keyId/i);
+      assert.match(r.error, /signature keyId.*does not match JWS protected header kid/i);
     }
   });
 
