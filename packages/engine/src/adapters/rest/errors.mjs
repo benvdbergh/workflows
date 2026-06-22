@@ -1,4 +1,4 @@
-import { MCP_ADAPTER_ERROR, McpAdapterError } from "../mcp/errors.mjs";
+import { MCP_ADAPTER_ERROR } from "../mcp/errors.mjs";
 
 /**
  * @param {string} code
@@ -28,7 +28,7 @@ export function httpStatusForAdapterError(code) {
 }
 
 /**
- * @param {McpAdapterError} error
+ * @param {import("../mcp/errors.mjs").McpAdapterError} error
  */
 export function adapterErrorToHttpBody(error) {
   return {

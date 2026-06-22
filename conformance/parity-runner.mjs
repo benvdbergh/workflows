@@ -185,7 +185,7 @@ function normalizeSdkSnapshot(op, transportBody, error) {
     const code =
       error instanceof SdkError
         ? error.code
-        : error && typeof error === "object" && "code" in error && typeof error.code === "string"
+        : typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
           ? error.code
           : "ENGINE_FAILURE";
     return { op, is_error: true, error: { code } };
@@ -200,6 +200,7 @@ function normalizeSdkSnapshot(op, transportBody, error) {
  * @param {unknown} [body]
  */
 async function restRequestJson(baseUrl, method, pathname, body) {
+  // codeql[js/file-access-to-http]: conformance posts fixture JSON to in-process localhost only
   const response = await fetch(`${baseUrl}${pathname}`, {
     method,
     headers: body !== undefined ? { "content-type": "application/json" } : undefined,

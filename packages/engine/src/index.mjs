@@ -99,6 +99,7 @@ export { createMcpWorkflowStdioServer } from "./adapters/mcp/stdio-server.mjs";
 export { createMcpWorkflowToolHandlers } from "./adapters/mcp/workflow-tools.mjs";
 export { createRestWorkflowHandler } from "./adapters/rest/rest-handler.mjs";
 export { DefinitionRegistry } from "./adapters/rest/definition-registry.mjs";
+export { deriveWorkflowId, normalizeWorkflowIdSlug } from "./adapters/workflow-id.mjs";
 export {
   startResponseFromPort,
   statusResponseFromPort,

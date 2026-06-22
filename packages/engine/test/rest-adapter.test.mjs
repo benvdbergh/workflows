@@ -102,6 +102,7 @@ async function withRestServer(run) {
  * @param {unknown} [body]
  */
 async function requestJson(port, method, pathname, body) {
+  // codeql[js/file-access-to-http]: test posts fixture JSON to in-process localhost only
   const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
     method,
     headers: body !== undefined ? { "content-type": "application/json" } : undefined,

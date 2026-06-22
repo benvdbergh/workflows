@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
 import { assertValidWorkflowDefinitionAtTransport } from "../mcp/transport-validation.mjs";
+import { deriveWorkflowId } from "../workflow-id.mjs";
 
 /**
  * In-memory workflow definition registry keyed by `wf_id`.
@@ -33,22 +33,4 @@ export class DefinitionRegistry {
     const definition = this.#definitions.get(wfId);
     return definition ? structuredClone(definition) : undefined;
   }
-}
-
-/**
- * @param {object} definition
- */
-export function deriveWorkflowId(definition) {
-  const name = definition?.document?.name;
-  if (typeof name === "string" && name.trim() !== "") {
-    const normalized = name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-    if (normalized !== "") {
-      return normalized;
-    }
-  }
-  return randomUUID();
 }

@@ -21,6 +21,7 @@ export function createRestTransport(options) {
    * @param {unknown} [body]
    */
   async function request(method, pathname, body) {
+    // codeql[js/file-access-to-http]: SDK intentionally posts workflow definitions to the configured REST API
     const response = await fetchFn(`${base}${pathname}`, {
       method,
       headers: body !== undefined ? { "content-type": "application/json" } : undefined,

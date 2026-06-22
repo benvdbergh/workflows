@@ -1,5 +1,6 @@
 import {
   MCP_ADAPTER_ERROR,
+  normalizeWorkflowIdSlug,
   resumeResponseFromPort,
   startResponseFromPort,
   statusResponseFromPort,
@@ -206,11 +207,7 @@ export function createPortTransport(port) {
 function deriveWorkflowId(definition) {
   const name = definition?.document?.name;
   if (typeof name === "string" && name.trim() !== "") {
-    const normalized = name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+    const normalized = normalizeWorkflowIdSlug(name);
     if (normalized !== "") {
       return normalized;
     }
