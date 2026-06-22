@@ -92,7 +92,7 @@ export {
   computeLinearNodePath,
   runLinearWorkflow,
 } from "./orchestrator/linear-runner.mjs";
-export { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome } from "./orchestrator/workflow-graph-walker.mjs";
+export { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome, deliverSignalOutcome, cancelExecutionOutcome } from "./orchestrator/workflow-graph-walker.mjs";
 export { hydrateReplayContext } from "./orchestrator/replay-loader.mjs";
 export { createWorkflowApplicationPort } from "./application/workflow-application-port.mjs";
 export { createMcpWorkflowStdioServer } from "./adapters/mcp/stdio-server.mjs";
@@ -105,6 +105,9 @@ export {
   statusResponseFromPort,
   resumeResponseFromPort,
   submitActivityResponseFromPort,
+  signalResponseFromPort,
+  cancelResponseFromPort,
+  listResponseFromPort,
   historyRowToTransport,
 } from "./adapters/transport-response.mjs";
 export { MCP_ADAPTER_ERROR, McpAdapterError } from "./adapters/mcp/errors.mjs";

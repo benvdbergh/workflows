@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { applyExecutionListQuery, summarizeExecution } from "./execution-list-support.mjs";
 import { CURRENT_HISTORY_RECORD_SCHEMA_VERSION } from "./history-record-schema-version.mjs";
 
 /** @typedef {import("./types.mjs").HistoryAppendInput} HistoryAppendInput */
@@ -160,6 +161,23 @@ export class SqliteExecutionHistoryStore {
    */
   listByExecution(executionId) {
     return this.readRange(executionId);
+  }
+
+  /**
+   * @param {import("./execution-list-support.mjs").ExecutionListQuery} [query]
+   * @returns {import("./execution-list-support.mjs").ExecutionListResult}
+   */
+  listExecutions(query = {}) {
+    const raw = this.#db
+      .prepare(`SELECT DISTINCT execution_id AS execution_id FROM history`)
+      .all();
+    /** @type {import("./execution-list-support.mjs").ExecutionListItem[]} */
+    const summaries = raw.map((r) => {
+      const row = /** @type {{ execution_id: string }} */ (r);
+      const rows = this.listByExecution(row.execution_id);
+      return summarizeExecution(row.execution_id, rows);
+    });
+    return applyExecutionListQuery(summaries, query);
   }
 
   close() {

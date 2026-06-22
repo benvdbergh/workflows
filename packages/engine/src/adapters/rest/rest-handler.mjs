@@ -1,6 +1,7 @@
 import { ZodError } from "zod";
 import {
   workflowResumeArgsSchema,
+  workflowCancelArgsSchema,
   workflowStartArgsSchema,
   workflowStatusArgsSchema,
   workflowSubmitActivityArgsSchema,
@@ -16,6 +17,7 @@ import {
 } from "../mcp/transport-validation.mjs";
 import {
   historyRowToTransport,
+  cancelResponseFromPort,
   resumeResponseFromPort,
   startResponseFromPort,
   statusResponseFromPort,
@@ -74,6 +76,26 @@ function adapterErrorForSubmitFailure(code, message) {
   });
 }
 
+const CANCEL_ADAPTER_CODES = new Set([
+  MCP_ADAPTER_ERROR.CANCEL_NOT_ALLOWED,
+  MCP_ADAPTER_ERROR.CANCEL_VALIDATION_ERROR,
+  MCP_ADAPTER_ERROR.EXECUTION_NOT_FOUND,
+]);
+
+/**
+ * @param {string | undefined} code
+ * @param {string | undefined} message
+ */
+function adapterErrorForCancelFailure(code, message) {
+  const text = message && message.trim() !== "" ? message : "Cancel request rejected.";
+  if (code && CANCEL_ADAPTER_CODES.has(code)) {
+    return new McpAdapterError(code, text);
+  }
+  return new McpAdapterError(MCP_ADAPTER_ERROR.ENGINE_FAILURE, "Engine reported a workflow failure.", {
+    cause: text,
+  });
+}
+
 /**
  * @param {import("node:http").ServerResponse} res
  * @param {McpAdapterError} error
@@ -112,6 +134,7 @@ function adaptCaughtError(error) {
  *   getWorkflowStatus: Function;
  *   resumeWorkflow: Function;
  *   submitWorkflowActivity: Function;
+ *   cancelWorkflow: Function;
  * }} workflowPort
  * @param {{
  *   definitionRegistry?: DefinitionRegistry;
@@ -301,12 +324,20 @@ export function createRestWorkflowHandler(workflowPort, deps = {}) {
 
       const cancelMatch = pathname.match(/^\/v1\/executions\/([^/]+):cancel$/);
       if (method === "POST" && cancelMatch) {
-        sendJson(res, 501, {
-          error: {
-            code: "NOT_IMPLEMENTED",
-            message: "Execution cancel is not implemented in the reference engine application port.",
-          },
+        const executionId = decodeURIComponent(cancelMatch[1]);
+        const body = (await readJsonBody(req)) ?? {};
+        const parsed = workflowCancelArgsSchema.parse({
+          execution_id: executionId,
+          reason: body.reason,
         });
+        const response = await workflowPort.cancelWorkflow({
+          executionId: parsed.execution_id,
+          ...(parsed.reason !== undefined ? { reason: parsed.reason } : {}),
+        });
+        if (response.status === "failed") {
+          throw adapterErrorForCancelFailure(response.code, response.error);
+        }
+        sendJson(res, 200, cancelResponseFromPort(response));
         return;
       }
 

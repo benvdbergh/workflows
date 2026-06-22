@@ -166,6 +166,30 @@ export function latestStateFromHistory(rows) {
   return undefined;
 }
 
+const TERMINAL_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "ExecutionCancelled"]);
+
+/**
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function isTerminalEventName(name) {
+  return TERMINAL_EVENT_NAMES.has(name);
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
+ */
+export function findLatestTerminalEvent(rows) {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind === "event" && isTerminalEventName(row.name)) {
+      return row;
+    }
+  }
+  return undefined;
+}
+
 /**
  * @param {import("../persistence/types.mjs").HistoryRow[]} rows
  * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
@@ -191,6 +215,80 @@ export function findLatestNonCheckpointEvent(rows) {
     return row;
   }
   return undefined;
+}
+
+/**
+ * Latest `SignalWaitStarted` without a later `SignalReceived` for the same node.
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
+ */
+export function findPendingSignalWait(rows) {
+  const last = findLatestNonCheckpointEvent(rows);
+  if (last?.kind === "event" && last.name === "SignalWaitStarted") {
+    const nodeId = typeof last.payload?.nodeId === "string" ? last.payload.nodeId : "";
+    if (!nodeId) {
+      return undefined;
+    }
+    const hasReceived = rows.some(
+      (later) =>
+        later.seq > last.seq &&
+        later.kind === "event" &&
+        later.name === "SignalReceived" &&
+        later.payload?.nodeId === nodeId
+    );
+    if (!hasReceived) {
+      return last;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * `SignalReceived` was appended for a wait node but the walker has not completed that node yet.
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {boolean}
+ */
+export function isPendingSignalWaitContinuation(rows) {
+  const last = findLatestNonCheckpointEvent(rows);
+  if (!last || last.kind !== "event" || last.name !== "SignalReceived") {
+    return false;
+  }
+  const nodeId = typeof last.payload?.nodeId === "string" ? last.payload.nodeId : "";
+  if (!nodeId) {
+    return false;
+  }
+  const hasCompleteNode = rows.some(
+    (r) =>
+      r.kind === "command" &&
+      r.name === "CompleteNode" &&
+      r.payload?.nodeId === nodeId &&
+      r.seq > last.seq
+  );
+  return !hasCompleteNode;
+}
+
+/**
+ * When history ends with `ExecutionCancelled`, return a cooperative cancel outcome for read-only replay.
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {string} executionId
+ * @returns {{ status: "cancelled"; executionId: string; finalState?: Record<string, unknown>; reason?: string } | undefined}
+ */
+export function buildCancelledRunResult(rows, executionId) {
+  const lastTerminal = findLatestTerminalEvent(rows);
+  if (lastTerminal?.name !== "ExecutionCancelled") {
+    return undefined;
+  }
+  const priorReason =
+    typeof lastTerminal.payload?.reason === "string" ? lastTerminal.payload.reason : undefined;
+  return {
+    status: "cancelled",
+    executionId,
+    finalState: latestStateFromHistory(rows),
+    ...(priorReason ? { reason: priorReason } : {}),
+  };
 }
 
 /**

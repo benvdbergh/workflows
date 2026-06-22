@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
+import { cancelExecutionOutcome, deliverSignalOutcome, resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
+import { parseExecutionListCursor, projectExecutionStatusDetails, findLatestNonCheckpointEvent } from "../persistence/execution-list-support.mjs";
 import { RedactingExecutionHistoryStore } from "../persistence/redacting-history-store.mjs";
-
-const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "InterruptRaised"]);
 
 /**
  * @typedef {object} WorkflowStartRequest
@@ -52,7 +51,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
 /**
  * @typedef {object} WorkflowStartResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} status
  * @property {Record<string, unknown> | undefined} finalState
  * @property {unknown} [result]
  * @property {string | undefined} error
@@ -68,7 +67,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
 /**
  * @typedef {object} WorkflowStatusResponse
  * @property {string} executionId
- * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity"} phase
+ * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} phase
  * @property {string | undefined} currentNodeId
  * @property {string | undefined} lastError
  * @property {string | undefined} [delegateCorrelationId] Latest agent_delegate activity correlation
@@ -77,12 +76,53 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  * @property {string | undefined} [agentId] Pending `agent_delegate` target agent id when phase is `awaiting_activity`
  * @property {string | undefined} [protocol] Pending delegate protocol when phase is `awaiting_activity`
  * @property {Record<string, unknown>} [delegateInput] Resolved delegate input when phase is `awaiting_activity`
+ * @property {string} [signalName] Pending signal name when phase is `awaiting_signal`
+ */
+
+/**
+ * @typedef {object} WorkflowCancelRequest
+ * @property {string} executionId
+ * @property {string} [reason]
+ */
+
+/**
+ * @typedef {object} WorkflowCancelResponse
+ * @property {string} executionId
+ * @property {"cancelled" | "failed"} status
+ * @property {Record<string, unknown> | undefined} [finalState]
+ * @property {string | undefined} [error]
+ * @property {string | undefined} [code]
+ * @property {string} [reason]
+ */
+
+/**
+ * @typedef {object} WorkflowListRequest
+ * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} [phase]
+ * @property {string} [definitionName]
+ * @property {string} [updatedAfter]
+ * @property {string} [updatedBefore]
+ * @property {number} [limit]
+ * @property {string} [cursor]
+ */
+
+/**
+ * @typedef {object} WorkflowListExecutionSummary
+ * @property {string} executionId
+ * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} phase
+ * @property {string} [definitionName]
+ * @property {string} [updatedAt]
+ */
+
+/**
+ * @typedef {object} WorkflowListResponse
+ * @property {WorkflowListExecutionSummary[]} executions
+ * @property {string} [nextCursor]
  */
 
 /**
  * @typedef {object} WorkflowResumeResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} status
  * @property {Record<string, unknown> | undefined} finalState
  * @property {unknown} [result]
  * @property {string | undefined} error
@@ -97,9 +137,39 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  */
 
 /**
+ * @typedef {object} WorkflowSignalRequest
+ * @property {string} executionId
+ * @property {object} definition
+ * @property {Record<string, unknown>} input
+ * @property {string} signalName
+ * @property {Record<string, unknown>} [payload]
+ * @property {"in_process" | "host_mediated"} [activityExecutionMode]
+ * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
+ * @property {import("../orchestrator/activity-executor.mjs").ActivityExecutor} [activityExecutor]
+ */
+
+/**
+ * @typedef {object} WorkflowSignalResponse
+ * @property {string} executionId
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} status
+ * @property {Record<string, unknown> | undefined} [finalState]
+ * @property {unknown} [result]
+ * @property {string | undefined} [error]
+ * @property {string | undefined} [nodeId]
+ * @property {Record<string, unknown>} [state]
+ * @property {WorkflowParallelSpan} [parallelSpan]
+ * @property {string | undefined} [code]
+ * @property {string} [agentId]
+ * @property {string} [protocol]
+ * @property {Record<string, unknown>} [delegateInput]
+ * @property {string} [delegateCorrelationId]
+ * @property {string} [signalName]
+ */
+
+/**
  * @typedef {object} WorkflowSubmitActivityResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} status
  * @property {Record<string, unknown> | undefined} [finalState]
  * @property {unknown} [result]
  * @property {string | undefined} [error]
@@ -133,54 +203,14 @@ function awaitingDelegateFromRunResult(runResult) {
 }
 
 /**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {{ nodeId?: string; state?: Record<string, unknown>; signalName?: string; reason?: string }} runResult
  */
-function latestPrimaryEvent(rows) {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const row = rows[i];
-    if (row.kind === "event" && PRIMARY_EVENT_NAMES.has(row.name)) {
-      return row;
-    }
-  }
-  return undefined;
-}
-
-/**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- */
-function latestNodeId(rows) {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const row = rows[i];
-    if (typeof row.payload?.nodeId === "string") {
-      return row.payload.nodeId;
-    }
-  }
-  return undefined;
-}
-
-/**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- */
-function latestError(rows) {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const row = rows[i];
-    if (row.name === "ExecutionFailed" && typeof row.payload?.error === "string") {
-      return row.payload.error;
-    }
-  }
-  return undefined;
-}
-
-/**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- */
-function findLatestNonCheckpointEvent(rows) {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const row = rows[i];
-    if (row.kind === "event" && row.name === "CheckpointWritten") continue;
-    return row;
-  }
-  return undefined;
+function awaitingSignalFromRunResult(runResult) {
+  return {
+    ...(runResult.nodeId !== undefined ? { nodeId: runResult.nodeId } : {}),
+    ...(runResult.state !== undefined ? { state: runResult.state } : {}),
+    ...(runResult.signalName !== undefined ? { signalName: runResult.signalName } : {}),
+  };
 }
 
 const CHILD_EXECUTION_MARKER = ":sub:";
@@ -396,6 +426,8 @@ export function createWorkflowApplicationPort(deps) {
               ...awaitingDelegateFromRunResult(runResult),
             }
           : {}),
+        ...(runResult.status === "awaiting_signal" ? awaitingSignalFromRunResult(runResult) : {}),
+        ...(runResult.status === "cancelled" && runResult.reason ? { reason: runResult.reason } : {}),
       };
     },
 
@@ -412,42 +444,12 @@ export function createWorkflowApplicationPort(deps) {
         throw err;
       }
 
-      const lastPrimary = latestPrimaryEvent(rows);
-      if (lastPrimary?.name === "ExecutionCompleted") {
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "completed",
-          currentNodeId: undefined,
-          lastError: undefined,
-        });
-      }
-      if (lastPrimary?.name === "ExecutionFailed") {
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "failed",
-          currentNodeId: latestNodeId(rows),
-          lastError: latestError(rows),
-        });
-      }
-      if (lastPrimary?.name === "InterruptRaised") {
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "interrupted",
-          currentNodeId: latestNodeId(rows),
-          lastError: undefined,
-        });
-      }
-      const lastNc = findLatestNonCheckpointEvent(rows);
-      if (lastNc?.kind === "event" && lastNc.name === "ActivityRequested") {
-        const nid =
-          typeof lastNc.payload?.nodeId === "string" ? lastNc.payload.nodeId : latestNodeId(rows);
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "awaiting_activity",
-          currentNodeId: nid,
-          lastError: undefined,
-        });
-      }
+      const details = projectExecutionStatusDetails(rows);
       return buildStatusResponse(request.executionId, rows, {
-        phase: "running",
-        currentNodeId: latestNodeId(rows),
-        lastError: undefined,
+        phase: details.phase,
+        currentNodeId: details.currentNodeId,
+        lastError: details.lastError,
+        ...(details.signalName ? { signalName: details.signalName } : {}),
       });
     },
 
@@ -486,6 +488,7 @@ export function createWorkflowApplicationPort(deps) {
               ...awaitingDelegateFromRunResult(runResult),
             }
           : {}),
+        ...(runResult.status === "awaiting_signal" ? awaitingSignalFromRunResult(runResult) : {}),
       };
     },
 
@@ -523,6 +526,104 @@ export function createWorkflowApplicationPort(deps) {
               ...awaitingDelegateFromRunResult(result),
             }
           : {}),
+        ...(result.status === "awaiting_signal" ? awaitingSignalFromRunResult(result) : {}),
+      };
+    },
+
+    /**
+     * @param {WorkflowSignalRequest} request
+     * @returns {Promise<WorkflowSignalResponse>}
+     */
+    async signalWorkflow(request) {
+      const result = await deliverSignalOutcome({
+        definition: request.definition,
+        executionId: request.executionId,
+        store,
+        input: request.input,
+        signalName: request.signalName,
+        ...(request.payload !== undefined ? { payload: request.payload } : {}),
+        ...(request.activityExecutionMode ? { activityExecutionMode: request.activityExecutionMode } : {}),
+        ...(request.stubActivityOutputs ? { stubActivityOutputs: request.stubActivityOutputs } : {}),
+        ...(request.activityExecutor ? { activityExecutor: request.activityExecutor } : {}),
+        ...(!request.activityExecutor && activityExecutor ? { activityExecutor } : {}),
+        ...(delegateExecutor ? { delegateExecutor } : {}),
+      });
+
+      return {
+        executionId: request.executionId,
+        status: result.status,
+        ...(result.finalState !== undefined ? { finalState: result.finalState } : {}),
+        ...(result.status === "completed" ? { result: result.result } : {}),
+        ...(result.status === "failed" ? { error: result.error, ...(result.code ? { code: result.code } : {}) } : {}),
+        ...(result.status === "interrupted" || result.status === "awaiting_activity"
+          ? {
+              nodeId: result.nodeId,
+              ...(result.state ? { state: result.state } : {}),
+              ...(result.parallelSpan ? { parallelSpan: result.parallelSpan } : {}),
+              ...awaitingDelegateFromRunResult(result),
+            }
+          : {}),
+        ...(result.status === "awaiting_signal" ? awaitingSignalFromRunResult(result) : {}),
+      };
+    },
+
+    /**
+     * @param {WorkflowCancelRequest} request
+     * @returns {Promise<WorkflowCancelResponse>}
+     */
+    async cancelWorkflow(request) {
+      const result = await cancelExecutionOutcome({
+        executionId: request.executionId,
+        store,
+        ...(request.reason !== undefined ? { reason: request.reason } : {}),
+      });
+
+      return {
+        executionId: request.executionId,
+        status: result.status,
+        ...(result.finalState !== undefined ? { finalState: result.finalState } : {}),
+        ...(result.status === "failed"
+          ? { error: result.error, ...(result.code ? { code: result.code } : {}) }
+          : {}),
+        ...(result.status === "cancelled" && result.reason ? { reason: result.reason } : {}),
+      };
+    },
+
+    /**
+     * @param {WorkflowListRequest} request
+     * @returns {Promise<WorkflowListResponse>}
+     */
+    async listWorkflowExecutions(request) {
+      if (typeof store.listExecutions !== "function") {
+        const err = new Error("Execution history store does not implement listExecutions.");
+        err.code = "LIST_NOT_SUPPORTED";
+        throw err;
+      }
+      if (request.cursor !== undefined) {
+        try {
+          parseExecutionListCursor(request.cursor);
+        } catch (cause) {
+          const err = new Error("Invalid execution list cursor.");
+          err.code = "INVALID_LIST_CURSOR";
+          throw err;
+        }
+      }
+      const result = store.listExecutions({
+        ...(request.phase !== undefined ? { phase: request.phase } : {}),
+        ...(request.definitionName !== undefined ? { definitionName: request.definitionName } : {}),
+        ...(request.updatedAfter !== undefined ? { updatedAfter: request.updatedAfter } : {}),
+        ...(request.updatedBefore !== undefined ? { updatedBefore: request.updatedBefore } : {}),
+        ...(request.limit !== undefined ? { limit: request.limit } : {}),
+        ...(request.cursor !== undefined ? { cursor: request.cursor } : {}),
+      });
+      return {
+        executions: result.items.map((item) => ({
+          executionId: item.executionId,
+          phase: item.phase,
+          ...(item.definitionName !== undefined ? { definitionName: item.definitionName } : {}),
+          ...(item.updatedAt !== undefined ? { updatedAt: item.updatedAt } : {}),
+        })),
+        ...(result.nextCursor !== undefined ? { nextCursor: result.nextCursor } : {}),
       };
     },
   };

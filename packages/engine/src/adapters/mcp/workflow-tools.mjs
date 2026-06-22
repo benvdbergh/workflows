@@ -1,5 +1,8 @@
 import {
   workflowResumeArgsSchema,
+  workflowCancelArgsSchema,
+  workflowListArgsSchema,
+  workflowSignalArgsSchema,
   workflowStartArgsSchema,
   workflowStatusArgsSchema,
   workflowSubmitActivityArgsSchema,
@@ -11,6 +14,9 @@ import {
 } from "./transport-validation.mjs";
 import {
   resumeResponseFromPort,
+  cancelResponseFromPort,
+  listResponseFromPort,
+  signalResponseFromPort,
   startResponseFromPort,
   statusResponseFromPort,
   submitActivityResponseFromPort,
@@ -70,6 +76,13 @@ const SUBMIT_ACTIVITY_ADAPTER_CODES = new Set([
   MCP_ADAPTER_ERROR.SUBMIT_VALIDATION_ERROR,
 ]);
 
+const SIGNAL_ADAPTER_CODES = new Set([
+  MCP_ADAPTER_ERROR.SIGNAL_NOT_AWAITING,
+  MCP_ADAPTER_ERROR.SIGNAL_NAME_MISMATCH,
+  MCP_ADAPTER_ERROR.SIGNAL_VALIDATION_ERROR,
+  MCP_ADAPTER_ERROR.EXECUTION_NOT_FOUND,
+]);
+
 /**
  * @param {string | undefined} code
  * @param {string | undefined} message
@@ -83,7 +96,37 @@ function mcpErrorForSubmitFailure(code, message) {
 }
 
 /**
- * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function }} workflowPort
+ * @param {string | undefined} code
+ * @param {string | undefined} message
+ */
+function mcpErrorForSignalFailure(code, message) {
+  const text = message && message.trim() !== "" ? message : "Signal delivery rejected.";
+  if (code && SIGNAL_ADAPTER_CODES.has(code)) {
+    return new McpAdapterError(code, text);
+  }
+  return mapEngineFailure(new Error(text));
+}
+
+const CANCEL_ADAPTER_CODES = new Set([
+  MCP_ADAPTER_ERROR.CANCEL_NOT_ALLOWED,
+  MCP_ADAPTER_ERROR.CANCEL_VALIDATION_ERROR,
+  MCP_ADAPTER_ERROR.EXECUTION_NOT_FOUND,
+]);
+
+/**
+ * @param {string | undefined} code
+ * @param {string | undefined} message
+ */
+function mcpErrorForCancelFailure(code, message) {
+  const text = message && message.trim() !== "" ? message : "Cancel request rejected.";
+  if (code && CANCEL_ADAPTER_CODES.has(code)) {
+    return new McpAdapterError(code, text);
+  }
+  return mapEngineFailure(new Error(text));
+}
+
+/**
+ * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function; cancelWorkflow: Function; listWorkflowExecutions: Function }} workflowPort
  */
 export function createMcpWorkflowToolHandlers(workflowPort) {
   return {
@@ -248,6 +291,116 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
         const adapted =
           error instanceof ZodError
             ? new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, "Invalid workflow_submit_activity arguments.", {
+                issues: error.issues,
+              })
+            : normalizeMcpAdapterError(error);
+        return toToolErrorResult(adapted);
+      }
+    },
+
+    async workflow_signal(args) {
+      try {
+        const parsed = workflowSignalArgsSchema.parse(args);
+        const response = await workflowPort.signalWorkflow({
+          executionId: parsed.execution_id,
+          definition: parsed.definition,
+          input: parsed.input,
+          signalName: parsed.signal_name,
+          ...(parsed.payload !== undefined ? { payload: parsed.payload } : {}),
+          ...(parsed.activity_execution_mode ? { activityExecutionMode: parsed.activity_execution_mode } : {}),
+        });
+
+        if (response.status === "failed") {
+          throw mcpErrorForSignalFailure(response.code, response.error);
+        }
+
+        const structured = signalResponseFromPort(response);
+        return {
+          content: [
+            {
+              type: "text",
+              text: withStructuredJsonInText(
+                `Execution ${response.executionId} ${response.status} after signal delivery.`,
+                structured
+              ),
+            },
+          ],
+          structuredContent: structured,
+        };
+      } catch (error) {
+        const adapted =
+          error instanceof ZodError
+            ? new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, "Invalid workflow_signal arguments.", {
+                issues: error.issues,
+              })
+            : normalizeMcpAdapterError(error);
+        return toToolErrorResult(adapted);
+      }
+    },
+
+    async workflow_cancel(args) {
+      try {
+        const parsed = workflowCancelArgsSchema.parse(args);
+        const response = await workflowPort.cancelWorkflow({
+          executionId: parsed.execution_id,
+          ...(parsed.reason !== undefined ? { reason: parsed.reason } : {}),
+        });
+
+        if (response.status === "failed") {
+          throw mcpErrorForCancelFailure(response.code, response.error);
+        }
+
+        const structured = cancelResponseFromPort(response);
+        return {
+          content: [
+            {
+              type: "text",
+              text: withStructuredJsonInText(
+                `Execution ${response.executionId} ${response.status}.`,
+                structured
+              ),
+            },
+          ],
+          structuredContent: structured,
+        };
+      } catch (error) {
+        const adapted =
+          error instanceof ZodError
+            ? new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, "Invalid workflow_cancel arguments.", {
+                issues: error.issues,
+              })
+            : normalizeMcpAdapterError(error);
+        return toToolErrorResult(adapted);
+      }
+    },
+
+    async workflow_list(args) {
+      try {
+        const parsed = workflowListArgsSchema.parse(args);
+        const response = await workflowPort.listWorkflowExecutions({
+          ...(parsed.phase !== undefined ? { phase: parsed.phase } : {}),
+          ...(parsed.definition_name !== undefined ? { definitionName: parsed.definition_name } : {}),
+          ...(parsed.updated_after !== undefined ? { updatedAfter: parsed.updated_after } : {}),
+          ...(parsed.updated_before !== undefined ? { updatedBefore: parsed.updated_before } : {}),
+          ...(parsed.limit !== undefined ? { limit: parsed.limit } : {}),
+          ...(parsed.cursor !== undefined ? { cursor: parsed.cursor } : {}),
+        });
+
+        const structured = listResponseFromPort(response);
+        const count = structured.executions.length;
+        return {
+          content: [
+            {
+              type: "text",
+              text: withStructuredJsonInText(`Listed ${count} execution${count === 1 ? "" : "s"}.`, structured),
+            },
+          ],
+          structuredContent: structured,
+        };
+      } catch (error) {
+        const adapted =
+          error instanceof ZodError
+            ? new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, "Invalid workflow_list arguments.", {
                 issues: error.issues,
               })
             : normalizeMcpAdapterError(error);

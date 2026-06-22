@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
-import { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome } from "../src/orchestrator/workflow-graph-walker.mjs";
+import { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome, deliverSignalOutcome, cancelExecutionOutcome } from "../src/orchestrator/workflow-graph-walker.mjs";
+import { createWorkflowApplicationPort } from "../src/application/workflow-application-port.mjs";
 import { clearWorkflowRefs, registerWorkflowRef } from "../src/orchestrator/workflow-ref-resolver.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -836,5 +837,225 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
     });
     assert.equal(afterSubmit.status, "failed");
     assert.match(afterSubmit.error ?? "", /subworkflow max depth 3 exceeded/);
+  });
+});
+
+function loadSignalWaitFixture() {
+  const root = findWorkflowRepoRoot(__dirname);
+  const p = path.join(root, "examples", "conformance-signal-wait.workflow.json");
+  return JSON.parse(readFileSync(p, "utf8"));
+}
+
+describe("runGraphWorkflow (signal wait)", () => {
+  it("yields awaiting_signal then completes via deliverSignalOutcome", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-signal-wait-linear";
+    const input = {};
+
+    const first = await runGraphWorkflow({ definition, input, executionId, store });
+    assert.equal(first.status, "awaiting_signal");
+    assert.equal(first.nodeId, "await_approval");
+    assert.equal(first.signalName, "approved");
+
+    const rows = store.listByExecution(executionId);
+    assert.ok(rows.some((r) => r.name === "SignalWaitStarted" && r.payload?.nodeId === "await_approval"));
+
+    const badName = await deliverSignalOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      signalName: "wrong",
+    });
+    assert.equal(badName.status, "failed");
+    assert.equal(badName.code, "SIGNAL_NAME_MISMATCH");
+
+    const done = await deliverSignalOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      signalName: "approved",
+      payload: { approved_by: "alice" },
+    });
+    assert.equal(done.status, "completed");
+    assert.equal(done.result, "alice");
+    const finalRows = store.listByExecution(executionId);
+    assert.ok(finalRows.some((r) => r.name === "SignalReceived"));
+    assert.ok(
+      finalRows.some(
+        (r) =>
+          r.name === "StateUpdated" &&
+          r.payload?.nodeId === "await_approval" &&
+          r.payload?.state?.approved_by === "alice"
+      )
+    );
+    assert.equal(finalRows.at(-1)?.name, "ExecutionCompleted");
+  });
+
+  it("getWorkflowStatus projects awaiting_signal with signal_name", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const port = createWorkflowApplicationPort({ store });
+    const executionId = "exec-signal-status";
+
+    const started = await port.startWorkflow({ executionId, definition, input: {} });
+    assert.equal(started.status, "awaiting_signal");
+
+    const status = await port.getWorkflowStatus({ executionId });
+    assert.equal(status.phase, "awaiting_signal");
+    assert.equal(status.currentNodeId, "await_approval");
+    assert.equal(status.signalName, "approved");
+  });
+});
+
+describe("cancelExecutionOutcome", () => {
+  it("appends CancelExecution and ExecutionCancelled for awaiting_signal run", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-signal-wait";
+    const input = {};
+
+    const first = await runGraphWorkflow({ definition, input, executionId, store });
+    assert.equal(first.status, "awaiting_signal");
+
+    const cancelled = await cancelExecutionOutcome({
+      executionId,
+      store,
+      reason: "test abort",
+    });
+    assert.equal(cancelled.status, "cancelled");
+    assert.equal(cancelled.reason, "test abort");
+
+    const rows = store.listByExecution(executionId);
+    assert.ok(rows.some((r) => r.kind === "command" && r.name === "CancelExecution"));
+    assert.equal(rows.at(-1)?.name, "ExecutionCancelled");
+
+    const port = createWorkflowApplicationPort({ store });
+    const status = await port.getWorkflowStatus({ executionId });
+    assert.equal(status.phase, "cancelled");
+    assert.equal(status.lastError, "test abort");
+  });
+
+  it("rejects cancel on completed execution with CANCEL_NOT_ALLOWED", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-completed";
+    const input = {};
+
+    await runGraphWorkflow({ definition, input, executionId, store });
+    await deliverSignalOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      signalName: "approved",
+    });
+
+    const rejected = await cancelExecutionOutcome({ executionId, store });
+    assert.equal(rejected.status, "failed");
+    assert.equal(rejected.code, "CANCEL_NOT_ALLOWED");
+  });
+
+  it("is idempotent when execution is already cancelled", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-idempotent";
+    const input = {};
+
+    await runGraphWorkflow({ definition, input, executionId, store });
+    await cancelExecutionOutcome({ executionId, store, reason: "once" });
+    const again = await cancelExecutionOutcome({ executionId, store, reason: "twice" });
+
+    assert.equal(again.status, "cancelled");
+    assert.equal(again.reason, "once");
+    const cancelEvents = store.listByExecution(executionId).filter((r) => r.name === "ExecutionCancelled");
+    assert.equal(cancelEvents.length, 1);
+  });
+
+  it("cancels interrupted execution cooperatively", async () => {
+    const definition = {
+      document: {
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
+        name: "interrupt-cancel",
+        version: "1.0.0",
+      },
+      state_schema: { type: "object" },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "human",
+          type: "interrupt",
+          config: { prompt: "review", resume_schema: { type: "object" } },
+        },
+        { id: "end", type: "end" },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "human" },
+        { source: "human", target: "end" },
+      ],
+    };
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-interrupted";
+    const interrupted = await runGraphWorkflow({ definition, input: {}, executionId, store });
+    assert.equal(interrupted.status, "interrupted");
+
+    const cancelled = await cancelExecutionOutcome({ executionId, store, reason: "operator stop" });
+    assert.equal(cancelled.status, "cancelled");
+    assert.equal(cancelled.reason, "operator stop");
+  });
+
+  it("cancels awaiting_activity execution cooperatively", async () => {
+    const definition = {
+      document: {
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
+        name: "host-cancel",
+        version: "1.0.0",
+      },
+      state_schema: { type: "object", properties: { out: { type: "string" } } },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "work",
+          type: "tool_call",
+          config: { server: "demo-mcp", tool: "stub", arguments: {} },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".out" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "work" },
+        { source: "work", target: "end" },
+      ],
+    };
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-awaiting-activity";
+    const awaiting = await runGraphWorkflow({
+      definition,
+      input: {},
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(awaiting.status, "awaiting_activity");
+
+    const cancelled = await cancelExecutionOutcome({ executionId, store });
+    assert.equal(cancelled.status, "cancelled");
+  });
+
+  it("runGraphWorkflow returns cancelled without re-walking cancelled history", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-replay-guard";
+    await runGraphWorkflow({ definition, input: {}, executionId, store });
+    await cancelExecutionOutcome({ executionId, store, reason: "done" });
+
+    const replay = await runGraphWorkflow({ definition, input: {}, executionId, store });
+    assert.equal(replay.status, "cancelled");
+    assert.equal(replay.reason, "done");
+    const cancelEvents = store.listByExecution(executionId).filter((r) => r.name === "ExecutionCancelled");
+    assert.equal(cancelEvents.length, 1);
   });
 });

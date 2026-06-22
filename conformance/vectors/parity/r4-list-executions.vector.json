@@ -1,0 +1,34 @@
+{
+  "id": "parity.r4.list_executions",
+  "description": "List executions with phase filter across multiple runs.",
+  "kind": "parity",
+  "definition": "examples/conformance-signal-wait.workflow.json",
+  "executionId": "parity-list-base",
+  "steps": [
+    {
+      "op": "start",
+      "executionId": "parity-list-a",
+      "input": {},
+      "expect": { "status": "awaiting_signal", "node_id": "await_approval", "signal_name": "approved" }
+    },
+    {
+      "op": "start",
+      "executionId": "parity-list-b",
+      "input": {},
+      "expect": { "status": "awaiting_signal", "node_id": "await_approval", "signal_name": "approved" }
+    },
+    {
+      "op": "list",
+      "listPhase": "awaiting_signal",
+      "expect": {
+        "execution_count": 2,
+        "execution_ids": ["parity-list-a", "parity-list-b"]
+      }
+    },
+    {
+      "op": "list",
+      "listPhase": "completed",
+      "expect": { "execution_count": 0 }
+    }
+  ]
+}

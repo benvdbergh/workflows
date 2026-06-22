@@ -38,8 +38,12 @@ import {
   expectedCommandIdentity,
   findLatestNonCheckpointEvent,
   findPendingActivityRequest,
+  findLatestTerminalEvent,
+  buildCancelledRunResult,
+  findPendingSignalWait,
   isParallelSpanPayload,
   isPendingActivityCompletionContinuation,
+  isPendingSignalWaitContinuation,
   latestPrimaryEvent,
   latestStateFromHistory,
   parallelSpansEqual,
@@ -83,6 +87,8 @@ const HOST_SUBMIT_NODE_TYPES = new Set([...PLACEHOLDER_TYPES, "agent_delegate"])
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown> }
  *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
  *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload; agentId?: string; protocol?: string; delegateInput?: Record<string, unknown>; delegateCorrelationId?: string }
+ *   | { status: "awaiting_signal"; executionId: string; nodeId: string; state: Record<string, unknown>; signalName: string }
+ *   | { status: "cancelled"; executionId: string; finalState?: Record<string, unknown>; reason?: string }
  * >}
  */
 export async function runGraphWorkflow(options) {
@@ -168,6 +174,10 @@ export async function runGraphWorkflow(options) {
   const existingRows = store.listByExecution(executionId);
   assertHistoryReadableByEngine(existingRows);
   if (existingRows.length > 0) {
+    const cancelled = buildCancelledRunResult(existingRows, executionId);
+    if (cancelled) {
+      return cancelled;
+    }
     const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, existingRows);
     if (!definitionBind.ok) {
       return {
@@ -278,8 +288,27 @@ export async function runGraphWorkflow(options) {
       jq,
       resolveSwitchTarget,
       buildSetStateOutput,
-      runWaitNode: (node, scheduled) =>
-        runWaitNodeExecution(node.id, scheduled, appendCmd, appendEvt, node.config),
+      runWaitNode: async (node, scheduled) => {
+        const signalAlreadyReceived =
+          scheduled.replayed &&
+          existingRows.some(
+            (r) =>
+              r.kind === "event" &&
+              r.name === "SignalReceived" &&
+              r.payload?.nodeId === node.id
+          );
+        const waitResult = await runWaitNodeExecution(
+          node.id,
+          scheduled,
+          appendCmd,
+          appendEvt,
+          node.config,
+          { signalAlreadyReceived }
+        );
+        if (waitResult && waitResult.kind === "awaiting_signal") {
+          return waitResult;
+        }
+      },
       runPlaceholderActivity: async (node, scheduled, st, parallelSpan) => {
         const step = await runPlaceholderActivityStep({
           node,
@@ -317,6 +346,22 @@ export async function runGraphWorkflow(options) {
     const pendingActivityContinuation = isPendingActivityCompletionContinuation(existingRows, (nodeId) =>
       byId.get(nodeId)?.type
     );
+    const pendingSignalContinuation = isPendingSignalWaitContinuation(existingRows);
+    const pendingSignalWait = findPendingSignalWait(existingRows);
+
+    if (pendingSignalWait && !pendingSignalContinuation && !pendingActivityContinuation) {
+      const nodeId = typeof pendingSignalWait.payload?.nodeId === "string" ? pendingSignalWait.payload.nodeId : "";
+      const signalName =
+        typeof pendingSignalWait.payload?.signalName === "string" ? pendingSignalWait.payload.signalName : "";
+      const histState = latestStateFromHistory(existingRows);
+      return {
+        status: "awaiting_signal",
+        executionId,
+        nodeId,
+        state: histState ? { ...histState } : { ...input },
+        signalName,
+      };
+    }
 
     if (pendingActivityContinuation) {
       const inputCheck = verifyHostContinuationInput(existingRows, input);
@@ -362,6 +407,45 @@ export async function runGraphWorkflow(options) {
         );
       }
       current = activityOuts[0];
+    } else if (pendingSignalContinuation) {
+      commandCursor = replay.commands.length;
+      const histState = latestStateFromHistory(existingRows);
+      state = histState ? { ...histState } : { ...input };
+
+      const lastReceived = findLatestNonCheckpointEvent(existingRows);
+      const waitNodeId =
+        lastReceived && typeof lastReceived.payload?.nodeId === "string" ? lastReceived.payload.nodeId : "";
+      const waitNode = waitNodeId ? byId.get(waitNodeId) : undefined;
+      if (!waitNode || waitNode.type !== "wait") {
+        throw new Error(`Cannot continue: pending signal wait node "${waitNodeId}" is missing or invalid.`);
+      }
+
+      const rawSignalPayload = lastReceived?.payload?.payload;
+      /** @type {Record<string, unknown>} */
+      const signalOutput =
+        rawSignalPayload && typeof rawSignalPayload === "object" && !Array.isArray(rawSignalPayload)
+          ? /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(rawSignalPayload)))
+          : {};
+      state = /** @type {Record<string, unknown>} */ (
+        applyOutputWithReducers(state, signalOutput, definition.state_schema)
+      );
+      throwIfStateInvalid(validateState, state, `State invalid after signal delivery at "${waitNodeId}"`);
+
+      appendCmd("CompleteNode", { nodeId: waitNodeId, output: signalOutput });
+      const signalStateSeq = appendEvt("StateUpdated", {
+        nodeId: waitNodeId,
+        state: JSON.parse(JSON.stringify(state)),
+      });
+      appendCheckpoint(waitNodeId, state, signalStateSeq);
+      throwIfStateInvalid(validateState, state, `State invalid after signal wait "${waitNodeId}"`);
+
+      const waitOuts = outgoing.get(waitNodeId) ?? [];
+      if (waitOuts.length !== 1) {
+        throw new Error(
+          `Node "${waitNodeId}" (wait) must have exactly one outgoing edge after signal; found ${waitOuts.length}.`
+        );
+      }
+      current = waitOuts[0];
     } else {
       const hasExecutionStarted = existingRows.some(
         (r) => r.kind === "event" && r.name === "ExecutionStarted"
@@ -449,6 +533,15 @@ export async function runGraphWorkflow(options) {
             ...(pr.parallelSpan ? { parallelSpan: pr.parallelSpan } : {}),
           };
         }
+        if (pr.kind === "awaiting_signal") {
+          return {
+            status: "awaiting_signal",
+            executionId,
+            nodeId: pr.nodeId,
+            state: pr.state,
+            signalName: pr.signalName,
+          };
+        }
         if (pr.kind === "interrupt") {
           return {
             status: "interrupted",
@@ -474,13 +567,38 @@ export async function runGraphWorkflow(options) {
       }
 
       if (node.type === "wait") {
+        const signalAlreadyReceived =
+          scheduled.replayed &&
+          existingRows.some(
+            (r) =>
+              r.kind === "event" &&
+              r.name === "SignalReceived" &&
+              r.payload?.nodeId === current
+          );
+        let waitResult;
         try {
-          await runWaitNodeExecution(current, scheduled, appendCmd, appendEvt, node.config);
+          waitResult = await runWaitNodeExecution(
+            current,
+            scheduled,
+            appendCmd,
+            appendEvt,
+            node.config,
+            { signalAlreadyReceived }
+          );
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           appendCmd("FailNode", { nodeId: current, reason: "wait_failed", message: msg });
           appendEvt("ExecutionFailed", { error: msg });
           return { status: "failed", error: msg, finalState: state };
+        }
+        if (waitResult && waitResult.kind === "awaiting_signal") {
+          return {
+            status: "awaiting_signal",
+            executionId,
+            nodeId: waitResult.nodeId,
+            state: JSON.parse(JSON.stringify(state)),
+            signalName: waitResult.signalName,
+          };
         }
         appendCmd("CompleteNode", { nodeId: current, output: {} });
         const wStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
@@ -744,6 +862,7 @@ export async function runGraphWorkflow(options) {
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown> }
  *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
  *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload; agentId?: string; protocol?: string; delegateInput?: Record<string, unknown>; delegateCorrelationId?: string }
+ *   | { status: "awaiting_signal"; executionId: string; nodeId: string; state: Record<string, unknown>; signalName: string }
  * >}
  */
 export async function resumeGraphWorkflow(options) {
@@ -816,6 +935,10 @@ export async function resumeGraphWorkflow(options) {
    */
   function failResume(reason, code, finalState) {
     return { status: "failed", error: reason, ...(finalState ? { finalState } : {}), code };
+  }
+  if (rows.length > 0 && buildCancelledRunResult(rows, executionId)) {
+    const err = "Cannot resume: execution was cancelled.";
+    return failResume(err, RESUME_FAILURE_CODE.NOT_ALLOWED, latestStateFromHistory(rows));
   }
   const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, rows);
   if (!definitionBind.ok) {
@@ -1006,8 +1129,18 @@ export async function resumeGraphWorkflow(options) {
       jq,
       resolveSwitchTarget,
       buildSetStateOutput,
-      runWaitNode: (node, scheduled) =>
-        runWaitNodeExecution(node.id, scheduled, resumeAppendCmd, appendEvt, node.config),
+      runWaitNode: async (node, scheduled) => {
+        const waitResult = await runWaitNodeExecution(
+          node.id,
+          scheduled,
+          resumeAppendCmd,
+          appendEvt,
+          node.config
+        );
+        if (waitResult && waitResult.kind === "awaiting_signal") {
+          return waitResult;
+        }
+      },
       runPlaceholderActivity: async (node, _scheduled, st, parallelSpan) => {
         const step = await runPlaceholderActivityStep({
           node,
@@ -1125,6 +1258,15 @@ export async function resumeGraphWorkflow(options) {
             ...(pr.parallelSpan ? { parallelSpan: pr.parallelSpan } : {}),
           };
         }
+        if (pr.kind === "awaiting_signal") {
+          return {
+            status: "awaiting_signal",
+            executionId,
+            nodeId: pr.nodeId,
+            state: pr.state,
+            signalName: pr.signalName,
+          };
+        }
         if (pr.kind === "interrupt") {
           return {
             status: "interrupted",
@@ -1150,13 +1292,29 @@ export async function resumeGraphWorkflow(options) {
       }
 
       if (node.type === "wait") {
+        let waitResult;
         try {
-          await runWaitNodeExecution(current, { replayed: false }, resumeAppendCmd, appendEvt, node.config);
+          waitResult = await runWaitNodeExecution(
+            current,
+            { replayed: false },
+            resumeAppendCmd,
+            appendEvt,
+            node.config
+          );
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           appendCmd("FailNode", { nodeId: current, reason: "wait_failed", message: msg });
           appendEvt("ExecutionFailed", { error: msg });
           return { status: "failed", error: msg, finalState: state };
+        }
+        if (waitResult && waitResult.kind === "awaiting_signal") {
+          return {
+            status: "awaiting_signal",
+            executionId,
+            nodeId: waitResult.nodeId,
+            state: JSON.parse(JSON.stringify(state)),
+            signalName: waitResult.signalName,
+          };
         }
         appendCmd("CompleteNode", { nodeId: current, output: {} });
         const wStateSeq = appendEvt("StateUpdated", { nodeId: current, state: JSON.parse(JSON.stringify(state)) });
@@ -1412,6 +1570,7 @@ export async function resumeGraphWorkflow(options) {
  *   | { status: "failed"; error: string; finalState?: Record<string, unknown>; code?: string }
  *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
  *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload; agentId?: string; protocol?: string; delegateInput?: Record<string, unknown>; delegateCorrelationId?: string }
+ *   | { status: "awaiting_signal"; executionId: string; nodeId: string; state: Record<string, unknown>; signalName: string }
  * >}
  */
 export async function submitActivityOutcome(options) {
@@ -1473,6 +1632,15 @@ export async function submitActivityOutcome(options) {
     return {
       status: "failed",
       error: `Execution "${executionId}" was not found.`,
+      code: "ACTIVITY_SUBMIT_NOT_AWAITING",
+    };
+  }
+
+  const cancelled = buildCancelledRunResult(rows, executionId);
+  if (cancelled) {
+    return {
+      status: "failed",
+      error: "Cannot submit activity: execution was cancelled.",
       code: "ACTIVITY_SUBMIT_NOT_AWAITING",
     };
   }
@@ -1624,4 +1792,261 @@ export async function submitActivityOutcome(options) {
     ...(delegateExecutor ? { delegateExecutor } : {}),
     ...(assertNoDelegateExecutorInvocation ? { assertNoDelegateExecutorInvocation: true } : {}),
   });
+}
+
+/**
+ * @typedef {object} DeliverSignalOutcomeOptions
+ * @property {object} definition
+ * @property {string} executionId
+ * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store
+ * @property {Record<string, unknown>} input
+ * @property {string} signalName
+ * @property {Record<string, unknown>} [payload]
+ * @property {Record<string, Record<string, unknown>>} [stubActivityOutputs]
+ * @property {import("./activity-executor.mjs").ActivityExecutor} [activityExecutor]
+ * @property {"in_process" | "host_mediated"} [activityExecutionMode]
+ * @property {number} [subworkflowDepth]
+ * @property {number} [maxSubworkflowDepth]
+ * @property {boolean} [assertNoSubworkflowInvocation]
+ * @property {import("./delegate-executor.mjs").DelegateExecutor} [delegateExecutor]
+ * @property {boolean} [assertNoDelegateExecutorInvocation]
+ */
+
+/**
+ * Append `DeliverSignal` / `SignalReceived` after a signal wait yield and continue the graph walker.
+ *
+ * @param {DeliverSignalOutcomeOptions} options
+ * @returns {Promise<
+ *   | { status: "completed"; finalState: Record<string, unknown>; result?: unknown }
+ *   | { status: "failed"; error: string; finalState?: Record<string, unknown>; code?: string }
+ *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
+ *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload; agentId?: string; protocol?: string; delegateInput?: Record<string, unknown>; delegateCorrelationId?: string }
+ *   | { status: "awaiting_signal"; executionId: string; nodeId: string; state: Record<string, unknown>; signalName: string }
+ * >}
+ */
+export async function deliverSignalOutcome(options) {
+  const {
+    definition,
+    executionId,
+    store,
+    input,
+    signalName,
+    payload,
+    activityExecutionMode = "in_process",
+    stubActivityOutputs = {},
+    activityExecutor,
+    subworkflowDepth = 0,
+    maxSubworkflowDepth = 4,
+    assertNoSubworkflowInvocation = false,
+    delegateExecutor,
+    assertNoDelegateExecutorInvocation = false,
+  } = options;
+
+  if (!definition || typeof definition !== "object") {
+    return { status: "failed", error: "definition must be a non-null object", code: "SIGNAL_VALIDATION_ERROR" };
+  }
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { status: "failed", error: "input must be a plain object", code: "SIGNAL_VALIDATION_ERROR" };
+  }
+  if (typeof executionId !== "string" || !executionId) {
+    return { status: "failed", error: "executionId must be a non-empty string", code: "SIGNAL_VALIDATION_ERROR" };
+  }
+  if (typeof signalName !== "string" || !signalName.trim()) {
+    return { status: "failed", error: "signalName must be a non-empty string", code: "SIGNAL_VALIDATION_ERROR" };
+  }
+  if (!store || typeof store.append !== "function" || typeof store.listByExecution !== "function") {
+    return { status: "failed", error: "store must implement ExecutionHistoryStore", code: "SIGNAL_VALIDATION_ERROR" };
+  }
+
+  const v = validateWorkflowDefinition(definition);
+  if (!v.ok) {
+    const msg = v.errors?.map((e) => `${e.instancePath || "/"} ${e.message}`).join("; ") ?? "schema validation failed";
+    return { status: "failed", error: msg, code: "SIGNAL_VALIDATION_ERROR" };
+  }
+
+  try {
+    assertNoCustomReducers(definition);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: "failed", error: msg, code: "SIGNAL_VALIDATION_ERROR" };
+  }
+
+  const rows = store.listByExecution(executionId);
+  try {
+    assertHistoryReadableByEngine(rows);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: "failed", error: msg, code: "SIGNAL_VALIDATION_ERROR" };
+  }
+  if (rows.length === 0) {
+    return {
+      status: "failed",
+      error: `Execution "${executionId}" was not found.`,
+      code: "EXECUTION_NOT_FOUND",
+    };
+  }
+
+  const cancelled = buildCancelledRunResult(rows, executionId);
+  if (cancelled) {
+    return {
+      status: "failed",
+      error: "Cannot deliver signal: execution was cancelled.",
+      code: "SIGNAL_NOT_AWAITING",
+    };
+  }
+
+  const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, rows);
+  if (!definitionBind.ok) {
+    return { status: "failed", error: definitionBind.error, code: "SIGNAL_VALIDATION_ERROR" };
+  }
+
+  const pending = findPendingSignalWait(rows);
+  if (!pending || pending.kind !== "event" || pending.name !== "SignalWaitStarted") {
+    return {
+      status: "failed",
+      error: 'Cannot deliver signal: execution is not awaiting a signal wait.',
+      code: "SIGNAL_NOT_AWAITING",
+    };
+  }
+
+  const pendingNodeId = typeof pending.payload?.nodeId === "string" ? pending.payload.nodeId : "";
+  const pendingSignalName =
+    typeof pending.payload?.signalName === "string" ? pending.payload.signalName : "";
+  if (pendingSignalName !== signalName) {
+    return {
+      status: "failed",
+      error: `Signal name "${signalName}" does not match pending signal "${pendingSignalName}".`,
+      code: "SIGNAL_NAME_MISMATCH",
+    };
+  }
+
+  const payloadObj =
+    payload && typeof payload === "object" && !Array.isArray(payload)
+      ? /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(payload)))
+      : {};
+
+  store.append(executionId, {
+    kind: "command",
+    name: "DeliverSignal",
+    payload: { executionId, nodeId: pendingNodeId, signalName, payload: payloadObj },
+  });
+  store.append(executionId, {
+    kind: "event",
+    name: "SignalReceived",
+    payload: { executionId, nodeId: pendingNodeId, signalName, payload: payloadObj },
+  });
+
+  return runGraphWorkflow({
+    definition,
+    input,
+    executionId,
+    store,
+    stubActivityOutputs,
+    activityExecutor,
+    activityExecutionMode,
+    subworkflowDepth,
+    maxSubworkflowDepth,
+    ...(assertNoSubworkflowInvocation ? { assertNoSubworkflowInvocation: true } : {}),
+    ...(delegateExecutor ? { delegateExecutor } : {}),
+    ...(assertNoDelegateExecutorInvocation ? { assertNoDelegateExecutorInvocation: true } : {}),
+  });
+}
+
+/**
+ * @typedef {object} CancelExecutionOutcomeOptions
+ * @property {string} executionId
+ * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store
+ * @property {string} [reason]
+ */
+
+/**
+ * Append `CancelExecution` / `ExecutionCancelled` and stop the walker cooperatively.
+ *
+ * @param {CancelExecutionOutcomeOptions} options
+ * @returns {Promise<
+ *   | { status: "cancelled"; executionId: string; finalState?: Record<string, unknown>; reason?: string }
+ *   | { status: "failed"; error: string; code?: string }
+ * >}
+ */
+export async function cancelExecutionOutcome(options) {
+  const { executionId, store, reason } = options;
+
+  if (typeof executionId !== "string" || !executionId) {
+    return { status: "failed", error: "executionId must be a non-empty string", code: "CANCEL_VALIDATION_ERROR" };
+  }
+  if (!store || typeof store.append !== "function" || typeof store.listByExecution !== "function") {
+    return { status: "failed", error: "store must implement ExecutionHistoryStore", code: "CANCEL_VALIDATION_ERROR" };
+  }
+
+  const rows = store.listByExecution(executionId);
+  try {
+    assertHistoryReadableByEngine(rows);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: "failed", error: msg, code: "CANCEL_VALIDATION_ERROR" };
+  }
+  if (rows.length === 0) {
+    return {
+      status: "failed",
+      error: `Execution "${executionId}" was not found.`,
+      code: "EXECUTION_NOT_FOUND",
+    };
+  }
+
+  const lastTerminal = findLatestTerminalEvent(rows);
+  if (lastTerminal?.name === "ExecutionCancelled") {
+    const priorReason =
+      typeof lastTerminal.payload?.reason === "string" ? lastTerminal.payload.reason : undefined;
+    return {
+      status: "cancelled",
+      executionId,
+      finalState: latestStateFromHistory(rows),
+      ...(priorReason ? { reason: priorReason } : {}),
+    };
+  }
+  if (lastTerminal?.name === "ExecutionCompleted" || lastTerminal?.name === "ExecutionFailed") {
+    return {
+      status: "failed",
+      error: "Cannot cancel: execution is already terminal.",
+      code: "CANCEL_NOT_ALLOWED",
+    };
+  }
+
+  const nodeId = (() => {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const row = rows[i];
+      if (typeof row.payload?.nodeId === "string") {
+        return row.payload.nodeId;
+      }
+    }
+    return undefined;
+  })();
+
+  const reasonText = typeof reason === "string" && reason.trim() !== "" ? reason.trim() : undefined;
+
+  store.append(executionId, {
+    kind: "command",
+    name: "CancelExecution",
+    payload: {
+      executionId,
+      ...(nodeId ? { nodeId } : {}),
+      ...(reasonText ? { reason: reasonText } : {}),
+    },
+  });
+  store.append(executionId, {
+    kind: "event",
+    name: "ExecutionCancelled",
+    payload: {
+      executionId,
+      ...(nodeId ? { nodeId } : {}),
+      ...(reasonText ? { reason: reasonText } : {}),
+    },
+  });
+
+  return {
+    status: "cancelled",
+    executionId,
+    finalState: latestStateFromHistory(rows),
+    ...(reasonText ? { reason: reasonText } : {}),
+  };
 }

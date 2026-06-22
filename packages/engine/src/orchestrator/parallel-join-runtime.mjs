@@ -25,7 +25,10 @@ import { INTERRUPT_IN_PARALLEL_BRANCH_CODE } from "./workflow-graph-invariants.m
  *   | { ok: false; error: string; code?: string }
  *   | { kind: 'awaiting_activity'; nodeId: string; parallelSpan?: Record<string, unknown> }
  * >} runPlaceholderActivity
- * @property {(node: { id: string; type: string; config?: object }, scheduled: { replayed: boolean }) => Promise<void>} runWaitNode
+ * @property {(node: { id: string; type: string; config?: object }, scheduled: { replayed: boolean }) => Promise<
+ *   | void
+ *   | { kind: 'awaiting_signal'; nodeId: string; signalName: string }
+ * >} runWaitNode
  * @property {(state: Record<string, unknown>, context: string) => void} throwIfStateInvalid
  * @property {object} stateSchema
  * @property {{ json: (data: unknown, query: string) => Promise<unknown> }} jq
@@ -50,6 +53,7 @@ export function createParallelJoinRuntime(params) {
    *   | { kind: 'failed'; error: string; code?: string }
    *   | { kind: 'interrupt'; nodeId: string; state: Record<string, unknown> }
    *   | { kind: 'awaiting_activity'; nodeId: string; state: Record<string, unknown>; parallelSpan?: Record<string, unknown> }
+   *   | { kind: 'awaiting_signal'; nodeId: string; state: Record<string, unknown>; signalName: string }
    * >}
    */
   async function runBranchToJoin(nodeId, joinTargetId, branchCtx) {
@@ -136,8 +140,9 @@ export function createParallelJoinRuntime(params) {
       }
 
       if (node.type === "wait") {
+        let waitResult;
         try {
-          await hooks.runWaitNode(
+          waitResult = await hooks.runWaitNode(
             /** @type {{ id: string; type: string; config?: object }} */ (node),
             scheduled
           );
@@ -146,6 +151,14 @@ export function createParallelJoinRuntime(params) {
           hooks.appendCmd("FailNode", { nodeId: cur, reason: "wait_failed", message: msg });
           hooks.appendEvt("ExecutionFailed", { error: msg });
           return { kind: "failed", error: msg };
+        }
+        if (waitResult && typeof waitResult === "object" && waitResult.kind === "awaiting_signal") {
+          return {
+            kind: "awaiting_signal",
+            nodeId: waitResult.nodeId,
+            state: JSON.parse(JSON.stringify(hooks.getState())),
+            signalName: waitResult.signalName,
+          };
         }
         hooks.appendCmd("CompleteNode", { nodeId: cur, output: {} });
         const stateUpdatedSeq = hooks.appendEvt("StateUpdated", {
@@ -293,6 +306,7 @@ export function createParallelJoinRuntime(params) {
    *   | { kind: 'failed'; error: string; code?: string }
    *   | { kind: 'interrupt'; nodeId: string; state: Record<string, unknown> }
    *   | { kind: 'awaiting_activity'; nodeId: string; state: Record<string, unknown>; parallelSpan?: Record<string, unknown> }
+   *   | { kind: 'awaiting_signal'; nodeId: string; state: Record<string, unknown>; signalName: string }
    * >}
    */
   async function executeParallelBlock(parallelNode, joinTargetId) {
@@ -366,6 +380,7 @@ export function createParallelJoinRuntime(params) {
           branchEntryNodeId: b.entry,
         });
         if (r.kind === "awaiting_activity") return r;
+        if (r.kind === "awaiting_signal") return r;
         if (r.kind === "interrupt") return r;
         if (r.kind === "ok") {
           successIndex = i;
@@ -394,6 +409,7 @@ export function createParallelJoinRuntime(params) {
           branchEntryNodeId: b.entry,
         });
         if (r.kind === "awaiting_activity") return r;
+        if (r.kind === "awaiting_signal") return r;
         if (r.kind === "interrupt") return r;
         if (r.kind === "ok") {
           successes += 1;
