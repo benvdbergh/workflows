@@ -127,13 +127,15 @@ function mcpErrorForCancelFailure(code, message) {
 
 /**
  * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function; cancelWorkflow: Function; listWorkflowExecutions: Function }} workflowPort
+ * @param {{ transportValidation?: import("./transport-validation.mjs").TransportValidationOptions }} [options]
  */
-export function createMcpWorkflowToolHandlers(workflowPort) {
+export function createMcpWorkflowToolHandlers(workflowPort, options = {}) {
+  const transportValidation = options.transportValidation ?? {};
   return {
     async workflow_start(args) {
       try {
         const parsed = workflowStartArgsSchema.parse(args);
-        validateWorkflowStartTransportPayload(parsed.definition, parsed.input);
+        validateWorkflowStartTransportPayload(parsed.definition, parsed.input, transportValidation);
         const response = await workflowPort.startWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,
@@ -200,7 +202,7 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
     async workflow_resume(args) {
       try {
         const parsed = workflowResumeArgsSchema.parse(args);
-        validateWorkflowResumeTransportPayload(parsed.definition, parsed.resume_payload);
+        validateWorkflowResumeTransportPayload(parsed.definition, parsed.resume_payload, transportValidation);
         const response = await workflowPort.resumeWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,

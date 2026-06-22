@@ -139,10 +139,12 @@ function adaptCaughtError(error) {
  * @param {{
  *   definitionRegistry?: DefinitionRegistry;
  *   store?: import("../../persistence/types.mjs").ExecutionHistoryStore;
+ *   transportValidation?: import("../mcp/transport-validation.mjs").TransportValidationOptions;
  * }} [deps]
  */
 export function createRestWorkflowHandler(workflowPort, deps = {}) {
-  const definitionRegistry = deps.definitionRegistry ?? new DefinitionRegistry();
+  const transportValidation = deps.transportValidation ?? {};
+  const definitionRegistry = deps.definitionRegistry ?? new DefinitionRegistry({ transportValidation });
   const store = deps.store;
 
   /**
@@ -190,7 +192,7 @@ export function createRestWorkflowHandler(workflowPort, deps = {}) {
           activity_execution_mode: body.activity_execution_mode,
           allow_existing_execution_id: body.allow_existing_execution_id,
         });
-        validateWorkflowStartTransportPayload(parsed.definition, parsed.input);
+        validateWorkflowStartTransportPayload(parsed.definition, parsed.input, transportValidation);
         const response = await workflowPort.startWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,
@@ -259,7 +261,7 @@ export function createRestWorkflowHandler(workflowPort, deps = {}) {
           resume_payload: body.resume_payload ?? {},
           activity_execution_mode: body.activity_execution_mode,
         });
-        validateWorkflowResumeTransportPayload(parsed.definition, parsed.resume_payload);
+        validateWorkflowResumeTransportPayload(parsed.definition, parsed.resume_payload, transportValidation);
         const response = await workflowPort.resumeWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,

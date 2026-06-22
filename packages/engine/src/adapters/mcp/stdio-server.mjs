@@ -18,13 +18,16 @@ const enginePackageVersion = JSON.parse(readFileSync(enginePackageJsonPath, "utf
 
 /**
  * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function; cancelWorkflow: Function; listWorkflowExecutions: Function }} workflowPort
+ * @param {{ transportValidation?: import("./transport-validation.mjs").TransportValidationOptions }} [options]
  */
-export function createMcpWorkflowStdioServer(workflowPort) {
+export function createMcpWorkflowStdioServer(workflowPort, options = {}) {
   const server = new McpServer({
     name: "@agent-workflow/engine-mcp-stdio",
     version: enginePackageVersion,
   });
-  const handlers = createMcpWorkflowToolHandlers(workflowPort);
+  const handlers = createMcpWorkflowToolHandlers(workflowPort, {
+    transportValidation: options.transportValidation,
+  });
 
   server.registerTool(
     "workflow_start",

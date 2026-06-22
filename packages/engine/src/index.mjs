@@ -6,7 +6,15 @@
  * @typedef {import("./orchestrator/activity-executor.mjs").ActivityExecutor} ActivityExecutor
  */
 export * from "./validate.mjs";
-export { verifyDefinitionSignature, extractDefinitionSignature } from "./definition-signing.mjs";
+export { verifyDefinitionSignature, extractDefinitionSignature, stripDefinitionSignature } from "./definition-signing.mjs";
+export {
+  resolveDefinitionSigningPolicyFromEnv,
+  resolveSigningPublicKeysFromEnv,
+  resolveDefinitionSigningOptions,
+  DEFINITION_SIGNING_ALG,
+  DEFINITION_SIGNING_MODE_ENV,
+  DEFINITION_SIGNING_PUBLIC_KEYS_ENV,
+} from "./definition-signing.mjs";
 export {
   createCompositeSecretResolver,
   createDefaultSecretResolver,

@@ -11,7 +11,10 @@ import {
   StepHandlerRegistry,
   submitActivityOutcome,
   validateWorkflowDefinition,
+  verifyDefinitionSignature,
 } from "../packages/engine/src/index.mjs";
+import { loadPublicKeysFromConfig } from "../packages/engine/src/definition-signing.mjs";
+import { signDefinitionForTest, TEST_SIGNING_PRIVATE_KEY_PKCS8_B64URL } from "../packages/engine/test/helpers/definition-signing-test-helpers.mjs";
 import { runParityVector } from "./parity-runner.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,7 +25,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  * @typedef {{
  *   id: string;
  *   description?: string;
- *   kind: "schema" | "replay" | "parity";
+ *   kind: "schema" | "replay" | "parity" | "signing";
  *   definition: string;
  *   input?: Record<string, unknown>;
  *   historyPrefix?: Array<{
@@ -51,6 +54,10 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *     definitionTamper?: Record<string, unknown>;
  *   }>;
  *   resumeDefinitionTamper?: Record<string, unknown>;
+ *   signFixture?: boolean;
+ *   signingPolicy?: { mode: "optional" | "require" };
+ *   publicKeys?: Record<string, string>;
+ *   tamperSignatureValue?: boolean;
  *   expect:
  *     | {
  *         ok: boolean;
@@ -142,6 +149,32 @@ function runSchemaVector(vector) {
     actualOk: result.ok,
     expectedOk: vector.expect.ok,
     errors: result.ok ? [] : (result.errors ?? []),
+  };
+}
+
+/**
+ * @param {ConformanceVector} vector
+ */
+function runSigningVector(vector) {
+  const definitionPath = path.resolve(repoRoot, vector.definition);
+  let definition = JSON.parse(readFileSync(definitionPath, "utf8"));
+  if (vector.signFixture === true) {
+    definition = signDefinitionForTest(definition, TEST_SIGNING_PRIVATE_KEY_PKCS8_B64URL);
+  }
+  if (vector.tamperSignatureValue === true && definition.document?.signature) {
+    definition.document.signature.value = definition.document.signature.value.replace(/.$/, "X");
+  }
+  const policy = vector.signingPolicy ?? { mode: "optional" };
+  const publicKeysById = loadPublicKeysFromConfig(vector.publicKeys ?? {});
+  const result = verifyDefinitionSignature(definition, { policy, publicKeysById });
+  const expect = /** @type {{ ok: boolean; verified?: boolean }} */ (vector.expect);
+  const passed =
+    result.ok === expect.ok &&
+    (expect.verified === undefined || (result.ok && result.verified === expect.verified));
+  return {
+    passed,
+    result,
+    expect,
   };
 }
 
@@ -481,7 +514,7 @@ function evaluateDiagnosticSignals(errors, signals) {
  */
 export async function runVector(discovered) {
   const { file, vector } = discovered;
-  if (vector.kind !== "schema" && vector.kind !== "replay" && vector.kind !== "parity") {
+  if (vector.kind !== "schema" && vector.kind !== "replay" && vector.kind !== "parity" && vector.kind !== "signing") {
     return {
       id: vector.id,
       file: path.relative(repoRoot, file),
@@ -504,6 +537,29 @@ export async function runVector(discovered) {
         passed: execution.passed,
         ...(execution.reason ? { reason: execution.reason } : {}),
         ...(execution.context ? { context: execution.context } : {}),
+      };
+    }
+
+    if (vector.kind === "signing") {
+      const execution = runSigningVector(vector);
+      const category = execution.passed ? "signing-pass" : "signing-fail-by-design";
+      if (execution.passed) {
+        return {
+          id: vector.id,
+          file: path.relative(repoRoot, file),
+          category,
+          passed: true,
+        };
+      }
+      return {
+        id: vector.id,
+        file: path.relative(repoRoot, file),
+        category,
+        passed: false,
+        reason: `Expected ok=${execution.expect.ok} verified=${execution.expect.verified ?? "any"} but got ${JSON.stringify(execution.result)}`,
+        context: {
+          definition: vector.definition,
+        },
       };
     }
 

@@ -30,6 +30,11 @@ import {
   StepActivityExecutor,
   StepHandlerRegistry,
 } from "../../orchestrator/step-activity-executor.mjs";
+import {
+  resolveDefinitionSigningOptions,
+  resolveDefinitionSigningPolicyFromEnv,
+  resolveSigningPublicKeysFromEnv,
+} from "../../definition-signing.mjs";
 import { createDefaultSecretResolver } from "../../security/secret-resolver.mjs";
 
 const enginePackageJsonPath = fileURLToPath(new URL("../../../package.json", import.meta.url));
@@ -409,6 +414,22 @@ export async function loadProductionDelegateExecutor(options = {}) {
   }
 
   return { ok: true, executor: buildCompositeDelegateExecutor(subExecutors) };
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {string} [cwd]
+ * @returns {import("../../adapters/mcp/transport-validation.mjs").TransportValidationOptions}
+ */
+export function resolveTransportValidationOptionsFromEnv(env = process.env, cwd = process.cwd()) {
+  return {
+    signing: resolveDefinitionSigningOptions({
+      policy: resolveDefinitionSigningPolicyFromEnv(env),
+      publicKeysById: resolveSigningPublicKeysFromEnv(env, cwd),
+      env,
+      cwd,
+    }),
+  };
 }
 
 export { enginePackageVersion };
