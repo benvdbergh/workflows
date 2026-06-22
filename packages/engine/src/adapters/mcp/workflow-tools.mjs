@@ -1,5 +1,6 @@
 import {
   workflowResumeArgsSchema,
+  workflowCancelArgsSchema,
   workflowSignalArgsSchema,
   workflowStartArgsSchema,
   workflowStatusArgsSchema,
@@ -12,6 +13,7 @@ import {
 } from "./transport-validation.mjs";
 import {
   resumeResponseFromPort,
+  cancelResponseFromPort,
   signalResponseFromPort,
   startResponseFromPort,
   statusResponseFromPort,
@@ -102,8 +104,26 @@ function mcpErrorForSignalFailure(code, message) {
   return mapEngineFailure(new Error(text));
 }
 
+const CANCEL_ADAPTER_CODES = new Set([
+  MCP_ADAPTER_ERROR.CANCEL_NOT_ALLOWED,
+  MCP_ADAPTER_ERROR.CANCEL_VALIDATION_ERROR,
+  MCP_ADAPTER_ERROR.EXECUTION_NOT_FOUND,
+]);
+
 /**
- * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function }} workflowPort
+ * @param {string | undefined} code
+ * @param {string | undefined} message
+ */
+function mcpErrorForCancelFailure(code, message) {
+  const text = message && message.trim() !== "" ? message : "Cancel request rejected.";
+  if (code && CANCEL_ADAPTER_CODES.has(code)) {
+    return new McpAdapterError(code, text);
+  }
+  return mapEngineFailure(new Error(text));
+}
+
+/**
+ * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function; cancelWorkflow: Function }} workflowPort
  */
 export function createMcpWorkflowToolHandlers(workflowPort) {
   return {
@@ -308,6 +328,42 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
         const adapted =
           error instanceof ZodError
             ? new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, "Invalid workflow_signal arguments.", {
+                issues: error.issues,
+              })
+            : normalizeMcpAdapterError(error);
+        return toToolErrorResult(adapted);
+      }
+    },
+
+    async workflow_cancel(args) {
+      try {
+        const parsed = workflowCancelArgsSchema.parse(args);
+        const response = await workflowPort.cancelWorkflow({
+          executionId: parsed.execution_id,
+          ...(parsed.reason !== undefined ? { reason: parsed.reason } : {}),
+        });
+
+        if (response.status === "failed") {
+          throw mcpErrorForCancelFailure(response.code, response.error);
+        }
+
+        const structured = cancelResponseFromPort(response);
+        return {
+          content: [
+            {
+              type: "text",
+              text: withStructuredJsonInText(
+                `Execution ${response.executionId} ${response.status}.`,
+                structured
+              ),
+            },
+          ],
+          structuredContent: structured,
+        };
+      } catch (error) {
+        const adapted =
+          error instanceof ZodError
+            ? new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, "Invalid workflow_cancel arguments.", {
                 issues: error.issues,
               })
             : normalizeMcpAdapterError(error);

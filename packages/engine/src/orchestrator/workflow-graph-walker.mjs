@@ -38,6 +38,7 @@ import {
   expectedCommandIdentity,
   findLatestNonCheckpointEvent,
   findPendingActivityRequest,
+  findLatestTerminalEvent,
   findPendingSignalWait,
   isParallelSpanPayload,
   isPendingActivityCompletionContinuation,
@@ -1910,4 +1911,103 @@ export async function deliverSignalOutcome(options) {
     ...(delegateExecutor ? { delegateExecutor } : {}),
     ...(assertNoDelegateExecutorInvocation ? { assertNoDelegateExecutorInvocation: true } : {}),
   });
+}
+
+/**
+ * @typedef {object} CancelExecutionOutcomeOptions
+ * @property {string} executionId
+ * @property {import("../persistence/types.mjs").ExecutionHistoryStore} store
+ * @property {string} [reason]
+ */
+
+/**
+ * Append `CancelExecution` / `ExecutionCancelled` and stop the walker cooperatively.
+ *
+ * @param {CancelExecutionOutcomeOptions} options
+ * @returns {Promise<
+ *   | { status: "cancelled"; executionId: string; finalState?: Record<string, unknown>; reason?: string }
+ *   | { status: "failed"; error: string; code?: string }
+ * >}
+ */
+export async function cancelExecutionOutcome(options) {
+  const { executionId, store, reason } = options;
+
+  if (typeof executionId !== "string" || !executionId) {
+    return { status: "failed", error: "executionId must be a non-empty string", code: "CANCEL_VALIDATION_ERROR" };
+  }
+  if (!store || typeof store.append !== "function" || typeof store.listByExecution !== "function") {
+    return { status: "failed", error: "store must implement ExecutionHistoryStore", code: "CANCEL_VALIDATION_ERROR" };
+  }
+
+  const rows = store.listByExecution(executionId);
+  try {
+    assertHistoryReadableByEngine(rows);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: "failed", error: msg, code: "CANCEL_VALIDATION_ERROR" };
+  }
+  if (rows.length === 0) {
+    return {
+      status: "failed",
+      error: `Execution "${executionId}" was not found.`,
+      code: "EXECUTION_NOT_FOUND",
+    };
+  }
+
+  const lastTerminal = findLatestTerminalEvent(rows);
+  if (lastTerminal?.name === "ExecutionCancelled") {
+    const priorReason =
+      typeof lastTerminal.payload?.reason === "string" ? lastTerminal.payload.reason : undefined;
+    return {
+      status: "cancelled",
+      executionId,
+      finalState: latestStateFromHistory(rows),
+      ...(priorReason ? { reason: priorReason } : {}),
+    };
+  }
+  if (lastTerminal?.name === "ExecutionCompleted" || lastTerminal?.name === "ExecutionFailed") {
+    return {
+      status: "failed",
+      error: "Cannot cancel: execution is already terminal.",
+      code: "CANCEL_NOT_ALLOWED",
+    };
+  }
+
+  const nodeId = (() => {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const row = rows[i];
+      if (typeof row.payload?.nodeId === "string") {
+        return row.payload.nodeId;
+      }
+    }
+    return undefined;
+  })();
+
+  const reasonText = typeof reason === "string" && reason.trim() !== "" ? reason.trim() : undefined;
+
+  store.append(executionId, {
+    kind: "command",
+    name: "CancelExecution",
+    payload: {
+      executionId,
+      ...(nodeId ? { nodeId } : {}),
+      ...(reasonText ? { reason: reasonText } : {}),
+    },
+  });
+  store.append(executionId, {
+    kind: "event",
+    name: "ExecutionCancelled",
+    payload: {
+      executionId,
+      ...(nodeId ? { nodeId } : {}),
+      ...(reasonText ? { reason: reasonText } : {}),
+    },
+  });
+
+  return {
+    status: "cancelled",
+    executionId,
+    finalState: latestStateFromHistory(rows),
+    ...(reasonText ? { reason: reasonText } : {}),
+  };
 }

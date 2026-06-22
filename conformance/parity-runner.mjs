@@ -17,7 +17,7 @@ import { SdkError } from "../packages/sdk/src/errors.mjs";
 /** @typedef {"port" | "mcp" | "rest" | "sdk"} ParitySurface */
 
 /**
- * @typedef {"start" | "status" | "resume" | "submit_activity" | "signal"} ParityOp
+ * @typedef {"start" | "status" | "resume" | "submit_activity" | "signal" | "cancel"} ParityOp
  */
 
 /**
@@ -27,6 +27,7 @@ import { SdkError } from "../packages/sdk/src/errors.mjs";
  * @property {Record<string, unknown>} [resumePayload]
  * @property {string} [nodeId]
  * @property {string} [signalName]
+ * @property {string} [reason]
  * @property {Record<string, unknown>} [payload]
  * @property {{ ok: true; result?: Record<string, unknown>; delegateCorrelationId?: string; delegate_correlation_id?: string; externalTaskId?: string; external_task_id?: string } | { ok: false; error: string; code?: string }} [outcome]
  * @property {"in_process" | "host_mediated"} [activityExecutionMode]
@@ -119,6 +120,7 @@ function normalizePortSnapshot(op, portResult, isError, errorCode) {
       : {}),
     ...(parallelSpan ? { parallel_span: parallelSpanToMcp(parallelSpan) } : {}),
     ...(r.signalName !== undefined ? { signal_name: r.signalName } : {}),
+    ...(r.reason !== undefined ? { reason: r.reason } : {}),
   };
 }
 
@@ -152,6 +154,7 @@ function normalizeTransportSnapshot(op, transportBody) {
     ...(s.parent_execution_id !== undefined ? { parent_execution_id: s.parent_execution_id } : {}),
     ...(s.parallel_span !== undefined ? { parallel_span: s.parallel_span } : {}),
     ...(s.signal_name !== undefined ? { signal_name: s.signal_name } : {}),
+    ...(s.reason !== undefined ? { reason: s.reason } : {}),
   };
 }
 
@@ -672,6 +675,32 @@ async function executeStep(
         ...(activityMode ? { activity_execution_mode: activityMode } : {}),
       });
       return { snapshot: normalizeMcpSnapshot("signal", mcpResult), isError: Boolean(mcpResult.isError) };
+    }
+  }
+
+  if (step.op === "cancel") {
+    if (surface === "port") {
+      const portResult = await port.cancelWorkflow({
+        executionId,
+        ...(step.reason !== undefined ? { reason: step.reason } : {}),
+      });
+      const isError = portResult.status === "failed";
+      return {
+        snapshot: normalizePortSnapshot(
+          "cancel",
+          portResult,
+          isError,
+          isError ? portResult.code ?? "ENGINE_FAILURE" : undefined
+        ),
+        isError,
+      };
+    }
+    if (surface === "mcp") {
+      const mcpResult = await handlers.workflow_cancel({
+        execution_id: executionId,
+        ...(step.reason !== undefined ? { reason: step.reason } : {}),
+      });
+      return { snapshot: normalizeMcpSnapshot("cancel", mcpResult), isError: Boolean(mcpResult.isError) };
     }
   }
 

@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   workflowResumeArgsSchema,
+  workflowCancelArgsSchema,
   workflowSignalArgsSchema,
   workflowStartArgsSchema,
   workflowStatusArgsSchema,
@@ -15,7 +16,7 @@ const enginePackageJsonPath = fileURLToPath(new URL("../../../package.json", imp
 const enginePackageVersion = JSON.parse(readFileSync(enginePackageJsonPath, "utf8")).version;
 
 /**
- * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function }} workflowPort
+ * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function; cancelWorkflow: Function }} workflowPort
  */
 export function createMcpWorkflowStdioServer(workflowPort) {
   const server = new McpServer({
@@ -74,6 +75,16 @@ export function createMcpWorkflowStdioServer(workflowPort) {
       inputSchema: workflowSignalArgsSchema,
     },
     (args) => handlers.workflow_signal(args)
+  );
+
+  server.registerTool(
+    "workflow_cancel",
+    {
+      title: "Cancel workflow execution",
+      description: "Request cooperative cancellation for a non-terminal execution identity.",
+      inputSchema: workflowCancelArgsSchema,
+    },
+    (args) => handlers.workflow_cancel(args)
   );
 
   return {

@@ -97,6 +97,7 @@ describe("MCP workflow adapter tool handlers", () => {
       resumeWorkflow: unusedPortFn("resumeWorkflow"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
+      cancelWorkflow: unusedPortFn("cancelWorkflow"),
     });
 
     const response = await handlers.workflow_start({
@@ -118,6 +119,7 @@ describe("MCP workflow adapter tool handlers", () => {
       resumeWorkflow: unusedPortFn("resumeWorkflow"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
+      cancelWorkflow: unusedPortFn("cancelWorkflow"),
     });
 
     const response = await handlers.workflow_start({
@@ -244,6 +246,7 @@ describe("MCP workflow adapter tool handlers", () => {
       getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
+      cancelWorkflow: unusedPortFn("cancelWorkflow"),
       async resumeWorkflow() {
         return {
           executionId: "exec-55",
@@ -270,6 +273,7 @@ describe("MCP workflow adapter tool handlers", () => {
       getWorkflowStatus: unusedPortFn("getWorkflowStatus"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
+      cancelWorkflow: unusedPortFn("cancelWorkflow"),
       async resumeWorkflow() {
         return {
           executionId: "exec-unknown",
@@ -327,6 +331,7 @@ describe("MCP workflow adapter tool handlers", () => {
       resumeWorkflow: unusedPortFn("resumeWorkflow"),
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
+      cancelWorkflow: unusedPortFn("cancelWorkflow"),
     });
 
     const response = await handlers.workflow_start({
@@ -473,5 +478,52 @@ describe("MCP workflow adapter tool handlers", () => {
 
     assert.equal(response.isError, true);
     assert.equal(response.structuredContent.error.code, "SIGNAL_NOT_AWAITING");
+  });
+
+  it("workflow_cancel cooperatively cancels awaiting_signal run", async () => {
+    const definition = signalWaitDefinition();
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const executionId = "exec-mcp-cancel-ok";
+    const input = {};
+
+    const started = await handlers.workflow_start({
+      execution_id: executionId,
+      definition,
+      input,
+    });
+    assert.equal(started.structuredContent.status, "awaiting_signal");
+
+    const cancelled = await handlers.workflow_cancel({
+      execution_id: executionId,
+      reason: "operator abort",
+    });
+    assert.equal(cancelled.isError, undefined);
+    assert.equal(cancelled.structuredContent.status, "cancelled");
+    assert.equal(cancelled.structuredContent.reason, "operator abort");
+
+    const status = await handlers.workflow_status({ execution_id: executionId });
+    assert.equal(status.structuredContent.phase, "cancelled");
+    assert.equal(status.structuredContent.last_error, "operator abort");
+  });
+
+  it("workflow_cancel maps terminal execution to CANCEL_NOT_ALLOWED", async () => {
+    const definition = signalWaitDefinition();
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const executionId = "exec-mcp-cancel-terminal";
+    const input = {};
+
+    await handlers.workflow_start({ execution_id: executionId, definition, input });
+    await handlers.workflow_signal({
+      execution_id: executionId,
+      definition,
+      input,
+      signal_name: "approved",
+    });
+
+    const response = await handlers.workflow_cancel({ execution_id: executionId });
+    assert.equal(response.isError, true);
+    assert.equal(response.structuredContent.error.code, "CANCEL_NOT_ALLOWED");
   });
 });

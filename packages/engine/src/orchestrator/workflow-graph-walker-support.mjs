@@ -166,6 +166,30 @@ export function latestStateFromHistory(rows) {
   return undefined;
 }
 
+const TERMINAL_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "ExecutionCancelled"]);
+
+/**
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function isTerminalEventName(name) {
+  return TERMINAL_EVENT_NAMES.has(name);
+}
+
+/**
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
+ */
+export function findLatestTerminalEvent(rows) {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.kind === "event" && isTerminalEventName(row.name)) {
+      return row;
+    }
+  }
+  return undefined;
+}
+
 /**
  * @param {import("../persistence/types.mjs").HistoryRow[]} rows
  * @returns {import("../persistence/types.mjs").HistoryRow | undefined}

@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { deliverSignalOutcome, resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
+import { cancelExecutionOutcome, deliverSignalOutcome, resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
 import { RedactingExecutionHistoryStore } from "../persistence/redacting-history-store.mjs";
 
-const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "InterruptRaised"]);
+const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "ExecutionCancelled", "InterruptRaised"]);
 
 /**
  * @typedef {object} WorkflowStartRequest
@@ -52,7 +52,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
 /**
  * @typedef {object} WorkflowStartResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} status
  * @property {Record<string, unknown> | undefined} finalState
  * @property {unknown} [result]
  * @property {string | undefined} error
@@ -68,7 +68,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
 /**
  * @typedef {object} WorkflowStatusResponse
  * @property {string} executionId
- * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} phase
+ * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} phase
  * @property {string | undefined} currentNodeId
  * @property {string | undefined} lastError
  * @property {string | undefined} [delegateCorrelationId] Latest agent_delegate activity correlation
@@ -81,9 +81,25 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
  */
 
 /**
+ * @typedef {object} WorkflowCancelRequest
+ * @property {string} executionId
+ * @property {string} [reason]
+ */
+
+/**
+ * @typedef {object} WorkflowCancelResponse
+ * @property {string} executionId
+ * @property {"cancelled" | "failed"} status
+ * @property {Record<string, unknown> | undefined} [finalState]
+ * @property {string | undefined} [error]
+ * @property {string | undefined} [code]
+ * @property {string} [reason]
+ */
+
+/**
  * @typedef {object} WorkflowResumeResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} status
  * @property {Record<string, unknown> | undefined} finalState
  * @property {unknown} [result]
  * @property {string | undefined} error
@@ -112,7 +128,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
 /**
  * @typedef {object} WorkflowSignalResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} status
  * @property {Record<string, unknown> | undefined} [finalState]
  * @property {unknown} [result]
  * @property {string | undefined} [error]
@@ -130,7 +146,7 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "I
 /**
  * @typedef {object} WorkflowSubmitActivityResponse
  * @property {string} executionId
- * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal"} status
+ * @property {"completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} status
  * @property {Record<string, unknown> | undefined} [finalState]
  * @property {unknown} [result]
  * @property {string | undefined} [error]
@@ -470,6 +486,15 @@ export function createWorkflowApplicationPort(deps) {
           lastError: latestError(rows),
         });
       }
+      if (lastPrimary?.name === "ExecutionCancelled") {
+        const cancelReason =
+          typeof lastPrimary.payload?.reason === "string" ? lastPrimary.payload.reason : undefined;
+        return buildStatusResponse(request.executionId, rows, {
+          phase: "cancelled",
+          currentNodeId: latestNodeId(rows),
+          lastError: cancelReason,
+        });
+      }
       if (lastPrimary?.name === "InterruptRaised") {
         return buildStatusResponse(request.executionId, rows, {
           phase: "interrupted",
@@ -617,6 +642,28 @@ export function createWorkflowApplicationPort(deps) {
             }
           : {}),
         ...(result.status === "awaiting_signal" ? awaitingSignalFromRunResult(result) : {}),
+      };
+    },
+
+    /**
+     * @param {WorkflowCancelRequest} request
+     * @returns {Promise<WorkflowCancelResponse>}
+     */
+    async cancelWorkflow(request) {
+      const result = await cancelExecutionOutcome({
+        executionId: request.executionId,
+        store,
+        ...(request.reason !== undefined ? { reason: request.reason } : {}),
+      });
+
+      return {
+        executionId: request.executionId,
+        status: result.status,
+        ...(result.finalState !== undefined ? { finalState: result.finalState } : {}),
+        ...(result.status === "failed"
+          ? { error: result.error, ...(result.code ? { code: result.code } : {}) }
+          : {}),
+        ...(result.status === "cancelled" && result.reason ? { reason: result.reason } : {}),
       };
     },
   };

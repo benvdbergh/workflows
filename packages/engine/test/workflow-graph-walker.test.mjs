@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
-import { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome, deliverSignalOutcome } from "../src/orchestrator/workflow-graph-walker.mjs";
+import { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome, deliverSignalOutcome, cancelExecutionOutcome } from "../src/orchestrator/workflow-graph-walker.mjs";
 import { createWorkflowApplicationPort } from "../src/application/workflow-application-port.mjs";
 import { clearWorkflowRefs, registerWorkflowRef } from "../src/orchestrator/workflow-ref-resolver.mjs";
 
@@ -899,5 +899,70 @@ describe("runGraphWorkflow (signal wait)", () => {
     assert.equal(status.phase, "awaiting_signal");
     assert.equal(status.currentNodeId, "await_approval");
     assert.equal(status.signalName, "approved");
+  });
+});
+
+describe("cancelExecutionOutcome", () => {
+  it("appends CancelExecution and ExecutionCancelled for awaiting_signal run", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-signal-wait";
+    const input = {};
+
+    const first = await runGraphWorkflow({ definition, input, executionId, store });
+    assert.equal(first.status, "awaiting_signal");
+
+    const cancelled = await cancelExecutionOutcome({
+      executionId,
+      store,
+      reason: "test abort",
+    });
+    assert.equal(cancelled.status, "cancelled");
+    assert.equal(cancelled.reason, "test abort");
+
+    const rows = store.listByExecution(executionId);
+    assert.ok(rows.some((r) => r.kind === "command" && r.name === "CancelExecution"));
+    assert.equal(rows.at(-1)?.name, "ExecutionCancelled");
+
+    const port = createWorkflowApplicationPort({ store });
+    const status = await port.getWorkflowStatus({ executionId });
+    assert.equal(status.phase, "cancelled");
+    assert.equal(status.lastError, "test abort");
+  });
+
+  it("rejects cancel on completed execution with CANCEL_NOT_ALLOWED", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-completed";
+    const input = {};
+
+    await runGraphWorkflow({ definition, input, executionId, store });
+    await deliverSignalOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      signalName: "approved",
+    });
+
+    const rejected = await cancelExecutionOutcome({ executionId, store });
+    assert.equal(rejected.status, "failed");
+    assert.equal(rejected.code, "CANCEL_NOT_ALLOWED");
+  });
+
+  it("is idempotent when execution is already cancelled", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-idempotent";
+    const input = {};
+
+    await runGraphWorkflow({ definition, input, executionId, store });
+    await cancelExecutionOutcome({ executionId, store, reason: "once" });
+    const again = await cancelExecutionOutcome({ executionId, store, reason: "twice" });
+
+    assert.equal(again.status, "cancelled");
+    assert.equal(again.reason, "once");
+    const cancelEvents = store.listByExecution(executionId).filter((r) => r.name === "ExecutionCancelled");
+    assert.equal(cancelEvents.length, 1);
   });
 });

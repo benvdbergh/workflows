@@ -1,0 +1,23 @@
+{
+  "id": "parity.r4.signal_cancel",
+  "description": "Cooperative cancel stops awaiting_signal execution.",
+  "kind": "parity",
+  "definition": "examples/conformance-signal-wait.workflow.json",
+  "executionId": "parity-signal-cancel-1",
+  "steps": [
+    {
+      "op": "start",
+      "input": {},
+      "expect": { "status": "awaiting_signal", "node_id": "await_approval", "signal_name": "approved" }
+    },
+    {
+      "op": "cancel",
+      "reason": "operator abort",
+      "expect": { "status": "cancelled", "reason": "operator abort" }
+    },
+    {
+      "op": "status",
+      "expect": { "phase": "cancelled", "current_node_id": "await_approval", "last_error": "operator abort" }
+    }
+  ]
+}

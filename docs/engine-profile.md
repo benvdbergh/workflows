@@ -127,6 +127,7 @@ The full taxonomies are [RFC-04 §4.4](RFC/rfc-04-execution-model.md#44-command-
 - `StartParallel`, `JoinParallel`, `CancelParallelBranch`, `StartTimer`
 - `StartSignalWait`, `DeliverSignal`
 - `StartSubworkflow`, `CompleteSubworkflow`
+- `CancelExecution`
 
 **Commands — out of scope**
 
@@ -140,7 +141,7 @@ The full taxonomies are [RFC-04 §4.4](RFC/rfc-04-execution-model.md#44-command-
 - `ActivityRequested`, `ActivityCompleted`, `ActivityFailed`
 - `StateUpdated` (or equivalent embedding per engine profile, per [RFC-04 §4.6](RFC/rfc-04-execution-model.md#46-state-updates-and-reducers))
 - `InterruptRaised`, `InterruptResumed`
-- `ExecutionCompleted`, `ExecutionFailed`
+- `ExecutionCompleted`, `ExecutionFailed`, `ExecutionCancelled`
 - `ParallelForked`, `ParallelJoined`, `ParallelBranchCancelled`, `TimerStarted`, `TimerFired`
 - `SignalWaitStarted`, `SignalReceived`
 - `SubworkflowStarted`, `SubworkflowCompleted` (payloads include `childExecutionId`, `parentExecutionId`, `workflowRef`, `nodeId`)
