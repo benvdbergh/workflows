@@ -30,11 +30,11 @@ jobs:
     steps:
       - name: Checkout repository (default ref)
         if: ${{ inputs.checkout_ref == '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Checkout repository (explicit ref)
         if: ${{ inputs.checkout_ref != '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.checkout_ref }}
 

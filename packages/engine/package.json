@@ -18,16 +18,19 @@
   "files": [
     "src/",
     "schemas/",
+    "openapi/",
     "README.md"
   ],
   "bin": {
     "workflows-engine": "src/cli.mjs",
-    "workflows-engine-mcp": "src/mcp-stdio-server.mjs"
+    "workflows-engine-mcp": "src/mcp-stdio-server.mjs",
+    "workflows-engine-rest": "src/rest-server.mjs"
   },
   "scripts": {
     "prepack": "node ../../scripts/sync-engine-schema.mjs",
     "test": "node --test test/*.mjs",
-    "mcp:stdio": "node ./src/mcp-stdio-server.mjs"
+    "mcp:stdio": "node ./src/mcp-stdio-server.mjs",
+    "rest:serve": "node ./src/rest-server.mjs"
   },
   "engines": {
     "node": ">=22.5.0"

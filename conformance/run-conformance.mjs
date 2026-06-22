@@ -1,7 +1,21 @@
 import { discoverVectors, runVector } from "./runner.mjs";
+import { runSdkParitySmoke } from "./sdk-parity-smoke.mjs";
 
 const discovered = discoverVectors();
 const results = await Promise.all(discovered.map(runVector));
+const sdkSmoke = await runSdkParitySmoke();
+if (sdkSmoke.passed) {
+  console.error("PASS [sdk-parity-smoke] WorkflowClient REST transport");
+} else {
+  console.error(`FAIL [sdk-parity-smoke] ${sdkSmoke.reason}`);
+  results.push({
+    id: "sdk-parity-smoke",
+    file: "conformance/sdk-parity-smoke.mjs",
+    category: "sdk-parity-fail",
+    passed: false,
+    reason: sdkSmoke.reason,
+  });
+}
 const failed = results.filter((result) => !result.passed);
 
 for (const result of results) {
@@ -36,6 +50,7 @@ const summary = {
     parityPass: results.filter((result) => result.category === "parity-pass").length,
     parityPending: results.filter((result) => result.category === "parity-pending").length,
     parityFail: results.filter((result) => result.category === "parity-fail").length,
+    sdkParityFail: results.filter((result) => result.category === "sdk-parity-fail").length,
     unexpected: results.filter((result) => result.category === "unexpected").length,
   },
   vectors: results,
