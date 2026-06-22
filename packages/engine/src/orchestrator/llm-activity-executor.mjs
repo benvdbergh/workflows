@@ -1,8 +1,7 @@
 /**
  * Engine-direct LLM activity executor for `llm_call` nodes (OpenAI-compatible chat completions).
  *
- * Credentials and provider endpoints come from operator config (env / future vault refs), not workflow JSON (RFC-07 §7.3).
- * Full `apiKeySecretRef` vault resolution is deferred to BEN-103.
+ * Credentials and provider endpoints come from operator config (env / secret refs), not workflow JSON (RFC-07 §7.3).
  */
 
 import Ajv2020 from "ajv/dist/2020.js";
@@ -14,7 +13,7 @@ import Ajv2020 from "ajv/dist/2020.js";
  *
  * @typedef {object} LlmOperatorConfig
  * @property {string} [apiKeyEnv] Env var name holding the provider API key.
- * @property {string} [apiKeySecretRef] Vault secret ref (full resolver in BEN-103).
+ * @property {string} [apiKeySecretRef] Secret ref (`env:VAR` or `file:path`); resolved at invocation via {@link SecretResolver}.
  * @property {string} [baseUrl] OpenAI-compatible API base URL (default `https://api.openai.com/v1`).
  */
 
@@ -46,12 +45,22 @@ import Ajv2020 from "ajv/dist/2020.js";
 
 /**
  * @param {LlmOperatorConfig | undefined} operatorConfig
- * @param {NodeJS.ProcessEnv} [env]
- * @returns {{ ok: true, apiKey: string } | { ok: false, error: string, code: "LLM_CREDENTIALS_MISSING" }}
+ * @param {{ env?: NodeJS.ProcessEnv; secretResolver?: import("../security/secret-resolver.mjs").SecretResolver }} [options]
+ * @returns {Promise<{ ok: true, apiKey: string } | { ok: false, error: string, code: "LLM_CONFIG_INVALID" | "LLM_CREDENTIALS_MISSING" }>}
  */
-export function resolveLlmApiKey(operatorConfig, env = process.env) {
+export async function resolveLlmApiKey(operatorConfig, options = {}) {
+  const env = options.env ?? process.env;
+  const secretResolver = options.secretResolver;
   const cfg = operatorConfig && typeof operatorConfig === "object" ? operatorConfig : {};
   const apiKeyEnv = typeof cfg.apiKeyEnv === "string" ? cfg.apiKeyEnv.trim() : "";
+  const secretRef = typeof cfg.apiKeySecretRef === "string" ? cfg.apiKeySecretRef.trim() : "";
+  if (apiKeyEnv && secretRef) {
+    return {
+      ok: false,
+      error: "operator config must set only one of apiKeyEnv or apiKeySecretRef",
+      code: "LLM_CONFIG_INVALID",
+    };
+  }
   if (apiKeyEnv) {
     const value = env[apiKeyEnv];
     if (typeof value === "string" && value.trim() !== "") {
@@ -63,13 +72,32 @@ export function resolveLlmApiKey(operatorConfig, env = process.env) {
       code: "LLM_CREDENTIALS_MISSING",
     };
   }
-  const secretRef = typeof cfg.apiKeySecretRef === "string" ? cfg.apiKeySecretRef.trim() : "";
   if (secretRef) {
-    return {
-      ok: false,
-      error: `apiKeySecretRef "${secretRef}" requires vault resolution (planned in BEN-103); set apiKeyEnv for now`,
-      code: "LLM_CREDENTIALS_MISSING",
-    };
+    if (!secretResolver) {
+      return {
+        ok: false,
+        error: `apiKeySecretRef "${secretRef}" requires a secretResolver`,
+        code: "LLM_CREDENTIALS_MISSING",
+      };
+    }
+    try {
+      const value = await secretResolver.resolve(secretRef);
+      if (typeof value === "string" && value.trim() !== "") {
+        return { ok: true, apiKey: value };
+      }
+      return {
+        ok: false,
+        error: `apiKeySecretRef "${secretRef}" resolved to an empty value`,
+        code: "LLM_CREDENTIALS_MISSING",
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        error: `apiKeySecretRef "${secretRef}" could not be resolved: ${message}`,
+        code: "LLM_CREDENTIALS_MISSING",
+      };
+    }
   }
   return {
     ok: false,
@@ -251,11 +279,13 @@ export class LlmActivityExecutor {
    *   operatorConfig?: LlmOperatorConfig;
    *   provider?: LlmProvider;
    *   env?: NodeJS.ProcessEnv;
+   *   secretResolver?: import("../security/secret-resolver.mjs").SecretResolver;
    * }} [opts]
    */
   constructor(opts = {}) {
     this.operatorConfig = opts.operatorConfig ?? {};
     this.env = opts.env ?? process.env;
+    this.secretResolver = opts.secretResolver;
     this.provider =
       opts.provider ??
       new OpenAiCompatibleLlmProvider({
@@ -280,7 +310,10 @@ export class LlmActivityExecutor {
     if (!parsedCfg.ok) {
       return { ok: false, error: parsedCfg.error, code: parsedCfg.code };
     }
-    const keyResult = resolveLlmApiKey(this.operatorConfig, this.env);
+    const keyResult = await resolveLlmApiKey(this.operatorConfig, {
+      env: this.env,
+      secretResolver: this.secretResolver,
+    });
     if (!keyResult.ok) {
       return { ok: false, error: keyResult.error, code: keyResult.code };
     }

@@ -8,7 +8,7 @@
 | **`interrupt` inside `parallel` branch** | Resume would not restore `parallelSpan`/fork context | **Refused** at validation and runtime with `INTERRUPT_IN_PARALLEL_BRANCH`; conformance vector `schema.invalid.interrupt-in-parallel-branch`; parallel-aware resume deferred |
 | **Documentation drift** *(meta)* | Narrative contradicts walker code | Maintain arc42 + draw.io cross-links each release |
 | **Engine-direct ergonomics mismatch** | Integrators omit manifest wiring | MCP stdio binary defaults **`in_process` stub executor** unless operators supply **`WORKFLOW_ENGINE_MCP_CONFIG` / `--mcp-config`** or inject a bespoke **`ActivityExecutor`**—easily mistaken for broken tool execution (**ADR-0003**) |
-| **Security posture (alpha reference engine)** | Local stdio MCP trust assumptions bleed into unattended automation | Elevate manifests + scopes before scaling engine-direct footprints (**ADR-0002**, **ADR-0003**) |
+| **Security posture (alpha reference engine)** | Local stdio MCP trust assumptions bleed into unattended automation | Scoped REST bearer tokens (ADR-0005); stdio OS isolation boundary; elevate manifests before scaling engine-direct footprints (**ADR-0002**, **ADR-0003**) |
 | **Delegate/subworkflow status not on `workflow_status`** | Operators read full history for correlation ids | [#8](https://github.com/benvdbergh/workflows/issues/8) |
 | **Mock A2A only** | Production A2A interop not proven in CI | Real adapter + phase events per **ADR-0004** / roadmap |
 | **`subworkflow` URN registry coupling** | Packaged installs must call `registerWorkflowRef` | Document host wiring; optional built-in registry for demos |

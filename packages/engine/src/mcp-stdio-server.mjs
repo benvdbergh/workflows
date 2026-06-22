@@ -6,9 +6,11 @@ import {
   formatMcpManifestValidationErrors,
   loadProductionActivityExecutor,
   loadProductionDelegateExecutor,
+  resolveTransportValidationOptionsFromEnv,
   resolveWorkflowEngineMcpConfigPath,
 } from "./adapters/mcp/stdio-server-config.mjs";
 import { MemoryExecutionHistoryStore } from "./persistence/memory-history-store.mjs";
+import { loadControlPlaneAuthConfigFromEnv } from "./security/control-plane-auth.mjs";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -30,7 +32,16 @@ async function main() {
         "  WORKFLOW_ENGINE_MCP_CONFIG — operator manifest delegateAgents for mcp protocol (same path as tool_call).\n" +
         "  When none are set, agent_delegate uses MockA2ADelegateExecutor (local demo only; set\n" +
         "  WORKFLOW_ENGINE_PROFILE=demo to enable mock fallback for unconfigured protocols inside a partial composite).\n" +
-        "  Manifest schema: same as `workflows-engine mcp-manifest validate` (mcpServers stdio subset).\n"
+        "  Manifest schema: same as `workflows-engine mcp-manifest validate` (mcpServers stdio subset).\n" +
+        "\n" +
+        "Definition signing (v1 JWS Ed25519 profile):\n" +
+        "  WORKFLOW_ENGINE_DEFINITION_SIGNING_MODE — optional (default) or require.\n" +
+        "  WORKFLOW_ENGINE_SIGNING_PUBLIC_KEYS — inline JSON map { keyId: base64url-spki-or-raw-pub } or file:path.\n" +
+        "\n" +
+        "Control-plane auth (stdio boundary):\n" +
+        "  MCP stdio has no Authorization header channel — rely on OS process isolation between host and engine.\n" +
+        "  When WORKFLOW_ENGINE_AUTH_TOKENS is set, REST (`workflows-engine-rest`) enforces Bearer tokens;\n" +
+        "  stdio does not require tokens (backward compatible for local dev). See docs/security/mcp-control-plane-auth.md.\n"
     );
     return;
   }
@@ -83,7 +94,8 @@ async function main() {
     ...(activityExecutor ? { activityExecutor } : {}),
     ...(delegateExecutor ? { delegateExecutor } : {}),
   });
-  const server = createMcpWorkflowStdioServer(workflowPort);
+  const transportValidation = resolveTransportValidationOptionsFromEnv();
+  const server = createMcpWorkflowStdioServer(workflowPort, { transportValidation });
 
   process.on("uncaughtException", (error) => {
     process.stderr.write(`[engine-mcp-stdio] uncaught exception: ${error instanceof Error ? error.message : String(error)}\n`);
@@ -91,6 +103,12 @@ async function main() {
   process.on("unhandledRejection", (reason) => {
     process.stderr.write(`[engine-mcp-stdio] unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}\n`);
   });
+
+  if (loadControlPlaneAuthConfigFromEnv().enabled) {
+    process.stderr.write(
+      "[engine-mcp-stdio] WORKFLOW_ENGINE_AUTH_TOKENS is set but stdio does not enforce bearer auth; use OS process isolation. REST enforces tokens.\n"
+    );
+  }
 
   await server.start();
 }

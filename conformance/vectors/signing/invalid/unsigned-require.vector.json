@@ -1,0 +1,11 @@
+{
+  "id": "signing.unsigned-require",
+  "description": "Unsigned definition rejected when require policy is active",
+  "kind": "signing",
+  "definition": "examples/fixtures.valid/minimal-linear.workflow.json",
+  "signingPolicy": { "mode": "require" },
+  "publicKeys": {
+    "test-key-1": "MCowBQYDK2VwAyEA-_wc6pHan2aD2MyBvmSWwoarQ0EWXjtZ-tr3LF_ujOI"
+  },
+  "expect": { "ok": false }
+}

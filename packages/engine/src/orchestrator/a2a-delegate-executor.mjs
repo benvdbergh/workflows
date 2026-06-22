@@ -1,8 +1,7 @@
 /**
  * Production A2A delegate executor for `agent_delegate` nodes with `protocol: "a2a"`.
  *
- * Credentials and A2A base URL come from operator config (env / future vault refs), not workflow JSON (RFC-07 §7.3).
- * Full `apiKeySecretRef` vault resolution is deferred to BEN-103.
+ * Credentials and A2A base URL come from operator config (env / secret refs), not workflow JSON (RFC-07 §7.3).
  *
  * @see docs/user/a2a-delegate-mapping.md
  */
@@ -15,7 +14,7 @@ import { mintDelegateCorrelationId } from "./delegate-executor.mjs";
  * @typedef {object} A2AOperatorConfig
  * @property {string} [baseUrl] A2A HTTP API base URL (required for production executor).
  * @property {string} [apiKeyEnv] Env var name holding the Bearer token.
- * @property {string} [apiKeySecretRef] Vault secret ref (full resolver in BEN-103).
+ * @property {string} [apiKeySecretRef] Secret ref (`env:VAR` or `file:path`); resolved at invocation via {@link SecretResolver}.
  * @property {number} [pollIntervalMs] Poll interval when task is not terminal (default 500).
  * @property {number} [pollTimeoutMs] Max wait for terminal task status (default 120_000).
  */
@@ -46,12 +45,22 @@ import { mintDelegateCorrelationId } from "./delegate-executor.mjs";
 
 /**
  * @param {A2AOperatorConfig | undefined} operatorConfig
- * @param {NodeJS.ProcessEnv} [env]
- * @returns {{ ok: true, apiKey: string } | { ok: false, error: string, code: "A2A_CREDENTIALS_MISSING" }}
+ * @param {{ env?: NodeJS.ProcessEnv; secretResolver?: import("../security/secret-resolver.mjs").SecretResolver }} [options]
+ * @returns {Promise<{ ok: true, apiKey: string } | { ok: false, error: string, code: "A2A_CONFIG_INVALID" | "A2A_CREDENTIALS_MISSING" }>}
  */
-export function resolveA2AApiKey(operatorConfig, env = process.env) {
+export async function resolveA2AApiKey(operatorConfig, options = {}) {
+  const env = options.env ?? process.env;
+  const secretResolver = options.secretResolver;
   const cfg = operatorConfig && typeof operatorConfig === "object" ? operatorConfig : {};
   const apiKeyEnv = typeof cfg.apiKeyEnv === "string" ? cfg.apiKeyEnv.trim() : "";
+  const secretRef = typeof cfg.apiKeySecretRef === "string" ? cfg.apiKeySecretRef.trim() : "";
+  if (apiKeyEnv && secretRef) {
+    return {
+      ok: false,
+      error: "operator config must set only one of apiKeyEnv or apiKeySecretRef",
+      code: "A2A_CONFIG_INVALID",
+    };
+  }
   if (apiKeyEnv) {
     const value = env[apiKeyEnv];
     if (typeof value === "string" && value.trim() !== "") {
@@ -63,13 +72,32 @@ export function resolveA2AApiKey(operatorConfig, env = process.env) {
       code: "A2A_CREDENTIALS_MISSING",
     };
   }
-  const secretRef = typeof cfg.apiKeySecretRef === "string" ? cfg.apiKeySecretRef.trim() : "";
   if (secretRef) {
-    return {
-      ok: false,
-      error: `apiKeySecretRef "${secretRef}" requires vault resolution (planned in BEN-103); set apiKeyEnv for now`,
-      code: "A2A_CREDENTIALS_MISSING",
-    };
+    if (!secretResolver) {
+      return {
+        ok: false,
+        error: `apiKeySecretRef "${secretRef}" requires a secretResolver`,
+        code: "A2A_CREDENTIALS_MISSING",
+      };
+    }
+    try {
+      const value = await secretResolver.resolve(secretRef);
+      if (typeof value === "string" && value.trim() !== "") {
+        return { ok: true, apiKey: value };
+      }
+      return {
+        ok: false,
+        error: `apiKeySecretRef "${secretRef}" resolved to an empty value`,
+        code: "A2A_CREDENTIALS_MISSING",
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        error: `apiKeySecretRef "${secretRef}" could not be resolved: ${message}`,
+        code: "A2A_CREDENTIALS_MISSING",
+      };
+    }
   }
   return {
     ok: false,
@@ -246,11 +274,13 @@ export class A2ADelegateExecutor {
    *   operatorConfig?: A2AOperatorConfig;
    *   transport?: A2ATransport;
    *   env?: NodeJS.ProcessEnv;
+   *   secretResolver?: import("../security/secret-resolver.mjs").SecretResolver;
    * }} [opts]
    */
   constructor(opts = {}) {
     this.operatorConfig = opts.operatorConfig ?? {};
     this.env = opts.env ?? process.env;
+    this.secretResolver = opts.secretResolver;
     this.transport = opts.transport;
   }
 
@@ -275,7 +305,10 @@ export class A2ADelegateExecutor {
       return { ok: false, error: parsedCfg.error, code: parsedCfg.code };
     }
 
-    const keyResult = resolveA2AApiKey(this.operatorConfig, this.env);
+    const keyResult = await resolveA2AApiKey(this.operatorConfig, {
+      env: this.env,
+      secretResolver: this.secretResolver,
+    });
     if (!keyResult.ok) {
       return { ok: false, error: keyResult.error, code: keyResult.code };
     }

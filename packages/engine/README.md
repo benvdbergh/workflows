@@ -99,7 +99,7 @@ import { LlmActivityExecutor, runGraphWorkflow } from "@agent-workflow/engine";
 
 const activityExecutor = new LlmActivityExecutor({
   operatorConfig: {
-    apiKeyEnv: "OPENAI_API_KEY", // apiKeySecretRef accepted; vault resolver deferred to BEN-103
+    apiKeyEnv: "OPENAI_API_KEY", // or apiKeySecretRef: "env:OPENAI_API_KEY" / "file:.secrets/key"
     baseUrl: "https://api.openai.com/v1", // optional OpenAI-compatible base
   },
 });

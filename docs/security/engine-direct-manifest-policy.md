@@ -33,7 +33,14 @@ Filesystem path constraints for manifest `cwd` and server binaries are **not** i
 
 ## Workflow definition signing
 
-Optional definition signatures are handled by `verifyDefinitionSignature` in `@agent-workflow/engine` (stub: unsigned passes; signed records presence without crypto verify until v1 profile).
+Optional or required definition signatures are verified by `verifyDefinitionSignature` in `@agent-workflow/engine` using the **v1 JWS Ed25519 profile** ([definition-signing-v1-profile.md](definition-signing-v1-profile.md)).
+
+| Env var | Purpose |
+|---------|---------|
+| `WORKFLOW_ENGINE_DEFINITION_SIGNING_MODE` | `optional` (default) or `require` |
+| `WORKFLOW_ENGINE_SIGNING_PUBLIC_KEYS` | Inline JSON or `file:path` map of `keyId` → base64url public key |
+
+Signed definitions are schema-validated with the signature block stripped; invalid or missing signatures fail transport validation with `VALIDATION_ERROR`.
 
 ## When to use engine-direct
 

@@ -6,6 +6,10 @@ import { MCP_ADAPTER_ERROR } from "../mcp/errors.mjs";
  */
 export function httpStatusForAdapterError(code) {
   switch (code) {
+    case MCP_ADAPTER_ERROR.AUTH_ERROR:
+      return 401;
+    case MCP_ADAPTER_ERROR.AUTH_FORBIDDEN:
+      return 403;
     case MCP_ADAPTER_ERROR.VALIDATION_ERROR:
     case MCP_ADAPTER_ERROR.INVALID_RESUME_PAYLOAD:
     case MCP_ADAPTER_ERROR.SUBMIT_VALIDATION_ERROR:

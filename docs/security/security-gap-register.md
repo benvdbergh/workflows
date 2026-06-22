@@ -10,7 +10,7 @@ This register tracks accepted temporary security gaps for alpha, with explicit o
 | SG-002 | Dependabot config and update automation absent | Was deferred during alpha; **closed in-repo** via `.github/dependabot.yml` (alerts still require repo settings) | Maintainers | — | BEN-10 | **Closed** (2026-06-04) |
 | SG-003 | Code scanning workflow not configured | Was deferred; **closed in-repo** via `.github/workflows/codeql.yml` | Maintainers | — | BEN-10 | **Closed** (2026-06-04) |
 | SG-004 | Secret scanning/push protection may be org-gated and not verifiable in-repo | Expectations documented; activation requires admin entitlement/settings outside repository files | Org/repo admin + maintainers | 2026-05-15 | Org security controls review window | Open |
-| SG-005 | Scoped MCP auth tokens / action-level authZ | Required for v1 GA profile per ROADMAP R4; stdio adapter has no auth today | Maintainers | R4 GA cut | ADR / implementation story after BEN-10 | Open |
+| SG-005 | Scoped MCP auth tokens / action-level authZ | REST bearer enforcement when `WORKFLOW_ENGINE_AUTH_TOKENS` set; stdio OS isolation boundary per ADR-0005 | Maintainers | R4 GA cut | BEN-105 | **Closed** (partial — REST enforced; stdio documented boundary) |
 | SG-006 | GHSA / Dependabot alert triage routine | Dependabot file present; org must enable alerts and maintain triage SLA | Maintainers | 2026-07-01 | First weekly Dependabot PR cycle | Open (partial — config landed BEN-10) |
 
 ## Closure rules

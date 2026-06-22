@@ -1,9 +1,22 @@
 import { validateWorkflowDefinition } from "../../validate.mjs";
-import { verifyDefinitionSignature } from "../../definition-signing.mjs";
+import {
+  resolveDefinitionSigningOptions,
+  stripDefinitionSignature,
+  verifyDefinitionSignature,
+} from "../../definition-signing.mjs";
 import { MCP_ADAPTER_ERROR, McpAdapterError } from "./errors.mjs";
 
 /** Maximum UTF-8 byte length for JSON-serialized MCP workflow payloads (definition, input, resume). */
 export const MAX_MCP_WORKFLOW_JSON_BYTES = 2 * 1024 * 1024;
+
+/**
+ * @typedef {import("../../definition-signing.mjs").VerifyDefinitionSignatureOptions} TransportSigningOptions
+ */
+
+/**
+ * @typedef {object} TransportValidationOptions
+ * @property {TransportSigningOptions} [signing]
+ */
 
 /**
  * @param {unknown} value
@@ -30,18 +43,21 @@ export function assertMcpJsonWithinSizeLimit(label, value, maxBytes = MAX_MCP_WO
 }
 
 /**
- * AJV + graph invariants + optional definition signing hook at the MCP transport boundary.
+ * AJV + graph invariants + definition signing at the MCP transport boundary.
  *
  * @param {unknown} definition
+ * @param {TransportValidationOptions} [options]
  */
-export function assertValidWorkflowDefinitionAtTransport(definition) {
-  const v = validateWorkflowDefinition(definition);
+export function assertValidWorkflowDefinitionAtTransport(definition, options = {}) {
+  const forSchema = stripDefinitionSignature(definition);
+  const v = validateWorkflowDefinition(forSchema);
   if (!v.ok) {
     throw new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, "Workflow definition failed schema validation.", {
       errors: v.errors,
     });
   }
-  const signing = verifyDefinitionSignature(definition);
+  const signingOptions = options.signing ?? resolveDefinitionSigningOptions();
+  const signing = verifyDefinitionSignature(definition, signingOptions);
   if (!signing.ok) {
     throw new McpAdapterError(
       MCP_ADAPTER_ERROR.VALIDATION_ERROR,
@@ -54,21 +70,23 @@ export function assertValidWorkflowDefinitionAtTransport(definition) {
 /**
  * @param {unknown} definition
  * @param {unknown} [extraPayload] input or resume_payload sized together with definition
+ * @param {TransportValidationOptions} [options]
  */
-export function validateWorkflowStartTransportPayload(definition, extraPayload) {
+export function validateWorkflowStartTransportPayload(definition, extraPayload, options = {}) {
   assertMcpJsonWithinSizeLimit("definition", definition);
   if (extraPayload !== undefined) {
     assertMcpJsonWithinSizeLimit("input", extraPayload);
   }
-  assertValidWorkflowDefinitionAtTransport(definition);
+  assertValidWorkflowDefinitionAtTransport(definition, options);
 }
 
 /**
  * @param {unknown} definition
  * @param {unknown} resumePayload
+ * @param {TransportValidationOptions} [options]
  */
-export function validateWorkflowResumeTransportPayload(definition, resumePayload) {
+export function validateWorkflowResumeTransportPayload(definition, resumePayload, options = {}) {
   assertMcpJsonWithinSizeLimit("definition", definition);
   assertMcpJsonWithinSizeLimit("resume_payload", resumePayload);
-  assertValidWorkflowDefinitionAtTransport(definition);
+  assertValidWorkflowDefinitionAtTransport(definition, options);
 }

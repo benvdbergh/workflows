@@ -1,0 +1,11 @@
+{
+  "id": "signing.unsigned-optional",
+  "description": "Unsigned definition passes optional policy without verification",
+  "kind": "signing",
+  "definition": "examples/fixtures.valid/minimal-linear.workflow.json",
+  "signingPolicy": { "mode": "optional" },
+  "publicKeys": {
+    "test-key-1": "MCowBQYDK2VwAyEA-_wc6pHan2aD2MyBvmSWwoarQ0EWXjtZ-tr3LF_ujOI"
+  },
+  "expect": { "ok": true, "verified": false }
+}

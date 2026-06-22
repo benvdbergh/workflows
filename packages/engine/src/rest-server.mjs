@@ -8,9 +8,11 @@ import {
   formatMcpManifestValidationErrors,
   loadProductionActivityExecutor,
   loadProductionDelegateExecutor,
+  resolveTransportValidationOptionsFromEnv,
   resolveWorkflowEngineMcpConfigPath,
 } from "./adapters/mcp/stdio-server-config.mjs";
 import { MemoryExecutionHistoryStore } from "./persistence/memory-history-store.mjs";
+import { loadControlPlaneAuthConfigFromEnv } from "./security/control-plane-auth.mjs";
 
 /**
  * @param {string[]} argv
@@ -43,6 +45,9 @@ async function main() {
         "Environment:\n" +
         "  WORKFLOW_ENGINE_REST_PORT — listen port (default 8787)\n" +
         "  WORKFLOW_ENGINE_MCP_CONFIG — operator manifest for in-process activity/delegate routing\n" +
+        "  WORKFLOW_ENGINE_DEFINITION_SIGNING_MODE — optional (default) or require\n" +
+        "  WORKFLOW_ENGINE_SIGNING_PUBLIC_KEYS — inline JSON or file:path public key map\n" +
+        "  WORKFLOW_ENGINE_AUTH_TOKENS — inline JSON array or file:path of scoped bearer tokens (REST enforcement)\n" +
         "\n" +
         "OpenAPI: packages/engine/openapi/openapi.yaml\n"
     );
@@ -92,13 +97,20 @@ async function main() {
   }
 
   const store = new MemoryExecutionHistoryStore();
-  const definitionRegistry = new DefinitionRegistry();
+  const transportValidation = resolveTransportValidationOptionsFromEnv();
+  const authConfig = loadControlPlaneAuthConfigFromEnv();
+  const definitionRegistry = new DefinitionRegistry({ transportValidation });
   const workflowPort = createWorkflowApplicationPort({
     store,
     ...(activityExecutor ? { activityExecutor } : {}),
     ...(delegateExecutor ? { delegateExecutor } : {}),
   });
-  const handler = createRestWorkflowHandler(workflowPort, { definitionRegistry, store });
+  const handler = createRestWorkflowHandler(workflowPort, {
+    definitionRegistry,
+    store,
+    transportValidation,
+    authConfig,
+  });
   const port = parsePort(args);
   const server = createServer((req, res) => {
     handler(req, res).catch((error) => {

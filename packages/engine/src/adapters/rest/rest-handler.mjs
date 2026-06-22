@@ -26,6 +26,11 @@ import {
 import { DefinitionRegistry } from "./definition-registry.mjs";
 import { adapterErrorToHttpBody, httpStatusForAdapterError } from "./errors.mjs";
 import { readJsonBody, requestPathname, requestQuery, sendJson } from "./http-utils.mjs";
+import {
+  authorizeRestRequest,
+  extractBearerToken,
+  loadControlPlaneAuthConfigFromEnv,
+} from "../../security/control-plane-auth.mjs";
 
 const SUBMIT_ACTIVITY_ADAPTER_CODES = new Set([
   MCP_ADAPTER_ERROR.ACTIVITY_SUBMIT_NOT_AWAITING,
@@ -139,11 +144,15 @@ function adaptCaughtError(error) {
  * @param {{
  *   definitionRegistry?: DefinitionRegistry;
  *   store?: import("../../persistence/types.mjs").ExecutionHistoryStore;
+ *   transportValidation?: import("../mcp/transport-validation.mjs").TransportValidationOptions;
+ *   authConfig?: import("../../security/control-plane-auth.mjs").ControlPlaneAuthConfig;
  * }} [deps]
  */
 export function createRestWorkflowHandler(workflowPort, deps = {}) {
-  const definitionRegistry = deps.definitionRegistry ?? new DefinitionRegistry();
+  const transportValidation = deps.transportValidation ?? {};
+  const definitionRegistry = deps.definitionRegistry ?? new DefinitionRegistry({ transportValidation });
   const store = deps.store;
+  const authConfig = deps.authConfig ?? loadControlPlaneAuthConfigFromEnv();
 
   /**
    * @param {import("node:http").IncomingMessage} req
@@ -154,6 +163,18 @@ export function createRestWorkflowHandler(workflowPort, deps = {}) {
     const pathname = requestPathname(req);
 
     try {
+      if (authConfig.enabled) {
+        const authResult = authorizeRestRequest(
+          method,
+          pathname,
+          extractBearerToken(req.headers.authorization),
+          authConfig
+        );
+        if (!authResult.ok) {
+          throw new McpAdapterError(authResult.code, authResult.message, authResult.details);
+        }
+      }
+
       if (method === "POST" && pathname === "/v1/workflows") {
         const body = await readJsonBody(req);
         if (!body || typeof body !== "object" || Array.isArray(body) || !body.definition) {
@@ -190,7 +211,7 @@ export function createRestWorkflowHandler(workflowPort, deps = {}) {
           activity_execution_mode: body.activity_execution_mode,
           allow_existing_execution_id: body.allow_existing_execution_id,
         });
-        validateWorkflowStartTransportPayload(parsed.definition, parsed.input);
+        validateWorkflowStartTransportPayload(parsed.definition, parsed.input, transportValidation);
         const response = await workflowPort.startWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,
@@ -259,7 +280,7 @@ export function createRestWorkflowHandler(workflowPort, deps = {}) {
           resume_payload: body.resume_payload ?? {},
           activity_execution_mode: body.activity_execution_mode,
         });
-        validateWorkflowResumeTransportPayload(parsed.definition, parsed.resume_payload);
+        validateWorkflowResumeTransportPayload(parsed.definition, parsed.resume_payload, transportValidation);
         const response = await workflowPort.resumeWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,

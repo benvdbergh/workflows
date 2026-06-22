@@ -1,0 +1,13 @@
+{
+  "id": "signing.invalid-signature",
+  "description": "Tampered JWS value fails verification",
+  "kind": "signing",
+  "definition": "examples/fixtures.valid/minimal-linear.workflow.json",
+  "signFixture": true,
+  "tamperSignatureValue": true,
+  "signingPolicy": { "mode": "optional" },
+  "publicKeys": {
+    "test-key-1": "MCowBQYDK2VwAyEA-_wc6pHan2aD2MyBvmSWwoarQ0EWXjtZ-tr3LF_ujOI"
+  },
+  "expect": { "ok": false }
+}

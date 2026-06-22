@@ -36,4 +36,22 @@ describe("MCP stdio entrypoint", () => {
     );
     assert.match(run.stderr, /\[engine-mcp-stdio\] demo stub fallback: inactive/);
   });
+
+  it("warns when WORKFLOW_ENGINE_AUTH_TOKENS is set", () => {
+    const scriptPath = path.resolve(__dirname, "../src/mcp-stdio-server.mjs");
+    const run = spawnSync(process.execPath, [scriptPath], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        WORKFLOW_ENGINE_AUTH_TOKENS: '[{"token":"t1","scopes":["start"]}]',
+        WORKFLOW_ENGINE_MCP_CONFIG: "",
+      },
+      timeout: 2000,
+    });
+
+    assert.match(
+      run.stderr,
+      /WORKFLOW_ENGINE_AUTH_TOKENS is set but stdio does not enforce bearer auth/
+    );
+  });
 });

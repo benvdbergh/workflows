@@ -1,4 +1,7 @@
 export const MCP_ADAPTER_ERROR = {
+  AUTH_ERROR: "AUTH_ERROR",
+  /** Valid bearer token lacks required control-plane scope. */
+  AUTH_FORBIDDEN: "AUTH_FORBIDDEN",
   VALIDATION_ERROR: "VALIDATION_ERROR",
   EXECUTION_NOT_FOUND: "EXECUTION_NOT_FOUND",
   DUPLICATE_EXECUTION_ID: "DUPLICATE_EXECUTION_ID",
@@ -40,6 +43,12 @@ export function normalizeMcpAdapterError(error) {
     return error;
   }
   const message = error instanceof Error ? error.message : String(error);
+  if (typeof error?.code === "string" && error.code === MCP_ADAPTER_ERROR.AUTH_ERROR) {
+    return new McpAdapterError(MCP_ADAPTER_ERROR.AUTH_ERROR, message, error.details);
+  }
+  if (typeof error?.code === "string" && error.code === MCP_ADAPTER_ERROR.AUTH_FORBIDDEN) {
+    return new McpAdapterError(MCP_ADAPTER_ERROR.AUTH_FORBIDDEN, message, error.details);
+  }
   if (typeof error?.code === "string" && error.code === MCP_ADAPTER_ERROR.INVALID_RESUME_PAYLOAD) {
     return new McpAdapterError(MCP_ADAPTER_ERROR.INVALID_RESUME_PAYLOAD, message);
   }

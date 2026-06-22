@@ -1,0 +1,12 @@
+{
+  "id": "signing.valid-signed-optional",
+  "description": "Signed minimal-linear fixture verifies in optional mode",
+  "kind": "signing",
+  "definition": "examples/fixtures.valid/minimal-linear.workflow.json",
+  "signFixture": true,
+  "signingPolicy": { "mode": "optional" },
+  "publicKeys": {
+    "test-key-1": "MCowBQYDK2VwAyEA-_wc6pHan2aD2MyBvmSWwoarQ0EWXjtZ-tr3LF_ujOI"
+  },
+  "expect": { "ok": true, "verified": true }
+}

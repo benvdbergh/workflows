@@ -7,13 +7,22 @@ import { deriveWorkflowId } from "../workflow-id.mjs";
 export class DefinitionRegistry {
   /** @type {Map<string, object>} */
   #definitions = new Map();
+  /** @type {import("../mcp/transport-validation.mjs").TransportValidationOptions | undefined} */
+  #transportValidation;
+
+  /**
+   * @param {{ transportValidation?: import("../mcp/transport-validation.mjs").TransportValidationOptions }} [options]
+   */
+  constructor(options = {}) {
+    this.#transportValidation = options.transportValidation;
+  }
 
   /**
    * @param {object} definition
    * @returns {{ wf_id: string; definition: object }}
    */
   register(definition) {
-    assertValidWorkflowDefinitionAtTransport(definition);
+    assertValidWorkflowDefinitionAtTransport(definition, this.#transportValidation);
     const wfId = deriveWorkflowId(definition);
     if (this.#definitions.has(wfId)) {
       const err = new Error(`Workflow definition "${wfId}" is already registered.`);

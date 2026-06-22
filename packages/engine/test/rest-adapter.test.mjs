@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { createRestWorkflowHandler } from "../src/adapters/rest/rest-handler.mjs";
 import { DefinitionRegistry } from "../src/adapters/rest/definition-registry.mjs";
+import { MCP_ADAPTER_ERROR } from "../src/adapters/mcp/errors.mjs";
+import { buildControlPlaneAuthConfig } from "../src/security/control-plane-auth.mjs";
 import { createWorkflowApplicationPort } from "../src/application/workflow-application-port.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
 import { findWorkflowRepoRoot } from "../src/validate.mjs";
@@ -68,12 +70,17 @@ function loadLighthouse() {
 
 /**
  * @param {(port: number) => Promise<void>} run
+ * @param {{ authConfig?: import("../src/security/control-plane-auth.mjs").ControlPlaneAuthConfig }} [options]
  */
-async function withRestServer(run) {
+async function withRestServer(run, options = {}) {
   const store = new MemoryExecutionHistoryStore();
   const definitionRegistry = new DefinitionRegistry();
   const workflowPort = createWorkflowApplicationPort({ store });
-  const handler = createRestWorkflowHandler(workflowPort, { definitionRegistry, store });
+  const handler = createRestWorkflowHandler(workflowPort, {
+    definitionRegistry,
+    store,
+    authConfig: options.authConfig,
+  });
   const server = createServer((req, res) => {
     handler(req, res).catch((error) => {
       if (!res.headersSent) {
@@ -100,12 +107,20 @@ async function withRestServer(run) {
  * @param {string} method
  * @param {string} pathname
  * @param {unknown} [body]
+ * @param {{ authorization?: string }} [options]
  */
-async function requestJson(port, method, pathname, body) {
+async function requestJson(port, method, pathname, body, options = {}) {
   // codeql[js/file-access-to-http]: test posts fixture JSON to in-process localhost only
+  const headers = {};
+  if (body !== undefined) {
+    headers["content-type"] = "application/json";
+  }
+  if (options.authorization) {
+    headers.authorization = options.authorization;
+  }
   const response = await fetch(`http://127.0.0.1:${port}${pathname}`, {
     method,
-    headers: body !== undefined ? { "content-type": "application/json" } : undefined,
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const text = await response.text();
@@ -284,5 +299,51 @@ describe("REST workflow adapter", () => {
       assert.equal(response.status, 404);
       assert.equal(response.body.error.code, "EXECUTION_NOT_FOUND");
     });
+  });
+
+  it("returns 401 AUTH_ERROR when auth enabled and bearer token is missing", async () => {
+    const authConfig = buildControlPlaneAuthConfig([
+      { token: "read-token", scopes: ["read_history"] },
+    ]);
+    await withRestServer(
+      async (port) => {
+        const response = await requestJson(port, "GET", "/v1/executions/missing-exec");
+        assert.equal(response.status, 401);
+        assert.equal(response.body.error.code, MCP_ADAPTER_ERROR.AUTH_ERROR);
+      },
+      { authConfig }
+    );
+  });
+
+  it("returns 403 AUTH_FORBIDDEN when token lacks required scope", async () => {
+    const authConfig = buildControlPlaneAuthConfig([
+      { token: "read-token", scopes: ["read_history"] },
+      { token: "start-token", scopes: ["start"] },
+    ]);
+    await withRestServer(
+      async (port) => {
+        const definition = minimalValidWorkflowDefinition("rest-auth-scope");
+        const registered = await requestJson(
+          port,
+          "POST",
+          "/v1/workflows",
+          { definition },
+          { authorization: "Bearer read-token" }
+        );
+        assert.equal(registered.status, 403);
+        assert.equal(registered.body.error.code, MCP_ADAPTER_ERROR.AUTH_FORBIDDEN);
+        assert.equal(registered.body.error.details?.reason, "insufficient_scope");
+
+        const allowed = await requestJson(
+          port,
+          "POST",
+          "/v1/workflows",
+          { definition },
+          { authorization: "Bearer start-token" }
+        );
+        assert.equal(allowed.status, 201);
+      },
+      { authConfig }
+    );
   });
 });

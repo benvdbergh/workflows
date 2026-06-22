@@ -8,6 +8,7 @@ import {
   workflowSubmitActivityArgsSchema,
 } from "./contracts.mjs";
 import { MCP_ADAPTER_ERROR, McpAdapterError, normalizeMcpAdapterError, toToolErrorResult } from "./errors.mjs";
+import { authorizeToolCall } from "../../security/control-plane-auth.mjs";
 import {
   validateWorkflowResumeTransportPayload,
   validateWorkflowStartTransportPayload,
@@ -126,14 +127,40 @@ function mcpErrorForCancelFailure(code, message) {
 }
 
 /**
- * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function; cancelWorkflow: Function; listWorkflowExecutions: Function }} workflowPort
+ * @typedef {import("../../security/control-plane-auth.mjs").ControlPlaneAuthConfig} ControlPlaneAuthConfig
  */
-export function createMcpWorkflowToolHandlers(workflowPort) {
+
+/**
+ * @param {string} toolName
+ * @param {{ bearerToken?: string | null; enforce?: boolean } | undefined} authContext
+ * @param {ControlPlaneAuthConfig | undefined} authConfig
+ */
+function assertMcpToolAuthorized(toolName, authContext, authConfig) {
+  if (!authConfig?.enabled || authContext?.enforce !== true) {
+    return;
+  }
+  const result = authorizeToolCall(toolName, authContext.bearerToken ?? null, authConfig);
+  if (!result.ok) {
+    throw new McpAdapterError(result.code, result.message, result.details);
+  }
+}
+
+/**
+ * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function; cancelWorkflow: Function; listWorkflowExecutions: Function }} workflowPort
+ * @param {{
+ *   transportValidation?: import("./transport-validation.mjs").TransportValidationOptions;
+ *   authConfig?: ControlPlaneAuthConfig;
+ * }} [options]
+ */
+export function createMcpWorkflowToolHandlers(workflowPort, options = {}) {
+  const transportValidation = options.transportValidation ?? {};
+  const authConfig = options.authConfig;
   return {
-    async workflow_start(args) {
+    async workflow_start(args, authContext) {
       try {
+        assertMcpToolAuthorized("workflow_start", authContext, authConfig);
         const parsed = workflowStartArgsSchema.parse(args);
-        validateWorkflowStartTransportPayload(parsed.definition, parsed.input);
+        validateWorkflowStartTransportPayload(parsed.definition, parsed.input, transportValidation);
         const response = await workflowPort.startWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,
@@ -169,8 +196,9 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
       }
     },
 
-    async workflow_status(args) {
+    async workflow_status(args, authContext) {
       try {
+        assertMcpToolAuthorized("workflow_status", authContext, authConfig);
         const parsed = workflowStatusArgsSchema.parse(args);
         const response = await workflowPort.getWorkflowStatus({
           executionId: parsed.execution_id,
@@ -197,10 +225,11 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
       }
     },
 
-    async workflow_resume(args) {
+    async workflow_resume(args, authContext) {
       try {
+        assertMcpToolAuthorized("workflow_resume", authContext, authConfig);
         const parsed = workflowResumeArgsSchema.parse(args);
-        validateWorkflowResumeTransportPayload(parsed.definition, parsed.resume_payload);
+        validateWorkflowResumeTransportPayload(parsed.definition, parsed.resume_payload, transportValidation);
         const response = await workflowPort.resumeWorkflow({
           executionId: parsed.execution_id,
           definition: parsed.definition,
@@ -236,8 +265,9 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
       }
     },
 
-    async workflow_submit_activity(args) {
+    async workflow_submit_activity(args, authContext) {
       try {
+        assertMcpToolAuthorized("workflow_submit_activity", authContext, authConfig);
         const parsed = workflowSubmitActivityArgsSchema.parse(args);
         const expectedParallelSpan = parsed.parallel_span
           ? {
@@ -298,8 +328,9 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
       }
     },
 
-    async workflow_signal(args) {
+    async workflow_signal(args, authContext) {
       try {
+        assertMcpToolAuthorized("workflow_signal", authContext, authConfig);
         const parsed = workflowSignalArgsSchema.parse(args);
         const response = await workflowPort.signalWorkflow({
           executionId: parsed.execution_id,
@@ -338,8 +369,9 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
       }
     },
 
-    async workflow_cancel(args) {
+    async workflow_cancel(args, authContext) {
       try {
+        assertMcpToolAuthorized("workflow_cancel", authContext, authConfig);
         const parsed = workflowCancelArgsSchema.parse(args);
         const response = await workflowPort.cancelWorkflow({
           executionId: parsed.execution_id,
@@ -374,8 +406,9 @@ export function createMcpWorkflowToolHandlers(workflowPort) {
       }
     },
 
-    async workflow_list(args) {
+    async workflow_list(args, authContext) {
       try {
+        assertMcpToolAuthorized("workflow_list", authContext, authConfig);
         const parsed = workflowListArgsSchema.parse(args);
         const response = await workflowPort.listWorkflowExecutions({
           ...(parsed.phase !== undefined ? { phase: parsed.phase } : {}),
