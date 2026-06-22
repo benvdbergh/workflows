@@ -1,0 +1,8 @@
+---
+description: Windows PowerShell — no bash-style && chaining in Shell tool
+alwaysApply: true
+---
+
+# Shell (Windows)
+
+Cursor runs Shell on **Windows PowerShell 5.x**. `&&` and `||` are invalid
