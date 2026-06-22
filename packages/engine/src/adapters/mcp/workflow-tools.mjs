@@ -1,18 +1,20 @@
 import {
   workflowResumeArgsSchema,
-  workflowResumeResultSchema,
   workflowStartArgsSchema,
-  workflowStartResultSchema,
   workflowStatusArgsSchema,
-  workflowStatusResultSchema,
   workflowSubmitActivityArgsSchema,
-  workflowSubmitActivityResultSchema,
 } from "./contracts.mjs";
 import { MCP_ADAPTER_ERROR, McpAdapterError, normalizeMcpAdapterError, toToolErrorResult } from "./errors.mjs";
 import {
   validateWorkflowResumeTransportPayload,
   validateWorkflowStartTransportPayload,
 } from "./transport-validation.mjs";
+import {
+  resumeResponseFromPort,
+  startResponseFromPort,
+  statusResponseFromPort,
+  submitActivityResponseFromPort,
+} from "../transport-response.mjs";
 import { ZodError } from "zod";
 
 /**
@@ -59,123 +61,6 @@ function mcpErrorForResumeFailure(code, message) {
  */
 function withStructuredJsonInText(headline, structured) {
   return `${headline}\n\nStructured result (JSON):\n${JSON.stringify(structured, null, 2)}`;
-}
-
-/**
- * @param {Record<string, unknown>} parsed
- */
-function awaitingDelegateFieldsFromPort(parsed) {
-  return {
-    ...(parsed.agentId !== undefined ? { agent_id: parsed.agentId } : {}),
-    ...(parsed.protocol !== undefined ? { protocol: parsed.protocol } : {}),
-    ...(parsed.delegateInput !== undefined ? { delegate_input: parsed.delegateInput } : {}),
-    ...(parsed.delegateCorrelationId !== undefined
-      ? { delegate_correlation_id: parsed.delegateCorrelationId }
-      : {}),
-  };
-}
-
-function startResponseFromPort(parsed) {
-  const parallelSpan = parsed.parallelSpan;
-  const response = {
-    execution_id: parsed.executionId,
-    status: parsed.status,
-    ...(parsed.finalState !== undefined ? { final_state: parsed.finalState } : {}),
-    ...(parsed.result !== undefined ? { result: parsed.result } : {}),
-    ...(parsed.error !== undefined ? { error: parsed.error } : {}),
-    ...(parsed.nodeId !== undefined ? { node_id: parsed.nodeId } : {}),
-    ...(parsed.state !== undefined ? { state: parsed.state } : {}),
-    ...(parallelSpan
-      ? {
-          parallel_span: {
-            parallel_node_id: parallelSpan.parallelNodeId,
-            join_target_id: parallelSpan.joinTargetId,
-            branch_name: parallelSpan.branchName,
-            branch_entry_node_id: parallelSpan.branchEntryNodeId,
-          },
-        }
-      : {}),
-    ...awaitingDelegateFieldsFromPort(parsed),
-  };
-  return workflowStartResultSchema.parse(response);
-}
-
-/**
- * @param {unknown} parsed
- */
-function statusResponseFromPort(parsed) {
-  const response = {
-    execution_id: parsed.executionId,
-    phase: parsed.phase,
-    ...(parsed.currentNodeId !== undefined ? { current_node_id: parsed.currentNodeId } : {}),
-    ...(parsed.lastError !== undefined ? { last_error: parsed.lastError } : {}),
-    ...(parsed.delegateCorrelationId !== undefined
-      ? { delegate_correlation_id: parsed.delegateCorrelationId }
-      : {}),
-    ...(parsed.childExecutionId !== undefined ? { child_execution_id: parsed.childExecutionId } : {}),
-    ...(parsed.parentExecutionId !== undefined ? { parent_execution_id: parsed.parentExecutionId } : {}),
-    ...(parsed.agentId !== undefined ? { agent_id: parsed.agentId } : {}),
-    ...(parsed.protocol !== undefined ? { protocol: parsed.protocol } : {}),
-    ...(parsed.delegateInput !== undefined ? { delegate_input: parsed.delegateInput } : {}),
-  };
-  return workflowStatusResultSchema.parse(response);
-}
-
-/**
- * @param {unknown} parsed
- */
-function resumeResponseFromPort(parsed) {
-  const parallelSpan = parsed.parallelSpan;
-  const response = {
-    execution_id: parsed.executionId,
-    status: parsed.status,
-    ...(parsed.finalState !== undefined ? { final_state: parsed.finalState } : {}),
-    ...(parsed.result !== undefined ? { result: parsed.result } : {}),
-    ...(parsed.error !== undefined ? { error: parsed.error } : {}),
-    ...(parsed.nodeId !== undefined ? { node_id: parsed.nodeId } : {}),
-    ...(parsed.state !== undefined ? { state: parsed.state } : {}),
-    ...(parallelSpan
-      ? {
-          parallel_span: {
-            parallel_node_id: parallelSpan.parallelNodeId,
-            join_target_id: parallelSpan.joinTargetId,
-            branch_name: parallelSpan.branchName,
-            branch_entry_node_id: parallelSpan.branchEntryNodeId,
-          },
-        }
-      : {}),
-    ...awaitingDelegateFieldsFromPort(parsed),
-  };
-  return workflowResumeResultSchema.parse(response);
-}
-
-/**
- * @param {unknown} parsed
- */
-function submitActivityResponseFromPort(parsed) {
-  const parallelSpan = parsed.parallelSpan;
-  const response = {
-    execution_id: parsed.executionId,
-    status: parsed.status,
-    ...(parsed.finalState !== undefined ? { final_state: parsed.finalState } : {}),
-    ...(parsed.result !== undefined ? { result: parsed.result } : {}),
-    ...(parsed.error !== undefined ? { error: parsed.error } : {}),
-    ...(parsed.nodeId !== undefined ? { node_id: parsed.nodeId } : {}),
-    ...(parsed.state !== undefined ? { state: parsed.state } : {}),
-    ...(parsed.code !== undefined ? { code: parsed.code } : {}),
-    ...(parallelSpan
-      ? {
-          parallel_span: {
-            parallel_node_id: parallelSpan.parallelNodeId,
-            join_target_id: parallelSpan.joinTargetId,
-            branch_name: parallelSpan.branchName,
-            branch_entry_node_id: parallelSpan.branchEntryNodeId,
-          },
-        }
-      : {}),
-    ...awaitingDelegateFieldsFromPort(parsed),
-  };
-  return workflowSubmitActivityResultSchema.parse(response);
 }
 
 const SUBMIT_ACTIVITY_ADAPTER_CODES = new Set([

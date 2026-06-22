@@ -1,0 +1,35 @@
+{
+  "name": "@agent-workflow/sdk",
+  "version": "0.1.5",
+  "description": "Agent Workflow Protocol — TypeScript/JavaScript client for REST and in-process engine access",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/benvdbergh/workflows"
+  },
+  "type": "module",
+  "main": "./src/index.mjs",
+  "types": "./src/types.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/types.d.ts",
+      "import": "./src/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "src/",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.mjs"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "@agent-workflow/engine": "0.1.5"
+  }
+}
