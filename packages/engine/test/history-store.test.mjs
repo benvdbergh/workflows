@@ -47,6 +47,40 @@ describe("MemoryExecutionHistoryStore", () => {
     const store = new MemoryExecutionHistoryStore();
     runContract(store);
   });
+
+  it("listExecutions filters by projected phase", () => {
+    const store = new MemoryExecutionHistoryStore();
+    store.append("exec-completed", {
+      kind: "event",
+      name: "ExecutionStarted",
+      payload: { workflowName: "demo-wf", inputKeys: [] },
+    });
+    store.append("exec-completed", {
+      kind: "event",
+      name: "ExecutionCompleted",
+      payload: { result: true },
+    });
+    store.append("exec-awaiting", {
+      kind: "event",
+      name: "ExecutionStarted",
+      payload: { workflowName: "demo-wf", inputKeys: [] },
+    });
+    store.append("exec-awaiting", {
+      kind: "event",
+      name: "SignalWaitStarted",
+      payload: { nodeId: "wait", signalName: "go" },
+    });
+
+    const completed = store.listExecutions({ phase: "completed" });
+    assert.equal(completed.items.length, 1);
+    assert.equal(completed.items[0].executionId, "exec-completed");
+    assert.equal(completed.items[0].phase, "completed");
+    assert.equal(completed.items[0].definitionName, "demo-wf");
+
+    const awaiting = store.listExecutions({ phase: "awaiting_signal" });
+    assert.equal(awaiting.items.length, 1);
+    assert.equal(awaiting.items[0].executionId, "exec-awaiting");
+  });
 });
 
 describe("SqliteExecutionHistoryStore", () => {
@@ -96,5 +130,33 @@ describe("SqliteExecutionHistoryStore", () => {
     const next = store.append("legacy-exec", { kind: "event", name: "RunStarted", payload: {} });
     assert.equal(next, 2);
     assert.equal(store.listByExecution("legacy-exec")[1].recordSchemaVersion, 1);
+  });
+
+  it("listExecutions filters by projected phase", () => {
+    db = new DatabaseSync(":memory:");
+    store = new SqliteExecutionHistoryStore({ database: db });
+    store.append("exec-completed", {
+      kind: "event",
+      name: "ExecutionStarted",
+      payload: { workflowName: "sqlite-wf", inputKeys: [] },
+    });
+    store.append("exec-completed", {
+      kind: "event",
+      name: "ExecutionCompleted",
+      payload: { result: true },
+    });
+    store.append("exec-running", {
+      kind: "event",
+      name: "ExecutionStarted",
+      payload: { workflowName: "sqlite-wf", inputKeys: [] },
+    });
+
+    const running = store.listExecutions({ phase: "running" });
+    assert.equal(running.items.length, 1);
+    assert.equal(running.items[0].executionId, "exec-running");
+
+    const completed = store.listExecutions({ phase: "completed", definitionName: "sqlite-wf" });
+    assert.equal(completed.items.length, 1);
+    assert.equal(completed.items[0].executionId, "exec-completed");
   });
 });

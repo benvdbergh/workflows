@@ -107,6 +107,7 @@ export {
   submitActivityResponseFromPort,
   signalResponseFromPort,
   cancelResponseFromPort,
+  listResponseFromPort,
   historyRowToTransport,
 } from "./adapters/transport-response.mjs";
 export { MCP_ADAPTER_ERROR, McpAdapterError } from "./adapters/mcp/errors.mjs";

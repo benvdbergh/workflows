@@ -75,6 +75,29 @@ export const workflowCancelArgsSchema = z.object({
   reason: z.string().min(1).optional(),
 });
 
+export const workflowListArgsSchema = z.object({
+  phase: z
+    .enum(["running", "completed", "failed", "interrupted", "awaiting_activity", "awaiting_signal", "cancelled"])
+    .optional(),
+  definition_name: z.string().min(1).optional(),
+  updated_after: z.string().min(1).optional(),
+  updated_before: z.string().min(1).optional(),
+  limit: z.number().int().positive().max(100).optional(),
+  cursor: z.string().min(1).optional(),
+});
+
+export const workflowListExecutionSchema = z.object({
+  execution_id: z.string(),
+  phase: z.enum(["running", "completed", "failed", "interrupted", "awaiting_activity", "awaiting_signal", "cancelled"]),
+  definition_name: z.string().optional(),
+  updated_at: z.string().optional(),
+});
+
+export const workflowListResultSchema = z.object({
+  executions: z.array(workflowListExecutionSchema),
+  next_cursor: z.string().optional(),
+});
+
 export const workflowStartResultSchema = z.object({
   execution_id: z.string(),
   status: z.enum(["completed", "failed", "interrupted", "awaiting_activity", "awaiting_signal", "cancelled"]),

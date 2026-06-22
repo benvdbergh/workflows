@@ -37,6 +37,8 @@
  * @property {(executionId: string, input: HistoryAppendInput) => number} append Returns assigned `seq`.
  * @property {(executionId: string, fromSeq?: number, toSeq?: number) => HistoryRow[]} readRange Inclusive bounds when provided; ordered by `seq` ascending.
  * @property {(executionId: string) => HistoryRow[]} listByExecution Convenience: all rows for an execution, ordered by `seq`.
+ * @property {(query?: import("./execution-list-support.mjs").ExecutionListQuery) => import("./execution-list-support.mjs").ExecutionListResult} [listExecutions]
+ *   Optional listing across executions (newest `updatedAt` first). When absent, callers fall back to in-memory scan.
  */
 
 export {};

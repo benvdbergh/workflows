@@ -12,6 +12,7 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 | Complete host activity | `workflow_submit_activity` | `submitWorkflowActivity` | `POST /v1/executions/{exec_id}:submit_activity` | `submitActivity` | `parity.r2.host_mediated_submit`, `parity.r2.host_mediated_lighthouse_classify`, `parity.r2.parallel_join` |
 | Deliver signal to wait | `workflow_signal` | `signalWorkflow` | — | — | `parity.r4.signal_wait` |
 | Cooperative cancel | `workflow_cancel` | `cancelWorkflow` | — | — | `parity.r4.signal_cancel` |
+| List executions | `workflow_list` | `listWorkflowExecutions` | — | — | — |
 
 ### Core orchestration parity (implemented)
 
@@ -67,9 +68,12 @@ W3C Trace Context fields are **specified** for future surfaces; the parity harne
 
 Informative command/event prefix narratives remain under `examples/*.trace.*.json` (not harness-validated). Parity vectors use live port/MCP/REST/SDK responses as the executable contract.
 
-## Deferred MCP tools (RFC-05 §5.2)
+### `workflow_list` pagination (MCP + port)
 
-Not in MCP adapter or parity matrix until committed: `workflow_list`.
+- **Sort:** newest `updated_at` first (last history row `created_at`), tie-break `execution_id` ascending.
+- **Page size:** `limit` optional, default **50**, maximum **100**.
+- **Cursor:** opaque string `updated_at|execution_id` from the prior page’s `next_cursor`; omit on the first request.
+- **Filters:** `phase` (status projection), optional `definition_name` (`ExecutionStarted.workflowName`), optional `updated_after` / `updated_before` (ISO 8601 inclusive bounds on `updated_at`).
 
 ## Running parity checks
 

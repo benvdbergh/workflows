@@ -1,3 +1,4 @@
+import { applyExecutionListQuery, summarizeExecution } from "./execution-list-support.mjs";
 import { CURRENT_HISTORY_RECORD_SCHEMA_VERSION } from "./history-record-schema-version.mjs";
 
 /** @typedef {import("./types.mjs").HistoryAppendInput} HistoryAppendInput */
@@ -64,5 +65,19 @@ export class MemoryExecutionHistoryStore {
    */
   listByExecution(executionId) {
     return this.readRange(executionId);
+  }
+
+  /**
+   * @param {import("./execution-list-support.mjs").ExecutionListQuery} [query]
+   * @returns {import("./execution-list-support.mjs").ExecutionListResult}
+   */
+  listExecutions(query = {}) {
+    /** @type {import("./execution-list-support.mjs").ExecutionListItem[]} */
+    const summaries = [];
+    for (const executionId of this.#byExecution.keys()) {
+      const rows = this.#byExecution.get(executionId) ?? [];
+      summaries.push(summarizeExecution(executionId, rows));
+    }
+    return applyExecutionListQuery(summaries, query);
   }
 }

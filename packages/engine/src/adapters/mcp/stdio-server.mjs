@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   workflowResumeArgsSchema,
   workflowCancelArgsSchema,
+  workflowListArgsSchema,
   workflowSignalArgsSchema,
   workflowStartArgsSchema,
   workflowStatusArgsSchema,
@@ -16,7 +17,7 @@ const enginePackageJsonPath = fileURLToPath(new URL("../../../package.json", imp
 const enginePackageVersion = JSON.parse(readFileSync(enginePackageJsonPath, "utf8")).version;
 
 /**
- * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function; cancelWorkflow: Function }} workflowPort
+ * @param {{ startWorkflow: Function; getWorkflowStatus: Function; resumeWorkflow: Function; submitWorkflowActivity: Function; signalWorkflow: Function; cancelWorkflow: Function; listWorkflowExecutions: Function }} workflowPort
  */
 export function createMcpWorkflowStdioServer(workflowPort) {
   const server = new McpServer({
@@ -85,6 +86,17 @@ export function createMcpWorkflowStdioServer(workflowPort) {
       inputSchema: workflowCancelArgsSchema,
     },
     (args) => handlers.workflow_cancel(args)
+  );
+
+  server.registerTool(
+    "workflow_list",
+    {
+      title: "List workflow executions",
+      description:
+        "List persisted workflow executions with optional phase, definition name, and date-range filters. Results are paginated (newest first).",
+      inputSchema: workflowListArgsSchema,
+    },
+    (args) => handlers.workflow_list(args)
   );
 
   return {

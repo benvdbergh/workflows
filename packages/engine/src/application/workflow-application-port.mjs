@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { cancelExecutionOutcome, deliverSignalOutcome, resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
+import { parseExecutionListCursor } from "../persistence/execution-list-support.mjs";
 import { RedactingExecutionHistoryStore } from "../persistence/redacting-history-store.mjs";
 
 const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "ExecutionCancelled", "InterruptRaised"]);
@@ -94,6 +95,30 @@ const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "E
  * @property {string | undefined} [error]
  * @property {string | undefined} [code]
  * @property {string} [reason]
+ */
+
+/**
+ * @typedef {object} WorkflowListRequest
+ * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} [phase]
+ * @property {string} [definitionName]
+ * @property {string} [updatedAfter]
+ * @property {string} [updatedBefore]
+ * @property {number} [limit]
+ * @property {string} [cursor]
+ */
+
+/**
+ * @typedef {object} WorkflowListExecutionSummary
+ * @property {string} executionId
+ * @property {"running" | "completed" | "failed" | "interrupted" | "awaiting_activity" | "awaiting_signal" | "cancelled"} phase
+ * @property {string} [definitionName]
+ * @property {string} [updatedAt]
+ */
+
+/**
+ * @typedef {object} WorkflowListResponse
+ * @property {WorkflowListExecutionSummary[]} executions
+ * @property {string} [nextCursor]
  */
 
 /**
@@ -664,6 +689,44 @@ export function createWorkflowApplicationPort(deps) {
           ? { error: result.error, ...(result.code ? { code: result.code } : {}) }
           : {}),
         ...(result.status === "cancelled" && result.reason ? { reason: result.reason } : {}),
+      };
+    },
+
+    /**
+     * @param {WorkflowListRequest} request
+     * @returns {Promise<WorkflowListResponse>}
+     */
+    async listWorkflowExecutions(request) {
+      if (typeof store.listExecutions !== "function") {
+        const err = new Error("Execution history store does not implement listExecutions.");
+        err.code = "LIST_NOT_SUPPORTED";
+        throw err;
+      }
+      if (request.cursor !== undefined) {
+        try {
+          parseExecutionListCursor(request.cursor);
+        } catch (cause) {
+          const err = new Error("Invalid execution list cursor.");
+          err.code = "INVALID_LIST_CURSOR";
+          throw err;
+        }
+      }
+      const result = store.listExecutions({
+        ...(request.phase !== undefined ? { phase: request.phase } : {}),
+        ...(request.definitionName !== undefined ? { definitionName: request.definitionName } : {}),
+        ...(request.updatedAfter !== undefined ? { updatedAfter: request.updatedAfter } : {}),
+        ...(request.updatedBefore !== undefined ? { updatedBefore: request.updatedBefore } : {}),
+        ...(request.limit !== undefined ? { limit: request.limit } : {}),
+        ...(request.cursor !== undefined ? { cursor: request.cursor } : {}),
+      });
+      return {
+        executions: result.items.map((item) => ({
+          executionId: item.executionId,
+          phase: item.phase,
+          ...(item.definitionName !== undefined ? { definitionName: item.definitionName } : {}),
+          ...(item.updatedAt !== undefined ? { updatedAt: item.updatedAt } : {}),
+        })),
+        ...(result.nextCursor !== undefined ? { nextCursor: result.nextCursor } : {}),
       };
     },
   };

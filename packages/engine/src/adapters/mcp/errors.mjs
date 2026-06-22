@@ -49,6 +49,9 @@ export function normalizeMcpAdapterError(error) {
   if (typeof error?.code === "string" && error.code === MCP_ADAPTER_ERROR.DUPLICATE_EXECUTION_ID) {
     return new McpAdapterError(MCP_ADAPTER_ERROR.DUPLICATE_EXECUTION_ID, message);
   }
+  if (typeof error?.code === "string" && error.code === "INVALID_LIST_CURSOR") {
+    return new McpAdapterError(MCP_ADAPTER_ERROR.VALIDATION_ERROR, message);
+  }
   return new McpAdapterError(MCP_ADAPTER_ERROR.INTERNAL_ERROR, "Unexpected internal error in MCP adapter.", {
     cause: message,
   });

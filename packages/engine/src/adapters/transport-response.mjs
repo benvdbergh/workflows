@@ -5,6 +5,7 @@ import {
   workflowSubmitActivityResultSchema,
   workflowSignalResultSchema,
   workflowCancelResultSchema,
+  workflowListResultSchema,
 } from "./mcp/contracts.mjs";
 
 /**
@@ -155,6 +156,22 @@ export function cancelResponseFromPort(parsed) {
     ...(parsed.reason !== undefined ? { reason: parsed.reason } : {}),
   };
   return workflowCancelResultSchema.parse(response);
+}
+
+/**
+ * @param {unknown} parsed
+ */
+export function listResponseFromPort(parsed) {
+  const response = {
+    executions: parsed.executions.map((item) => ({
+      execution_id: item.executionId,
+      phase: item.phase,
+      ...(item.definitionName !== undefined ? { definition_name: item.definitionName } : {}),
+      ...(item.updatedAt !== undefined ? { updated_at: item.updatedAt } : {}),
+    })),
+    ...(parsed.nextCursor !== undefined ? { next_cursor: parsed.nextCursor } : {}),
+  };
+  return workflowListResultSchema.parse(response);
 }
 
 /**

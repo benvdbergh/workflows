@@ -358,6 +358,7 @@ Operator-oriented summary: [arc42 cross-cutting — workflow reference resolutio
 - `append(executionId, { kind: 'command' | 'event', name, payload })` → assigned `seq` (integer, starts at 1 per execution).
 - `readRange(executionId, fromSeq?, toSeq?)` — inclusive bounds when provided; rows ordered by `seq` ascending.
 - `listByExecution(executionId)` — all rows for that execution.
+- `listExecutions({ phase?, definitionName?, updatedAfter?, updatedBefore?, limit?, cursor? })` — list execution summaries across ids (newest `updatedAt` first). `phase` matches status projection values (`running`, `completed`, `failed`, `interrupted`, `awaiting_activity`, `awaiting_signal`, `cancelled`). Pagination: default `limit` 50, max 100; `cursor` is `updatedAt|executionId` from a prior page’s `nextCursor`.
 
 **Adapters:**
 

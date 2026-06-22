@@ -55,6 +55,17 @@ export class RedactingExecutionHistoryStore {
   }
 
   /**
+   * @param {import("./execution-list-support.mjs").ExecutionListQuery} [query]
+   * @returns {import("./execution-list-support.mjs").ExecutionListResult}
+   */
+  listExecutions(query = {}) {
+    if (typeof this.#inner.listExecutions !== "function") {
+      throw new Error("ExecutionHistoryStore inner adapter does not implement listExecutions");
+    }
+    return this.#inner.listExecutions(query);
+  }
+
+  /**
    * @returns {ExecutionHistoryStore}
    */
   get inner() {

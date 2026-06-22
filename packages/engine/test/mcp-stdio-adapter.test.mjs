@@ -98,6 +98,7 @@ describe("MCP workflow adapter tool handlers", () => {
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
       cancelWorkflow: unusedPortFn("cancelWorkflow"),
+      listWorkflowExecutions: unusedPortFn("listWorkflowExecutions"),
     });
 
     const response = await handlers.workflow_start({
@@ -120,6 +121,7 @@ describe("MCP workflow adapter tool handlers", () => {
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
       cancelWorkflow: unusedPortFn("cancelWorkflow"),
+      listWorkflowExecutions: unusedPortFn("listWorkflowExecutions"),
     });
 
     const response = await handlers.workflow_start({
@@ -247,6 +249,7 @@ describe("MCP workflow adapter tool handlers", () => {
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
       cancelWorkflow: unusedPortFn("cancelWorkflow"),
+      listWorkflowExecutions: unusedPortFn("listWorkflowExecutions"),
       async resumeWorkflow() {
         return {
           executionId: "exec-55",
@@ -274,6 +277,7 @@ describe("MCP workflow adapter tool handlers", () => {
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
       cancelWorkflow: unusedPortFn("cancelWorkflow"),
+      listWorkflowExecutions: unusedPortFn("listWorkflowExecutions"),
       async resumeWorkflow() {
         return {
           executionId: "exec-unknown",
@@ -332,6 +336,7 @@ describe("MCP workflow adapter tool handlers", () => {
       submitWorkflowActivity: unusedPortFn("submitWorkflowActivity"),
       signalWorkflow: unusedPortFn("signalWorkflow"),
       cancelWorkflow: unusedPortFn("cancelWorkflow"),
+      listWorkflowExecutions: unusedPortFn("listWorkflowExecutions"),
     });
 
     const response = await handlers.workflow_start({
@@ -525,5 +530,65 @@ describe("MCP workflow adapter tool handlers", () => {
     const response = await handlers.workflow_cancel({ execution_id: executionId });
     assert.equal(response.isError, true);
     assert.equal(response.structuredContent.error.code, "CANCEL_NOT_ALLOWED");
+  });
+
+  it("workflow_list filters by projected phase", async () => {
+    const definition = signalWaitDefinition();
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const input = {};
+
+    await handlers.workflow_start({
+      execution_id: "exec-list-awaiting",
+      definition,
+      input,
+    });
+    await handlers.workflow_start({
+      execution_id: "exec-list-completed",
+      definition,
+      input,
+    });
+    await handlers.workflow_signal({
+      execution_id: "exec-list-completed",
+      definition,
+      input,
+      signal_name: "approved",
+    });
+
+    const awaitingOnly = await handlers.workflow_list({ phase: "awaiting_signal" });
+    assert.equal(awaitingOnly.isError, undefined);
+    assert.equal(awaitingOnly.structuredContent.executions.length, 1);
+    assert.equal(awaitingOnly.structuredContent.executions[0].execution_id, "exec-list-awaiting");
+    assert.equal(awaitingOnly.structuredContent.executions[0].phase, "awaiting_signal");
+
+    const completedOnly = await handlers.workflow_list({ phase: "completed" });
+    assert.equal(completedOnly.structuredContent.executions.length, 1);
+    assert.equal(completedOnly.structuredContent.executions[0].execution_id, "exec-list-completed");
+    assert.equal(completedOnly.structuredContent.executions[0].definition_name, definition.document.name);
+  });
+
+  it("workflow_list paginates with cursor", async () => {
+    const store = new MemoryExecutionHistoryStore();
+    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const definition = minimalValidWorkflowDefinition();
+
+    for (let i = 0; i < 3; i += 1) {
+      await handlers.workflow_start({
+        execution_id: `exec-page-${i}`,
+        definition,
+        input: {},
+      });
+    }
+
+    const page1 = await handlers.workflow_list({ limit: 2 });
+    assert.equal(page1.structuredContent.executions.length, 2);
+    assert.equal(typeof page1.structuredContent.next_cursor, "string");
+
+    const page2 = await handlers.workflow_list({
+      limit: 2,
+      cursor: page1.structuredContent.next_cursor,
+    });
+    assert.equal(page2.structuredContent.executions.length, 1);
+    assert.equal(page2.structuredContent.next_cursor, undefined);
   });
 });
