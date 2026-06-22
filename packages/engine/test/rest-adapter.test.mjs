@@ -254,11 +254,35 @@ describe("REST workflow adapter", () => {
     });
   });
 
-  it("returns 501 for cancel until application port supports it", async () => {
+  it("POST :cancel cooperatively cancels awaiting_signal execution", async () => {
     await withRestServer(async (port) => {
-      const response = await requestJson(port, "POST", "/v1/executions/some-exec:cancel");
-      assert.equal(response.status, 501);
-      assert.equal(response.body.error.code, "NOT_IMPLEMENTED");
+      const root = findWorkflowRepoRoot(__dirname);
+      const definition = JSON.parse(
+        readFileSync(path.join(root, "examples", "conformance-signal-wait.workflow.json"), "utf8")
+      );
+      const registered = await requestJson(port, "POST", "/v1/workflows", { definition });
+      const executionId = "rest-cancel-signal";
+      const startResponse = await requestJson(port, "POST", `/v1/workflows/${registered.body.wf_id}/executions`, {
+        execution_id: executionId,
+        input: {},
+      });
+      assert.equal(startResponse.status, 200);
+      assert.equal(startResponse.body.status, "awaiting_signal");
+
+      const cancelResponse = await requestJson(port, "POST", `/v1/executions/${executionId}:cancel`, {
+        reason: "rest abort",
+      });
+      assert.equal(cancelResponse.status, 200);
+      assert.equal(cancelResponse.body.status, "cancelled");
+      assert.equal(cancelResponse.body.reason, "rest abort");
+    });
+  });
+
+  it("maps cancel on unknown execution to EXECUTION_NOT_FOUND", async () => {
+    await withRestServer(async (port) => {
+      const response = await requestJson(port, "POST", "/v1/executions/no-such-exec:cancel");
+      assert.equal(response.status, 404);
+      assert.equal(response.body.error.code, "EXECUTION_NOT_FOUND");
     });
   });
 });

@@ -218,12 +218,6 @@ export function findLatestNonCheckpointEvent(rows) {
 }
 
 /**
- * Latest `ActivityRequested` that has no later `ActivityCompleted` for the same node (host submit target).
- *
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
- */
-/**
  * Latest `SignalWaitStarted` without a later `SignalReceived` for the same node.
  *
  * @param {import("../persistence/types.mjs").HistoryRow[]} rows
@@ -275,6 +269,34 @@ export function isPendingSignalWaitContinuation(rows) {
   return !hasCompleteNode;
 }
 
+/**
+ * When history ends with `ExecutionCancelled`, return a cooperative cancel outcome for read-only replay.
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @param {string} executionId
+ * @returns {{ status: "cancelled"; executionId: string; finalState?: Record<string, unknown>; reason?: string } | undefined}
+ */
+export function buildCancelledRunResult(rows, executionId) {
+  const lastTerminal = findLatestTerminalEvent(rows);
+  if (lastTerminal?.name !== "ExecutionCancelled") {
+    return undefined;
+  }
+  const priorReason =
+    typeof lastTerminal.payload?.reason === "string" ? lastTerminal.payload.reason : undefined;
+  return {
+    status: "cancelled",
+    executionId,
+    finalState: latestStateFromHistory(rows),
+    ...(priorReason ? { reason: priorReason } : {}),
+  };
+}
+
+/**
+ * Latest `ActivityRequested` that has no later `ActivityCompleted` for the same node (host submit target).
+ *
+ * @param {import("../persistence/types.mjs").HistoryRow[]} rows
+ * @returns {import("../persistence/types.mjs").HistoryRow | undefined}
+ */
 export function findPendingActivityRequest(rows) {
   const last = findLatestNonCheckpointEvent(rows);
   if (last?.kind === "event" && last.name === "ActivityRequested") {

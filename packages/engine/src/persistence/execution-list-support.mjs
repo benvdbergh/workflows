@@ -47,7 +47,7 @@ function latestPrimaryEvent(rows) {
 /**
  * @param {HistoryRow[]} rows
  */
-function findLatestNonCheckpointEvent(rows) {
+export function findLatestNonCheckpointEvent(rows) {
   for (let i = rows.length - 1; i >= 0; i -= 1) {
     const row = rows[i];
     if (row.kind === "event" && row.name === "CheckpointWritten") continue;
@@ -70,6 +70,101 @@ export function projectExecutionPhase(rows) {
   if (lastNc?.kind === "event" && lastNc.name === "ActivityRequested") return "awaiting_activity";
   if (lastNc?.kind === "event" && lastNc.name === "SignalWaitStarted") return "awaiting_signal";
   return "running";
+}
+
+/**
+ * @param {HistoryRow[]} rows
+ * @returns {string | undefined}
+ */
+function latestNodeId(rows) {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (typeof row.payload?.nodeId === "string") {
+      return row.payload.nodeId;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * @param {HistoryRow[]} rows
+ * @returns {string | undefined}
+ */
+function latestError(rows) {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (row.name === "ExecutionFailed" && typeof row.payload?.error === "string") {
+      return row.payload.error;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * @param {HistoryRow[]} rows
+ * @returns {string | undefined}
+ */
+function latestCancelReason(rows) {
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (row.name === "ExecutionCancelled" && typeof row.payload?.reason === "string") {
+      return row.payload.reason;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Status projection body shared by `getWorkflowStatus` and `listExecutions` phase filtering.
+ *
+ * @param {HistoryRow[]} rows
+ * @returns {{
+ *   phase: ExecutionPhase;
+ *   currentNodeId: string | undefined;
+ *   lastError: string | undefined;
+ *   signalName?: string;
+ * }}
+ */
+export function projectExecutionStatusDetails(rows) {
+  const phase = projectExecutionPhase(rows);
+  if (phase === "completed") {
+    return { phase, currentNodeId: undefined, lastError: undefined };
+  }
+  if (phase === "failed") {
+    return { phase, currentNodeId: latestNodeId(rows), lastError: latestError(rows) };
+  }
+  if (phase === "cancelled") {
+    const reason = latestCancelReason(rows);
+    return { phase, currentNodeId: latestNodeId(rows), lastError: reason };
+  }
+  if (phase === "interrupted") {
+    return { phase, currentNodeId: latestNodeId(rows), lastError: undefined };
+  }
+  const lastNc = findLatestNonCheckpointEvent(rows);
+  if (phase === "awaiting_activity") {
+    const nid =
+      lastNc?.kind === "event" && typeof lastNc.payload?.nodeId === "string"
+        ? lastNc.payload.nodeId
+        : latestNodeId(rows);
+    return { phase, currentNodeId: nid, lastError: undefined };
+  }
+  if (phase === "awaiting_signal") {
+    const nid =
+      lastNc?.kind === "event" && typeof lastNc.payload?.nodeId === "string"
+        ? lastNc.payload.nodeId
+        : latestNodeId(rows);
+    const signalName =
+      lastNc?.kind === "event" && typeof lastNc.payload?.signalName === "string"
+        ? lastNc.payload.signalName
+        : undefined;
+    return {
+      phase,
+      currentNodeId: nid,
+      lastError: undefined,
+      ...(signalName ? { signalName } : {}),
+    };
+  }
+  return { phase, currentNodeId: latestNodeId(rows), lastError: undefined };
 }
 
 /**

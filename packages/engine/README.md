@@ -69,7 +69,9 @@ npx -y -p @agent-workflow/engine@0.1.2 workflows-engine-mcp
 
 **Development setup** — point `node` at `packages/engine/src/mcp-stdio-server.mjs` inside your clone when working on the adapter or engine.
 
-This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, `workflow_resume`, and **`workflow_submit_activity`** (host-mediated activity completion; see below). The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
+This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `workflow_status`, `workflow_resume`, **`workflow_submit_activity`**, **`workflow_signal`**, **`workflow_cancel`**, and **`workflow_list`**. The adapter maps MCP request DTOs to the stable application port (`createWorkflowApplicationPort`) and translates engine failures into structured MCP tool errors with stable error codes.
+
+**Cooperative cancel:** `workflow_cancel` appends `ExecutionCancelled` at host pause points (`awaiting_signal`, `awaiting_activity`, `interrupted`). It does not interrupt an in-process node that is actively executing inside the same call stack.
 
 Operator smoke runbook: `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`.
 
@@ -248,6 +250,18 @@ Invalid `WORKFLOW_ENGINE_A2A_CONFIG` (missing `baseUrl`) or an invalid operator 
   - args: `{ execution_id: string, definition: object, input: object, node_id: string, outcome: { ok: true, result?: object } | { ok: false, error: string, code?: string }, parallel_span?: object, activity_execution_mode?: "in_process" | "host_mediated" }`
   - returns: same shape as `workflow_resume` results, plus optional `code` when `status` is `failed` from submit validation (usually surfaced as a tool error instead).
   - notes: append activity success/failure after a host-mediated yield; **`definition` must match** the canonical hash bound at the latest `CheckpointWritten` (`definitionHash`); mismatch returns **`SUBMIT_VALIDATION_ERROR`**. **`input` must match** the original `workflow_start` (replay). For activities under a `parallel` branch, pass **`parallel_span`** matching the `parallel_span` returned from `workflow_start` / prior submit.
+- `workflow_signal`
+  - args: `{ execution_id, definition, input, signal_name, payload?, activity_execution_mode? }`
+  - returns: same shape as `workflow_resume` results when continuing after a signal wait.
+  - notes: delivers `DeliverSignal` / `SignalReceived` for a pending `wait` node with `config.kind: signal`. Signal **`payload`** keys merge into workflow state via `state_schema` reducers. Unknown execution ids return **`EXECUTION_NOT_FOUND`**.
+- `workflow_cancel`
+  - args: `{ execution_id, reason? }`
+  - returns: `{ execution_id, status: "cancelled" | "failed", reason?, error?, code? }`
+  - notes: cooperative cancel at pause points; unknown execution ids return **`EXECUTION_NOT_FOUND`**; terminal runs return **`CANCEL_NOT_ALLOWED`**.
+- `workflow_list`
+  - args: `{ phase?, definition_name?, updated_after?, updated_before?, limit?, cursor? }`
+  - returns: `{ executions: [{ execution_id, phase, definition_name?, updated_at? }], next_cursor? }`
+  - notes: lists persisted executions newest-first; default page size 50, max 100.
 
 Structured adapter error codes:
 
@@ -259,6 +273,8 @@ Structured adapter error codes:
 - `ACTIVITY_SUBMIT_NODE_MISMATCH` — `node_id` does not match the pending activity.
 - `ACTIVITY_SUBMIT_PARALLEL_MISMATCH` — `parallel_span` missing or does not match the pending `ActivityRequested`.
 - `SUBMIT_VALIDATION_ERROR` — submit request failed definition/store validation before append.
+- `SIGNAL_NOT_AWAITING` / `SIGNAL_NAME_MISMATCH` / `SIGNAL_VALIDATION_ERROR` — signal delivery rejected.
+- `CANCEL_NOT_ALLOWED` / `CANCEL_VALIDATION_ERROR` — cancel rejected (terminal run or invalid args).
 - `ENGINE_FAILURE` — engine reported workflow failure that is not an adapter contract issue.
 - `INTERNAL_ERROR` — unexpected adapter failure.
 

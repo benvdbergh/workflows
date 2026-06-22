@@ -39,6 +39,7 @@ import {
   findLatestNonCheckpointEvent,
   findPendingActivityRequest,
   findLatestTerminalEvent,
+  buildCancelledRunResult,
   findPendingSignalWait,
   isParallelSpanPayload,
   isPendingActivityCompletionContinuation,
@@ -87,6 +88,7 @@ const HOST_SUBMIT_NODE_TYPES = new Set([...PLACEHOLDER_TYPES, "agent_delegate"])
  *   | { status: "interrupted"; executionId: string; nodeId: string; state: Record<string, unknown> }
  *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload; agentId?: string; protocol?: string; delegateInput?: Record<string, unknown>; delegateCorrelationId?: string }
  *   | { status: "awaiting_signal"; executionId: string; nodeId: string; state: Record<string, unknown>; signalName: string }
+ *   | { status: "cancelled"; executionId: string; finalState?: Record<string, unknown>; reason?: string }
  * >}
  */
 export async function runGraphWorkflow(options) {
@@ -172,6 +174,10 @@ export async function runGraphWorkflow(options) {
   const existingRows = store.listByExecution(executionId);
   assertHistoryReadableByEngine(existingRows);
   if (existingRows.length > 0) {
+    const cancelled = buildCancelledRunResult(existingRows, executionId);
+    if (cancelled) {
+      return cancelled;
+    }
     const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, existingRows);
     if (!definitionBind.ok) {
       return {
@@ -414,7 +420,18 @@ export async function runGraphWorkflow(options) {
         throw new Error(`Cannot continue: pending signal wait node "${waitNodeId}" is missing or invalid.`);
       }
 
-      appendCmd("CompleteNode", { nodeId: waitNodeId, output: {} });
+      const rawSignalPayload = lastReceived?.payload?.payload;
+      /** @type {Record<string, unknown>} */
+      const signalOutput =
+        rawSignalPayload && typeof rawSignalPayload === "object" && !Array.isArray(rawSignalPayload)
+          ? /** @type {Record<string, unknown>} */ (JSON.parse(JSON.stringify(rawSignalPayload)))
+          : {};
+      state = /** @type {Record<string, unknown>} */ (
+        applyOutputWithReducers(state, signalOutput, definition.state_schema)
+      );
+      throwIfStateInvalid(validateState, state, `State invalid after signal delivery at "${waitNodeId}"`);
+
+      appendCmd("CompleteNode", { nodeId: waitNodeId, output: signalOutput });
       const signalStateSeq = appendEvt("StateUpdated", {
         nodeId: waitNodeId,
         state: JSON.parse(JSON.stringify(state)),
@@ -918,6 +935,10 @@ export async function resumeGraphWorkflow(options) {
    */
   function failResume(reason, code, finalState) {
     return { status: "failed", error: reason, ...(finalState ? { finalState } : {}), code };
+  }
+  if (rows.length > 0 && buildCancelledRunResult(rows, executionId)) {
+    const err = "Cannot resume: execution was cancelled.";
+    return failResume(err, RESUME_FAILURE_CODE.NOT_ALLOWED, latestStateFromHistory(rows));
   }
   const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, rows);
   if (!definitionBind.ok) {
@@ -1615,6 +1636,15 @@ export async function submitActivityOutcome(options) {
     };
   }
 
+  const cancelled = buildCancelledRunResult(rows, executionId);
+  if (cancelled) {
+    return {
+      status: "failed",
+      error: "Cannot submit activity: execution was cancelled.",
+      code: "ACTIVITY_SUBMIT_NOT_AWAITING",
+    };
+  }
+
   const definitionBind = verifyCallerDefinitionMatchesCheckpoint(definition, rows);
   if (!definitionBind.ok) {
     return { status: "failed", error: definitionBind.error, code: "SUBMIT_VALIDATION_ERROR" };
@@ -1852,6 +1882,15 @@ export async function deliverSignalOutcome(options) {
     return {
       status: "failed",
       error: `Execution "${executionId}" was not found.`,
+      code: "EXECUTION_NOT_FOUND",
+    };
+  }
+
+  const cancelled = buildCancelledRunResult(rows, executionId);
+  if (cancelled) {
+    return {
+      status: "failed",
+      error: "Cannot deliver signal: execution was cancelled.",
       code: "SIGNAL_NOT_AWAITING",
     };
   }

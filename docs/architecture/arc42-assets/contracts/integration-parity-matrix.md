@@ -11,8 +11,8 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 | Continue interrupt | `workflow_resume` | `resumeWorkflow` | `POST /v1/executions/{exec_id}:resume` | `resume` | `parity.r2.interrupt_resume` |
 | Complete host activity | `workflow_submit_activity` | `submitWorkflowActivity` | `POST /v1/executions/{exec_id}:submit_activity` | `submitActivity` | `parity.r2.host_mediated_submit`, `parity.r2.host_mediated_lighthouse_classify`, `parity.r2.parallel_join` |
 | Deliver signal to wait | `workflow_signal` | `signalWorkflow` | — | — | `parity.r4.signal_wait` |
-| Cooperative cancel | `workflow_cancel` | `cancelWorkflow` | — | — | `parity.r4.signal_cancel` |
-| List executions | `workflow_list` | `listWorkflowExecutions` | — | — | — |
+| Cooperative cancel | `workflow_cancel` | `cancelWorkflow` | `POST /v1/executions/{exec_id}:cancel` | — | `parity.r4.signal_cancel` |
+| List executions | `workflow_list` | `listWorkflowExecutions` | — | — | `parity.r4.list_executions` |
 
 ### Core orchestration parity (implemented)
 
@@ -35,6 +35,12 @@ Normative orchestration behavior lives in `createWorkflowApplicationPort` ([RFC-
 | Vector | Workflow fixture | Surfaces exercised |
 |--------|------------------|-------------------|
 | `parity.r4.signal_cancel` | `examples/conformance-signal-wait.workflow.json` | port, MCP — start → awaiting_signal; cancel → cancelled; status → cancelled |
+
+### List executions parity (port + MCP)
+
+| Vector | Workflow fixture | Surfaces exercised |
+|--------|------------------|-------------------|
+| `parity.r4.list_executions` | `examples/conformance-signal-wait.workflow.json` | port, MCP — multiple starts; list with phase filter |
 
 ### Composition parity (port + MCP; REST/SDK deferred to R3 vectors)
 

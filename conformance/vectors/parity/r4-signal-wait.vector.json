@@ -17,7 +17,8 @@
     {
       "op": "signal",
       "signalName": "approved",
-      "expect": { "status": "completed", "result": true }
+      "payload": { "approved_by": "alice" },
+      "expect": { "status": "completed", "result": "alice" }
     }
   ]
 }

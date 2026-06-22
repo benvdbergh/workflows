@@ -6,7 +6,9 @@
   },
   "state_schema": {
     "type": "object",
-    "properties": {}
+    "properties": {
+      "approved_by": { "type": "string" }
+    }
   },
   "nodes": [
     { "id": "start", "type": "start" },
@@ -15,7 +17,7 @@
       "type": "wait",
       "config": { "kind": "signal", "signal": "approved" }
     },
-    { "id": "end", "type": "end", "config": { "output_mapping": "true" } }
+    { "id": "end", "type": "end", "config": { "output_mapping": ".approved_by" } }
   ],
   "edges": [
     { "source": "__start__", "target": "start" },

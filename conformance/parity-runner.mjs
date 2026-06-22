@@ -17,7 +17,7 @@ import { SdkError } from "../packages/sdk/src/errors.mjs";
 /** @typedef {"port" | "mcp" | "rest" | "sdk"} ParitySurface */
 
 /**
- * @typedef {"start" | "status" | "resume" | "submit_activity" | "signal" | "cancel"} ParityOp
+ * @typedef {"start" | "status" | "resume" | "submit_activity" | "signal" | "cancel" | "list"} ParityOp
  */
 
 /**
@@ -35,8 +35,26 @@ import { SdkError } from "../packages/sdk/src/errors.mjs";
  * @property {object} [expectedParallelSpan]
  * @property {boolean} [expectError]
  * @property {string} [expectErrorCode]
+ * @property {string} [executionId] Override vector execution id (start steps creating multiple runs).
+ * @property {string} [listPhase]
+ * @property {number} [listLimit]
+ * @property {string} [listCursor]
  * @property {Record<string, unknown>} [expect]
  */
+
+/**
+ * @param {unknown} listResult
+ */
+function normalizeListSnapshot(listResult) {
+  const r = /** @type {{ executions: Array<{ executionId: string }>; nextCursor?: string }} */ (listResult);
+  return {
+    op: "list",
+    is_error: false,
+    execution_count: r.executions.length,
+    execution_ids: r.executions.map((item) => item.executionId).sort(),
+    ...(r.nextCursor !== undefined ? { next_cursor: r.nextCursor } : {}),
+  };
+}
 
 /**
  * @typedef {object} ParityVector
@@ -362,12 +380,13 @@ async function executeStep(
   scenarioInput
 ) {
   const activityMode = step.activityExecutionMode;
+  const stepExecutionId = step.executionId ?? executionId;
 
   if (step.op === "start") {
     if (surface === "port") {
       try {
         const portResult = await port.startWorkflow({
-          executionId,
+          executionId: stepExecutionId,
           definition,
           input: step.input ?? scenarioInput,
           ...(activityMode ? { activityExecutionMode: activityMode } : {}),
@@ -395,7 +414,7 @@ async function executeStep(
     }
     if (surface === "mcp") {
       const mcpResult = await handlers.workflow_start({
-        execution_id: executionId,
+        execution_id: stepExecutionId,
         definition,
         input: step.input ?? scenarioInput,
         ...(activityMode ? { activity_execution_mode: activityMode } : {}),
@@ -412,7 +431,7 @@ async function executeStep(
           "POST",
           `/v1/workflows/${encodeURIComponent(restContext.wfId)}/executions`,
           {
-            execution_id: executionId,
+            execution_id: stepExecutionId,
             input: step.input ?? scenarioInput,
             ...(activityMode ? { activity_execution_mode: activityMode } : {}),
           }
@@ -435,7 +454,7 @@ async function executeStep(
       try {
         const result = await sdkClient.start({
           definition,
-          executionId,
+          executionId: stepExecutionId,
           input: step.input ?? scenarioInput,
           ...(activityMode ? { activityExecutionMode: activityMode } : {}),
         });
@@ -701,6 +720,43 @@ async function executeStep(
         ...(step.reason !== undefined ? { reason: step.reason } : {}),
       });
       return { snapshot: normalizeMcpSnapshot("cancel", mcpResult), isError: Boolean(mcpResult.isError) };
+    }
+  }
+
+  if (step.op === "list") {
+    const listRequest = {
+      ...(step.listPhase !== undefined ? { phase: step.listPhase } : {}),
+      ...(step.listLimit !== undefined ? { limit: step.listLimit } : {}),
+      ...(step.listCursor !== undefined ? { cursor: step.listCursor } : {}),
+    };
+    if (surface === "port") {
+      const portResult = await port.listWorkflowExecutions(listRequest);
+      return { snapshot: normalizeListSnapshot(portResult), isError: false };
+    }
+    if (surface === "mcp") {
+      const mcpResult = await handlers.workflow_list({
+        ...(step.listPhase !== undefined ? { phase: step.listPhase } : {}),
+        ...(step.listLimit !== undefined ? { limit: step.listLimit } : {}),
+        ...(step.listCursor !== undefined ? { cursor: step.listCursor } : {}),
+      });
+      if (mcpResult.isError) {
+        return {
+          snapshot: { op: "list", is_error: true, error: mcpResult.structuredContent?.error },
+          isError: true,
+        };
+      }
+      const executions = mcpResult.structuredContent.executions.map((item) => ({
+        executionId: item.execution_id,
+      }));
+      return {
+        snapshot: normalizeListSnapshot({
+          executions,
+          ...(mcpResult.structuredContent.next_cursor !== undefined
+            ? { nextCursor: mcpResult.structuredContent.next_cursor }
+            : {}),
+        }),
+        isError: false,
+      };
     }
   }
 

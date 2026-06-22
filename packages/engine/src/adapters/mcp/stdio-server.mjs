@@ -72,7 +72,7 @@ export function createMcpWorkflowStdioServer(workflowPort) {
     {
       title: "Deliver workflow signal",
       description:
-        "Deliver an external signal to unblock a wait node with config.kind signal. Requires the same definition and input as the initial start.",
+        "Deliver an external signal to unblock a wait node with config.kind signal. Signal payload keys merge into workflow state via state_schema reducers. Returns EXECUTION_NOT_FOUND when the execution id is unknown. Requires the same definition and input as the initial start.",
       inputSchema: workflowSignalArgsSchema,
     },
     (args) => handlers.workflow_signal(args)
@@ -82,7 +82,8 @@ export function createMcpWorkflowStdioServer(workflowPort) {
     "workflow_cancel",
     {
       title: "Cancel workflow execution",
-      description: "Request cooperative cancellation for a non-terminal execution identity.",
+      description:
+        "Request cooperative cancellation for a non-terminal execution identity. Cancellation takes effect at host pause points (awaiting signal, awaiting activity, interrupted); it does not interrupt an in-process node mid-flight. Returns EXECUTION_NOT_FOUND when the execution id is unknown.",
       inputSchema: workflowCancelArgsSchema,
     },
     (args) => handlers.workflow_cancel(args)

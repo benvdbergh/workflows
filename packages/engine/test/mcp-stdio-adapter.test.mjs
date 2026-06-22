@@ -464,13 +464,14 @@ describe("MCP workflow adapter tool handlers", () => {
       definition,
       input,
       signal_name: "approved",
+      payload: { approved_by: "alice" },
     });
     assert.equal(signaled.isError, undefined);
     assert.equal(signaled.structuredContent.status, "completed");
-    assert.equal(signaled.structuredContent.result, true);
+    assert.equal(signaled.structuredContent.result, "alice");
   });
 
-  it("workflow_signal maps stale delivery to SIGNAL_NOT_AWAITING", async () => {
+  it("workflow_signal maps unknown execution to EXECUTION_NOT_FOUND", async () => {
     const definition = signalWaitDefinition();
     const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store: new MemoryExecutionHistoryStore() }));
 
@@ -482,7 +483,7 @@ describe("MCP workflow adapter tool handlers", () => {
     });
 
     assert.equal(response.isError, true);
-    assert.equal(response.structuredContent.error.code, "SIGNAL_NOT_AWAITING");
+    assert.equal(response.structuredContent.error.code, "EXECUTION_NOT_FOUND");
   });
 
   it("workflow_cancel cooperatively cancels awaiting_signal run", async () => {

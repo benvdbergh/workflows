@@ -877,12 +877,20 @@ describe("runGraphWorkflow (signal wait)", () => {
       store,
       input,
       signalName: "approved",
-      payload: { note: "ok" },
+      payload: { approved_by: "alice" },
     });
     assert.equal(done.status, "completed");
-    assert.equal(done.result, true);
+    assert.equal(done.result, "alice");
     const finalRows = store.listByExecution(executionId);
     assert.ok(finalRows.some((r) => r.name === "SignalReceived"));
+    assert.ok(
+      finalRows.some(
+        (r) =>
+          r.name === "StateUpdated" &&
+          r.payload?.nodeId === "await_approval" &&
+          r.payload?.state?.approved_by === "alice"
+      )
+    );
     assert.equal(finalRows.at(-1)?.name, "ExecutionCompleted");
   });
 
@@ -962,6 +970,91 @@ describe("cancelExecutionOutcome", () => {
 
     assert.equal(again.status, "cancelled");
     assert.equal(again.reason, "once");
+    const cancelEvents = store.listByExecution(executionId).filter((r) => r.name === "ExecutionCancelled");
+    assert.equal(cancelEvents.length, 1);
+  });
+
+  it("cancels interrupted execution cooperatively", async () => {
+    const definition = {
+      document: {
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
+        name: "interrupt-cancel",
+        version: "1.0.0",
+      },
+      state_schema: { type: "object" },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "human",
+          type: "interrupt",
+          config: { prompt: "review", resume_schema: { type: "object" } },
+        },
+        { id: "end", type: "end" },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "human" },
+        { source: "human", target: "end" },
+      ],
+    };
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-interrupted";
+    const interrupted = await runGraphWorkflow({ definition, input: {}, executionId, store });
+    assert.equal(interrupted.status, "interrupted");
+
+    const cancelled = await cancelExecutionOutcome({ executionId, store, reason: "operator stop" });
+    assert.equal(cancelled.status, "cancelled");
+    assert.equal(cancelled.reason, "operator stop");
+  });
+
+  it("cancels awaiting_activity execution cooperatively", async () => {
+    const definition = {
+      document: {
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
+        name: "host-cancel",
+        version: "1.0.0",
+      },
+      state_schema: { type: "object", properties: { out: { type: "string" } } },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "work",
+          type: "tool_call",
+          config: { server: "demo-mcp", tool: "stub", arguments: {} },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".out" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "work" },
+        { source: "work", target: "end" },
+      ],
+    };
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-awaiting-activity";
+    const awaiting = await runGraphWorkflow({
+      definition,
+      input: {},
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(awaiting.status, "awaiting_activity");
+
+    const cancelled = await cancelExecutionOutcome({ executionId, store });
+    assert.equal(cancelled.status, "cancelled");
+  });
+
+  it("runGraphWorkflow returns cancelled without re-walking cancelled history", async () => {
+    const definition = loadSignalWaitFixture();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-cancel-replay-guard";
+    await runGraphWorkflow({ definition, input: {}, executionId, store });
+    await cancelExecutionOutcome({ executionId, store, reason: "done" });
+
+    const replay = await runGraphWorkflow({ definition, input: {}, executionId, store });
+    assert.equal(replay.status, "cancelled");
+    assert.equal(replay.reason, "done");
     const cancelEvents = store.listByExecution(executionId).filter((r) => r.name === "ExecutionCancelled");
     assert.equal(cancelEvents.length, 1);
   });

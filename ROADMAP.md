@@ -149,6 +149,7 @@ Move from single-node reference posture to production-grade operational posture.
   - Worker pool and queue abstractions for activity execution.
   - Throughput and latency targets with benchmark suite.
   - Optional alternate durable stores (while preserving event semantics).
+  - Execution list API (`listExecutions`): reference SQLite store scans all execution ids and replays full history per id for phase projection — add an execution-summary index or materialized view before high-volume deployments.
 - Operations and platform controls:
   - Multi-tenant isolation patterns and policy controls.
   - Extended observability (SLO dashboards, retry/failure analytics).

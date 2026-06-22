@@ -1,10 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { cancelExecutionOutcome, deliverSignalOutcome, resumeGraphWorkflow, runGraphWorkflow, submitActivityOutcome } from "../orchestrator/workflow-graph-walker.mjs";
 import { assertHistoryReadableByEngine } from "../persistence/history-record-schema-version.mjs";
-import { parseExecutionListCursor } from "../persistence/execution-list-support.mjs";
+import { parseExecutionListCursor, projectExecutionStatusDetails, findLatestNonCheckpointEvent } from "../persistence/execution-list-support.mjs";
 import { RedactingExecutionHistoryStore } from "../persistence/redacting-history-store.mjs";
-
-const PRIMARY_EVENT_NAMES = new Set(["ExecutionCompleted", "ExecutionFailed", "ExecutionCancelled", "InterruptRaised"]);
 
 /**
  * @typedef {object} WorkflowStartRequest
@@ -205,7 +203,7 @@ function awaitingDelegateFromRunResult(runResult) {
 }
 
 /**
- * @param {{ nodeId?: string; state?: Record<string, unknown>; signalName?: string }} runResult
+ * @param {{ nodeId?: string; state?: Record<string, unknown>; signalName?: string; reason?: string }} runResult
  */
 function awaitingSignalFromRunResult(runResult) {
   return {
@@ -213,57 +211,6 @@ function awaitingSignalFromRunResult(runResult) {
     ...(runResult.state !== undefined ? { state: runResult.state } : {}),
     ...(runResult.signalName !== undefined ? { signalName: runResult.signalName } : {}),
   };
-}
-
-/**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- */
-function latestPrimaryEvent(rows) {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const row = rows[i];
-    if (row.kind === "event" && PRIMARY_EVENT_NAMES.has(row.name)) {
-      return row;
-    }
-  }
-  return undefined;
-}
-
-/**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- */
-function latestNodeId(rows) {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const row = rows[i];
-    if (typeof row.payload?.nodeId === "string") {
-      return row.payload.nodeId;
-    }
-  }
-  return undefined;
-}
-
-/**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- */
-function latestError(rows) {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const row = rows[i];
-    if (row.name === "ExecutionFailed" && typeof row.payload?.error === "string") {
-      return row.payload.error;
-    }
-  }
-  return undefined;
-}
-
-/**
- * @param {import("../persistence/types.mjs").HistoryRow[]} rows
- */
-function findLatestNonCheckpointEvent(rows) {
-  for (let i = rows.length - 1; i >= 0; i -= 1) {
-    const row = rows[i];
-    if (row.kind === "event" && row.name === "CheckpointWritten") continue;
-    return row;
-  }
-  return undefined;
 }
 
 const CHILD_EXECUTION_MARKER = ":sub:";
@@ -480,6 +427,7 @@ export function createWorkflowApplicationPort(deps) {
             }
           : {}),
         ...(runResult.status === "awaiting_signal" ? awaitingSignalFromRunResult(runResult) : {}),
+        ...(runResult.status === "cancelled" && runResult.reason ? { reason: runResult.reason } : {}),
       };
     },
 
@@ -496,63 +444,12 @@ export function createWorkflowApplicationPort(deps) {
         throw err;
       }
 
-      const lastPrimary = latestPrimaryEvent(rows);
-      if (lastPrimary?.name === "ExecutionCompleted") {
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "completed",
-          currentNodeId: undefined,
-          lastError: undefined,
-        });
-      }
-      if (lastPrimary?.name === "ExecutionFailed") {
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "failed",
-          currentNodeId: latestNodeId(rows),
-          lastError: latestError(rows),
-        });
-      }
-      if (lastPrimary?.name === "ExecutionCancelled") {
-        const cancelReason =
-          typeof lastPrimary.payload?.reason === "string" ? lastPrimary.payload.reason : undefined;
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "cancelled",
-          currentNodeId: latestNodeId(rows),
-          lastError: cancelReason,
-        });
-      }
-      if (lastPrimary?.name === "InterruptRaised") {
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "interrupted",
-          currentNodeId: latestNodeId(rows),
-          lastError: undefined,
-        });
-      }
-      const lastNc = findLatestNonCheckpointEvent(rows);
-      if (lastNc?.kind === "event" && lastNc.name === "ActivityRequested") {
-        const nid =
-          typeof lastNc.payload?.nodeId === "string" ? lastNc.payload.nodeId : latestNodeId(rows);
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "awaiting_activity",
-          currentNodeId: nid,
-          lastError: undefined,
-        });
-      }
-      if (lastNc?.kind === "event" && lastNc.name === "SignalWaitStarted") {
-        const nid =
-          typeof lastNc.payload?.nodeId === "string" ? lastNc.payload.nodeId : latestNodeId(rows);
-        const signalName =
-          typeof lastNc.payload?.signalName === "string" ? lastNc.payload.signalName : undefined;
-        return buildStatusResponse(request.executionId, rows, {
-          phase: "awaiting_signal",
-          currentNodeId: nid,
-          lastError: undefined,
-          ...(signalName ? { signalName } : {}),
-        });
-      }
+      const details = projectExecutionStatusDetails(rows);
       return buildStatusResponse(request.executionId, rows, {
-        phase: "running",
-        currentNodeId: latestNodeId(rows),
-        lastError: undefined,
+        phase: details.phase,
+        currentNodeId: details.currentNodeId,
+        lastError: details.lastError,
+        ...(details.signalName ? { signalName: details.signalName } : {}),
       });
     },
 
