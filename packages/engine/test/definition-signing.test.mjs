@@ -134,6 +134,20 @@ describe("definition signing v1 (JWS Ed25519)", () => {
     }
   });
 
+  it("missing JWS kid fails verification", () => {
+    const signed = signDefinitionForTest(minimalDefinition, testPrivateKey);
+    const payload = buildDefinitionSigningPayload(signed);
+    signed.document.signature.value = createEdDsaJwsCompact(testPrivateKey, payload);
+    const r = verifyDefinitionSignature(signed, {
+      policy: { mode: "optional" },
+      publicKeysById: testPublicKeys,
+    });
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.match(r.error, /missing required kid/i);
+    }
+  });
+
   it("verifies when signature keyId is omitted but JWS kid is present", () => {
     const signed = signDefinitionForTest(minimalDefinition, testPrivateKey);
     delete signed.document.signature.keyId;

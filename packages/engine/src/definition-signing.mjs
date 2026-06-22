@@ -346,8 +346,7 @@ function verifySignatureBlock(signature, payload, publicKeysById) {
   if (typeof signature.value !== "string" || signature.value.trim() === "") {
     return { ok: false, error: "Signature block is missing compact JWS value" };
   }
-  const configuredKeyIds = Object.keys(publicKeysById);
-  if (configuredKeyIds.length === 0) {
+  if (Object.keys(publicKeysById).length === 0) {
     return { ok: false, error: "Definition signature present but no verification public keys are configured" };
   }
 
@@ -359,47 +358,37 @@ function verifySignatureBlock(signature, payload, publicKeysById) {
     typeof parsedHeader.header.kid === "string" && parsedHeader.header.kid.trim() !== ""
       ? parsedHeader.header.kid.trim()
       : undefined;
+  if (jwsKid === undefined) {
+    return { ok: false, error: "JWS protected header is missing required kid" };
+  }
 
   const definitionKeyId =
     typeof signature.keyId === "string" && signature.keyId.trim() !== ""
       ? signature.keyId.trim()
       : undefined;
-  if (definitionKeyId !== undefined && jwsKid !== undefined && definitionKeyId !== jwsKid) {
+  if (definitionKeyId !== undefined && definitionKeyId !== jwsKid) {
     return {
       ok: false,
       error: `signature keyId "${definitionKeyId}" does not match JWS protected header kid "${jwsKid}"`,
     };
   }
 
-  const keysToTry =
-    jwsKid !== undefined
-      ? Object.hasOwn(publicKeysById, jwsKid)
-        ? [jwsKid]
-        : []
-      : configuredKeyIds;
-
-  if (jwsKid !== undefined && keysToTry.length === 0) {
+  if (!Object.hasOwn(publicKeysById, jwsKid)) {
     return { ok: false, error: `Unknown JWS kid "${jwsKid}"` };
   }
 
-  /** @type {string | undefined} */
-  let lastVerifyError;
-  for (const keyId of keysToTry) {
-    const result = verifyEdDsaJwsCompact(
-      signature.value,
-      payload,
-      publicKeysById[keyId],
-      jwsKid
-    );
-    if (result.ok) {
-      return result;
-    }
-    lastVerifyError = result.error;
-  }
-  return {
-    ok: false,
-    error: lastVerifyError ?? "Ed25519 signature verification failed for all configured public keys",
-  };
+  return verifyEdDsaJwsCompact(signature.value, payload, publicKeysById[jwsKid], jwsKid);
+}
+
+/**
+ * @param {unknown} definition
+ * @param {DefinitionSignatureBlock} signature
+ * @param {Record<string, import("node:crypto").KeyObject>} publicKeysById
+ * @returns {{ ok: true } | { ok: false; error: string }}
+ */
+function verifySignedDefinition(definition, signature, publicKeysById) {
+  const payload = buildDefinitionSigningPayload(definition);
+  return verifySignatureBlock(signature, payload, publicKeysById);
 }
 
 /**
@@ -413,18 +402,32 @@ export function verifyDefinitionSignature(definition, options = {}) {
   const { policy, publicKeysById } = resolveDefinitionSigningOptions(options);
   const signature = extractDefinitionSignature(definition);
 
-  if (!signature) {
-    if (policy.mode === "require") {
+  switch (policy.mode) {
+    case "require": {
+      if (!signature) {
+        return {
+          ok: false,
+          error: "Workflow definition signature is required but no signature block was present",
+        };
+      }
+      break;
+    }
+    case "optional": {
+      if (!signature) {
+        // codeql[js/user-controlled-bypass]: unsigned definitions allowed only when operator sets WORKFLOW_ENGINE_DEFINITION_SIGNING_MODE=optional
+        return { ok: true, verified: false, signaturePresent: false };
+      }
+      break;
+    }
+    default: {
       return {
         ok: false,
-        error: "Workflow definition signature is required but no signature block was present",
+        error: `Unknown definition signing mode "${policy.mode}"`,
       };
     }
-    return { ok: true, verified: false, signaturePresent: false };
   }
 
-  const payload = buildDefinitionSigningPayload(definition);
-  const cryptoResult = verifySignatureBlock(signature, payload, publicKeysById);
+  const cryptoResult = verifySignedDefinition(definition, signature, publicKeysById);
   if (!cryptoResult.ok) {
     return cryptoResult;
   }
