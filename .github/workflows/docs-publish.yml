@@ -48,7 +48,7 @@ jobs:
       (needs.quality-gates.result == 'success' || needs.quality-gates.result == 'skipped')
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.release_ref }}
 
