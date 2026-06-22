@@ -5,6 +5,7 @@
  * @see docs/architecture/adr/ADR-0005-mcp-control-plane-auth.md
  */
 
+import { createHash, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { MCP_ADAPTER_ERROR } from "../adapters/mcp/errors.mjs";
@@ -40,14 +41,20 @@ export const TOOL_REQUIRED_SCOPE = {
  */
 
 /**
+ * @typedef {object} ControlPlaneAuthTokenEntry
+ * @property {Buffer} tokenHash SHA-256 digest of the bearer token (constant-time lookup)
+ * @property {Set<ControlPlaneScope>} scopes
+ */
+
+/**
  * @typedef {object} ControlPlaneAuthConfig
  * @property {boolean} enabled
- * @property {Map<string, Set<ControlPlaneScope>>} tokensByValue
+ * @property {ControlPlaneAuthTokenEntry[]} tokenEntries
  */
 
 /**
  * @typedef {{ ok: true }} AuthorizeOk
- * @typedef {{ ok: false; code: typeof MCP_ADAPTER_ERROR.AUTH_ERROR; message: string; details?: unknown }} AuthorizeFail
+ * @typedef {{ ok: false; code: typeof MCP_ADAPTER_ERROR.AUTH_ERROR | typeof MCP_ADAPTER_ERROR.AUTH_FORBIDDEN; message: string; details?: unknown }} AuthorizeFail
  * @typedef {AuthorizeOk | AuthorizeFail} AuthorizeResult
  */
 
@@ -59,11 +66,20 @@ export function extractBearerToken(headerValue) {
   if (headerValue === null || headerValue === undefined || String(headerValue).trim() === "") {
     return null;
   }
-  const match = String(headerValue).trim().match(/^Bearer\s+(.+)$/i);
-  if (!match) {
+  const trimmed = String(headerValue).trim();
+  const bearerPrefix = "Bearer";
+  if (
+    trimmed.length < bearerPrefix.length ||
+    trimmed.slice(0, bearerPrefix.length).toLowerCase() !== bearerPrefix.toLowerCase()
+  ) {
     return null;
   }
-  const token = match[1].trim();
+  const afterPrefix = trimmed.slice(bearerPrefix.length);
+  const withoutLeadingWs = afterPrefix.trimStart();
+  if (withoutLeadingWs.length === 0 || withoutLeadingWs.length === afterPrefix.length) {
+    return null;
+  }
+  const token = withoutLeadingWs.trim();
   return token === "" ? null : token;
 }
 
@@ -144,22 +160,38 @@ export function parseControlPlaneAuthTokensConfig(raw, cwd = process.cwd()) {
 }
 
 /**
+ * @param {string} token
+ * @returns {Buffer}
+ */
+function hashToken(token) {
+  return createHash("sha256").update(token, "utf8").digest();
+}
+
+/**
  * @param {ControlPlaneAuthTokenRecord[]} records
  * @returns {ControlPlaneAuthConfig}
  */
 export function buildControlPlaneAuthConfig(records) {
-  /** @type {Map<string, Set<ControlPlaneScope>>} */
-  const tokensByValue = new Map();
+  /** @type {ControlPlaneAuthTokenEntry[]} */
+  const tokenEntries = [];
+  /** @type {Map<string, number>} */
+  const indexByHashHex = new Map();
   for (const record of records) {
-    const scopeSet = tokensByValue.get(record.token) ?? new Set();
-    for (const scope of record.scopes) {
-      scopeSet.add(scope);
+    const tokenHash = hashToken(record.token);
+    const hashHex = tokenHash.toString("hex");
+    const existingIndex = indexByHashHex.get(hashHex);
+    if (existingIndex !== undefined) {
+      for (const scope of record.scopes) {
+        tokenEntries[existingIndex].scopes.add(scope);
+      }
+      continue;
     }
-    tokensByValue.set(record.token, scopeSet);
+    indexByHashHex.set(hashHex, tokenEntries.length);
+    tokenEntries.push({ tokenHash, scopes: new Set(record.scopes) });
   }
   return {
-    enabled: tokensByValue.size > 0,
-    tokensByValue,
+    enabled: tokenEntries.length > 0,
+    tokenEntries,
   };
 }
 
@@ -186,7 +218,13 @@ function scopesForToken(token, authConfig) {
   if (!token || token.trim() === "") {
     return null;
   }
-  return authConfig.tokensByValue.get(token.trim()) ?? null;
+  const presentedHash = hashToken(token.trim());
+  for (const entry of authConfig.tokenEntries) {
+    if (timingSafeEqual(entry.tokenHash, presentedHash)) {
+      return entry.scopes;
+    }
+  }
+  return null;
 }
 
 /**
@@ -205,14 +243,19 @@ export function authorizeScope(requiredScope, token, authConfig) {
       ok: false,
       code: MCP_ADAPTER_ERROR.AUTH_ERROR,
       message: "Missing or invalid bearer token.",
+      details: { reason: "missing_or_invalid" },
     };
   }
   if (!granted.has(requiredScope)) {
     return {
       ok: false,
-      code: MCP_ADAPTER_ERROR.AUTH_ERROR,
+      code: MCP_ADAPTER_ERROR.AUTH_FORBIDDEN,
       message: `Token lacks required scope "${requiredScope}".`,
-      details: { required_scope: requiredScope, granted_scopes: [...granted] },
+      details: {
+        reason: "insufficient_scope",
+        required_scope: requiredScope,
+        granted_scopes: [...granted],
+      },
     };
   }
   return { ok: true };

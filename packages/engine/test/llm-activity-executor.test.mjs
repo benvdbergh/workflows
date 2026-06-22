@@ -43,6 +43,19 @@ describe("resolveLlmApiKey", () => {
       assert.match(r.error, /secretResolver/);
     }
   });
+
+  it("rejects when both apiKeyEnv and apiKeySecretRef are set", async () => {
+    const secretResolver = createEnvSecretResolver({ OPENAI_API_KEY: "sk-from-ref" });
+    const r = await resolveLlmApiKey(
+      { apiKeyEnv: "OPENAI_API_KEY", apiKeySecretRef: "env:OPENAI_API_KEY" },
+      { env: {}, secretResolver }
+    );
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.equal(r.code, "LLM_CONFIG_INVALID");
+      assert.match(r.error, /only one of apiKeyEnv or apiKeySecretRef/);
+    }
+  });
 });
 
 describe("parseLlmCallNodeConfig", () => {

@@ -46,13 +46,21 @@ import Ajv2020 from "ajv/dist/2020.js";
 /**
  * @param {LlmOperatorConfig | undefined} operatorConfig
  * @param {{ env?: NodeJS.ProcessEnv; secretResolver?: import("../security/secret-resolver.mjs").SecretResolver }} [options]
- * @returns {Promise<{ ok: true, apiKey: string } | { ok: false, error: string, code: "LLM_CREDENTIALS_MISSING" }>}
+ * @returns {Promise<{ ok: true, apiKey: string } | { ok: false, error: string, code: "LLM_CONFIG_INVALID" | "LLM_CREDENTIALS_MISSING" }>}
  */
 export async function resolveLlmApiKey(operatorConfig, options = {}) {
   const env = options.env ?? process.env;
   const secretResolver = options.secretResolver;
   const cfg = operatorConfig && typeof operatorConfig === "object" ? operatorConfig : {};
   const apiKeyEnv = typeof cfg.apiKeyEnv === "string" ? cfg.apiKeyEnv.trim() : "";
+  const secretRef = typeof cfg.apiKeySecretRef === "string" ? cfg.apiKeySecretRef.trim() : "";
+  if (apiKeyEnv && secretRef) {
+    return {
+      ok: false,
+      error: "operator config must set only one of apiKeyEnv or apiKeySecretRef",
+      code: "LLM_CONFIG_INVALID",
+    };
+  }
   if (apiKeyEnv) {
     const value = env[apiKeyEnv];
     if (typeof value === "string" && value.trim() !== "") {
@@ -64,7 +72,6 @@ export async function resolveLlmApiKey(operatorConfig, options = {}) {
       code: "LLM_CREDENTIALS_MISSING",
     };
   }
-  const secretRef = typeof cfg.apiKeySecretRef === "string" ? cfg.apiKeySecretRef.trim() : "";
   if (secretRef) {
     if (!secretResolver) {
       return {

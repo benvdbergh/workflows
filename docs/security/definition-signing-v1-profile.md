@@ -65,13 +65,15 @@ Inline JSON:
 export WORKFLOW_ENGINE_SIGNING_PUBLIC_KEYS='{"publisher-key-1":"MCowBQYDK2VwAyEA..."}'
 ```
 
-File ref (relative to process cwd, same pattern as `secret_ref` file refs):
+File ref (relative paths resolve against process cwd):
 
 ```bash
 export WORKFLOW_ENGINE_SIGNING_PUBLIC_KEYS='file:.config/signing-public-keys.json'
 ```
 
-A bare filesystem path (without `file:`) is also accepted for backward compatibility with other `WORKFLOW_ENGINE_*` JSON env vars.
+A bare filesystem path (without `file:`) is also accepted for backward compatibility with other `WORKFLOW_ENGINE_*` JSON env vars; absolute paths are read as-is.
+
+**Operator trust zone:** Signing key `file:` refs and bare paths resolve relative to cwd and are **not** sandboxed to a base directory. The engine reads whatever path the operator configures (including absolute paths). Activity `secret_ref` `file:` refs are different: they resolve under a configured `baseDir` and cannot escape it. Treat signing key paths as operator-controlled configuration in the host trust zone, not as workflow-supplied secret refs.
 
 ## Deployment policy
 

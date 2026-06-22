@@ -33,7 +33,7 @@ The reference engine tries providers in order: **env**, then **file**. External 
 }
 ```
 
-Exactly one of `apiKeyEnv` or `apiKeySecretRef` is required when credentials are needed.
+Exactly one of `apiKeyEnv` or `apiKeySecretRef` is required when credentials are needed; setting both is rejected at resolution with `LLM_CONFIG_INVALID` / `A2A_CONFIG_INVALID`.
 
 ## Persistence
 

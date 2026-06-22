@@ -10,6 +10,7 @@ import {
   resolveWorkflowEngineMcpConfigPath,
 } from "./adapters/mcp/stdio-server-config.mjs";
 import { MemoryExecutionHistoryStore } from "./persistence/memory-history-store.mjs";
+import { loadControlPlaneAuthConfigFromEnv } from "./security/control-plane-auth.mjs";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -102,6 +103,12 @@ async function main() {
   process.on("unhandledRejection", (reason) => {
     process.stderr.write(`[engine-mcp-stdio] unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}\n`);
   });
+
+  if (loadControlPlaneAuthConfigFromEnv().enabled) {
+    process.stderr.write(
+      "[engine-mcp-stdio] WORKFLOW_ENGINE_AUTH_TOKENS is set but stdio does not enforce bearer auth; use OS process isolation. REST enforces tokens.\n"
+    );
+  }
 
   await server.start();
 }

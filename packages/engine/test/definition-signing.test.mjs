@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { sign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -130,6 +131,41 @@ describe("definition signing v1 (JWS Ed25519)", () => {
     assert.equal(r.ok, false);
     if (!r.ok) {
       assert.match(r.error, /Unknown signature keyId/);
+    }
+  });
+
+  it("signature keyId must match JWS protected header kid", () => {
+    const signed = signDefinitionForTest(minimalDefinition, testPrivateKey);
+    const payload = buildDefinitionSigningPayload(signed);
+    signed.document.signature.value = createEdDsaJwsCompact(
+      testPrivateKey,
+      payload,
+      "other-kid-in-jws"
+    );
+    const r = verifyDefinitionSignature(signed, {
+      policy: { mode: "optional" },
+      publicKeysById: testPublicKeys,
+    });
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.match(r.error, /kid.*does not match signature keyId/i);
+    }
+  });
+
+  it("verifyEdDsaJwsCompact rejects unsupported typ in protected header", () => {
+    const payload = buildDefinitionSigningPayload(minimalDefinition);
+    const validJws = createEdDsaJwsCompact(testPrivateKey, payload, TEST_SIGNING_KEY_ID);
+    const [, payloadB64] = validJws.split(".");
+    const badHeader = { alg: "EdDSA", typ: "JWT", kid: TEST_SIGNING_KEY_ID };
+    const protectedB64 = Buffer.from(JSON.stringify(badHeader), "utf8").toString("base64url");
+    const signingInput = `${protectedB64}.${payloadB64}`;
+    const signature = sign(null, Buffer.from(signingInput, "ascii"), testPrivateKey);
+    const jws = `${signingInput}.${signature.toString("base64url")}`;
+    const pub = importEd25519PublicKey(TEST_SIGNING_PUBLIC_KEY_SPKI_B64URL);
+    const r = verifyEdDsaJwsCompact(jws, payload, pub);
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.match(r.error, /Unsupported JWS typ/);
     }
   });
 

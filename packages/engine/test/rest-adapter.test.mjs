@@ -315,7 +315,7 @@ describe("REST workflow adapter", () => {
     );
   });
 
-  it("returns 401 AUTH_ERROR when token lacks required scope", async () => {
+  it("returns 403 AUTH_FORBIDDEN when token lacks required scope", async () => {
     const authConfig = buildControlPlaneAuthConfig([
       { token: "read-token", scopes: ["read_history"] },
       { token: "start-token", scopes: ["start"] },
@@ -330,8 +330,9 @@ describe("REST workflow adapter", () => {
           { definition },
           { authorization: "Bearer read-token" }
         );
-        assert.equal(registered.status, 401);
-        assert.equal(registered.body.error.code, MCP_ADAPTER_ERROR.AUTH_ERROR);
+        assert.equal(registered.status, 403);
+        assert.equal(registered.body.error.code, MCP_ADAPTER_ERROR.AUTH_FORBIDDEN);
+        assert.equal(registered.body.error.details?.reason, "insufficient_scope");
 
         const allowed = await requestJson(
           port,

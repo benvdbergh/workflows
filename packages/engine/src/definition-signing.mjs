@@ -241,9 +241,10 @@ export function resolveDefinitionSigningOptions(options = {}) {
  * @param {string} compactJws
  * @param {string} expectedPayload Canonical JSON payload bytes (UTF-8).
  * @param {import("node:crypto").KeyObject} publicKey
+ * @param {string} [expectedKeyId] When set, JWS protected header `kid` must match.
  * @returns {{ ok: true } | { ok: false; error: string }}
  */
-export function verifyEdDsaJwsCompact(compactJws, expectedPayload, publicKey) {
+export function verifyEdDsaJwsCompact(compactJws, expectedPayload, publicKey, expectedKeyId) {
   const parts = String(compactJws).split(".");
   if (parts.length !== 3) {
     return { ok: false, error: "JWS compact serialization must contain three segments" };
@@ -259,6 +260,21 @@ export function verifyEdDsaJwsCompact(compactJws, expectedPayload, publicKey) {
     return {
       ok: false,
       error: `Unsupported JWS alg "${protectedHeader?.alg ?? "missing"}" (expected "${DEFINITION_SIGNING_ALG}")`,
+    };
+  }
+  if (
+    protectedHeader?.typ !== undefined &&
+    protectedHeader.typ !== DEFINITION_SIGNING_JWS_TYP
+  ) {
+    return {
+      ok: false,
+      error: `Unsupported JWS typ "${protectedHeader.typ}" (expected "${DEFINITION_SIGNING_JWS_TYP}")`,
+    };
+  }
+  if (expectedKeyId !== undefined && protectedHeader?.kid !== expectedKeyId) {
+    return {
+      ok: false,
+      error: `JWS protected header kid "${protectedHeader?.kid ?? "missing"}" does not match signature keyId "${expectedKeyId}"`,
     };
   }
   const payloadBytes = base64UrlDecode(payloadB64);
@@ -319,7 +335,7 @@ function verifySignatureBlock(signature, payload, publicKeysById) {
     if (!key) {
       return { ok: false, error: `Unknown signature keyId "${signature.keyId}"` };
     }
-    return verifyEdDsaJwsCompact(signature.value, payload, key);
+    return verifyEdDsaJwsCompact(signature.value, payload, key, signature.keyId);
   }
   for (const keyId of keyIds) {
     const result = verifyEdDsaJwsCompact(signature.value, payload, publicKeysById[keyId]);

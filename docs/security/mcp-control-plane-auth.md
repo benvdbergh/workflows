@@ -68,7 +68,7 @@ Missing or invalid tokens return HTTP **401** with:
 { "error": { "code": "AUTH_ERROR", "message": "Missing or invalid bearer token." } }
 ```
 
-Insufficient scope returns HTTP **401** with `AUTH_ERROR` and `details.required_scope`.
+Insufficient scope returns HTTP **403** with `AUTH_FORBIDDEN` and `details.reason: "insufficient_scope"` (plus `required_scope` / `granted_scopes`).
 
 ## MCP stdio boundary
 

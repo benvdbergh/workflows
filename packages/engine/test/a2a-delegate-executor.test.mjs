@@ -63,6 +63,19 @@ describe("resolveA2AApiKey", () => {
     assert.equal(r.ok, true);
     if (r.ok) assert.equal(r.apiKey, "token-ref");
   });
+
+  it("rejects when both apiKeyEnv and apiKeySecretRef are set", async () => {
+    const secretResolver = createEnvSecretResolver({ A2A_API_KEY: "token-ref" });
+    const r = await resolveA2AApiKey(
+      { apiKeyEnv: "A2A_API_KEY", apiKeySecretRef: "env:A2A_API_KEY" },
+      { env: { A2A_API_KEY: "token-1" }, secretResolver }
+    );
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.equal(r.code, "A2A_CONFIG_INVALID");
+      assert.match(r.error, /only one of apiKeyEnv or apiKeySecretRef/);
+    }
+  });
 });
 
 describe("parseA2AOperatorConfig", () => {

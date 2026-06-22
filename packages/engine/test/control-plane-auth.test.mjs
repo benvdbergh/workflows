@@ -38,8 +38,8 @@ describe("control-plane auth", () => {
       WORKFLOW_ENGINE_AUTH_TOKENS: '[{"token":"t1","scopes":["start","read_history"]}]',
     });
     assert.equal(config.enabled, true);
-    assert.ok(config.tokensByValue.get("t1")?.has("start"));
-    assert.ok(config.tokensByValue.get("t1")?.has("read_history"));
+    assert.deepEqual(authorizeScope("start", "t1", config), { ok: true });
+    assert.deepEqual(authorizeScope("read_history", "t1", config), { ok: true });
   });
 
   it("extracts bearer token from Authorization header", () => {
@@ -71,8 +71,9 @@ describe("control-plane auth", () => {
     const result = authorizeToolCall("workflow_start", "read-token", readOnlyAuth);
     assert.equal(result.ok, false);
     if (!result.ok) {
-      assert.equal(result.code, MCP_ADAPTER_ERROR.AUTH_ERROR);
+      assert.equal(result.code, MCP_ADAPTER_ERROR.AUTH_FORBIDDEN);
       assert.match(result.message, /start/);
+      assert.equal(result.details?.reason, "insufficient_scope");
     }
   });
 
