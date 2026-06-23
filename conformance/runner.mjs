@@ -5,6 +5,7 @@ import {
   MemoryExecutionHistoryStore,
   RejectingActivityExecutor,
   RejectingDelegateExecutor,
+  RetryCountingStepExecutor,
   resumeGraphWorkflow,
   runGraphWorkflow,
   StepActivityExecutor,
@@ -36,6 +37,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *   activityExecutionMode?: "in_process" | "host_mediated";
  *   assertNoActivityExecutorInvocation?: boolean;
  *   stepHandlers?: Record<string, Record<string, unknown>>;
+ *   retryCountingExecutor?: { failCount?: number; successOutput?: Record<string, unknown>; errorCode?: string };
  *   assertNoSubworkflowInvocation?: boolean;
  *   assertNoDelegateExecutorInvocation?: boolean;
  *   resumePayload?: Record<string, unknown>;
@@ -240,6 +242,14 @@ async function runReplayVector(vector) {
   const assertNoSubworkflowInvocation = vector.assertNoSubworkflowInvocation === true;
   const assertNoDelegateExecutorInvocation = vector.assertNoDelegateExecutorInvocation === true;
   let activityExecutor = assertNoActivityExecutorInvocation ? new RejectingActivityExecutor() : undefined;
+  if (
+    !activityExecutor &&
+    vector.retryCountingExecutor &&
+    typeof vector.retryCountingExecutor === "object" &&
+    !Array.isArray(vector.retryCountingExecutor)
+  ) {
+    activityExecutor = new RetryCountingStepExecutor(vector.retryCountingExecutor);
+  }
   if (
     !activityExecutor &&
     vector.stepHandlers &&

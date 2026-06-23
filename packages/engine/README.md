@@ -310,7 +310,9 @@ Phases: **validate** (bundled workflow schema + reject `state_schema.properties.
 
 **Activity boundary:** `step`, `llm_call`, and `tool_call` are executed through an **`ActivityExecutor`** port (`executeActivity(ctx)` → success with `output` or failure with `error` / optional `code`). The walker only calls this port (no MCP, HTTP, or provider SDKs inside the runner). **`StubActivityExecutor`** is the default when `activityExecutor` is omitted: deterministic, returns `{}` or per-node outputs from an `outputsByNodeId` map (library demos and tests). **`CompositeActivityExecutor`** routes production workloads to configured sub-executors; pass `activityExecutor` to inject real adapters; pass `stubActivityOutputs` only affects the default stub when `activityExecutor` is omitted.
 
-**Limitation:** Per-node **`retry`** and **`timeout`** settings from the workflow definition are **not** applied by this runner yet; failures return immediately after a single `executeActivity` call.
+**Retry:** Per-node **`retry`** settings (`max_attempts`, `initial_interval`, `backoff_coefficient`, `max_interval`, `non_retryable_errors`) are applied for `step`, `llm_call`, and `tool_call` in the graph walker and linear runner. Intermediate failures emit `ActivityFailed` with `attempt` (1-based) and `willRetry: true`; the next attempt emits `ActivityRequested` with an incremented `attempt`. Replay uses the last `ActivityCompleted` per node and does not re-invoke the activity port.
+
+**Limitation:** Per-node **`timeout`** settings from the workflow definition are **not** applied by this runner yet.
 
 **Node types in this runner:** `start`, `end`, and **`step` / `llm_call` / `tool_call`** behind the activity executor. Default stub outputs are `{}`; override per node id with `stubActivityOutputs[nodeId]` (merged into state via reducers).
 

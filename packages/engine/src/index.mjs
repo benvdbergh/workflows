@@ -40,7 +40,7 @@ export {
   resolveMcpCommandAllowlistFromEnv,
   DEFAULT_MCP_COMMAND_ALLOWLIST,
 } from "./orchestrator/mcp-stdio-activity-executor.mjs";
-export { RejectingActivityExecutor, StubActivityExecutor } from "./orchestrator/activity-executor.mjs";
+export { RejectingActivityExecutor, RetryCountingStepExecutor, StubActivityExecutor } from "./orchestrator/activity-executor.mjs";
 export {
   MockA2ADelegateExecutor,
   RejectingDelegateExecutor,

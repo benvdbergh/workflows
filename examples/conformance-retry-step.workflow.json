@@ -1,0 +1,30 @@
+{
+  "document": {
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
+    "name": "conformance-retry-step",
+    "version": "1.0.0"
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "result": { "type": "string" }
+    }
+  },
+  "nodes": [
+    { "id": "start", "type": "start" },
+    {
+      "id": "work",
+      "type": "tool_call",
+      "config": { "server": "demo-mcp", "tool": "stub", "arguments": {} },
+      "retry": {
+        "max_attempts": 3
+      }
+    },
+    { "id": "end", "type": "end", "config": { "output_mapping": ".result" } }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "start" },
+    { "source": "start", "target": "work" },
+    { "source": "work", "target": "end" }
+  ]
+}

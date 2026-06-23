@@ -1,0 +1,28 @@
+{
+  "id": "replay.orchestration_policy.activity_retry_fail_twice_succeed_third",
+  "description": "in_process step with max_attempts 3: executor fails twice then succeeds on third attempt; events record attempt numbers and willRetry on intermediate failures.",
+  "kind": "replay",
+  "definition": "examples/conformance-retry-step.workflow.json",
+  "input": {},
+  "activityExecutionMode": "in_process",
+  "retryCountingExecutor": {
+    "failCount": 2,
+    "successOutput": { "result": "ok" }
+  },
+  "expect": {
+    "status": "completed",
+    "tailCommands": [
+      { "name": "ScheduleNode", "nodeId": "start" },
+      { "name": "CompleteNode", "nodeId": "start" },
+      { "name": "ScheduleNode", "nodeId": "work" },
+      { "name": "CompleteNode", "nodeId": "work" },
+      { "name": "ScheduleNode", "nodeId": "end" },
+      { "name": "CompleteNode", "nodeId": "end" }
+    ],
+    "eventCardinality": {
+      "ActivityRequested": { "work": 3 },
+      "ActivityFailed": { "work": 2 },
+      "ActivityCompleted": { "work": 1 }
+    }
+  }
+}

@@ -11,7 +11,7 @@ All nodes may include:
 | `id` | string | Unique in document |
 | `type` | string | Discriminator (see below) |
 | `config` | object | Type-specific |
-| `retry` | object | Accepted by schema; **not applied** by engine yet |
+| `retry` | object | Applied by engine (`max_attempts`, backoff, `non_retryable_errors`) |
 | `timeout` | object | Accepted by schema; **not applied** by engine yet |
 | `metadata` | object | Opaque annotations |
 
