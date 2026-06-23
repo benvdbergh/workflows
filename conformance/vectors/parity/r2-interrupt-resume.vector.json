@@ -4,6 +4,10 @@
   "kind": "parity",
   "definition": "examples/lighthouse-customer-routing.workflow.json",
   "executionId": "parity-interrupt-resume-1",
+  "stubActivityOutputs": {
+    "classify": { "intent": "ambiguous", "confidence": 0.3 },
+    "open_ticket": { "ticket_id": "T-parity-1" }
+  },
   "steps": [
     {
       "op": "start",
@@ -19,7 +23,7 @@
       "resumePayload": { "intent": "billing" },
       "expect": {
         "status": "completed",
-        "result": { "intent": "billing", "confidence": null }
+        "result": { "intent": "billing", "confidence": 0.3 }
       }
     }
   ]
