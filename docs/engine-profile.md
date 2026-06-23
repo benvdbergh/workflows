@@ -138,7 +138,7 @@ The full taxonomies are [RFC-04 §4.4](RFC/rfc-04-execution-model.md#44-command-
 
 - `ExecutionStarted`
 - `NodeScheduled`
-- `ActivityRequested`, `ActivityCompleted`, `ActivityFailed`
+- `ActivityRequested`, `ActivityCompleted`, `ActivityFailed` — `ActivityFailed` **MAY** include stable `code` (e.g. `OUTPUT_SCHEMA_VIOLATION` when an `llm_call` result fails `config.output_schema` validation at the activity boundary)
 - `StateUpdated` (or equivalent embedding per engine profile, per [RFC-04 §4.6](RFC/rfc-04-execution-model.md#46-state-updates-and-reducers))
 - `InterruptRaised`, `InterruptResumed`
 - `ExecutionCompleted`, `ExecutionFailed`, `ExecutionCancelled`

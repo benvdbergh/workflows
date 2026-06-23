@@ -39,6 +39,9 @@ import {
   summarizePrompt,
 } from "./workflow-node-execution.mjs";
 import {
+  validateLlmCallOutputAtActivityBoundary,
+} from "./llm-output-schema-boundary.mjs";
+import {
   NondeterminismError,
   RESUME_FAILURE_CODE,
   checkpointDefinitionMeta,
@@ -1690,15 +1693,23 @@ export async function submitActivityOutcome(options) {
     };
   }
 
-  if (!outcome.ok) {
-    const { error, code } = outcome;
-    const attempt = typeof last.payload?.attempt === "number" && last.payload.attempt >= 1 ? last.payload.attempt : 1;
-    const activityNode = /** @type {{ nodes?: Array<{ id: string; retry?: object; timeout?: string }> }} */ (definition).nodes?.find(
-      (n) => n.id === nodeId
-    );
-    const maxAttempts = resolveMaxAttempts(activityNode ?? {});
-    const retryPolicy = getRetryPolicy(activityNode ?? {});
-    const timeoutMs = resolveNodeTimeoutMs(activityNode ?? {});
+  const attempt = typeof last.payload?.attempt === "number" && last.payload.attempt >= 1 ? last.payload.attempt : 1;
+  const activityNode = /** @type {{ nodes?: Array<{ id: string; type?: string; retry?: object; timeout?: string }> }} */ (
+    definition
+  ).nodes?.find((n) => n.id === nodeId);
+  const maxAttempts = resolveMaxAttempts(activityNode ?? {});
+  const retryPolicy = getRetryPolicy(activityNode ?? {});
+  const timeoutMs = resolveNodeTimeoutMs(activityNode ?? {});
+
+  /**
+   * @param {{ error: string; code?: string }} failure
+   * @returns {Promise<
+   *   | { status: "failed"; error: string; finalState?: Record<string, unknown>; code?: string }
+   *   | { status: "awaiting_activity"; executionId: string; nodeId: string; state: Record<string, unknown>; parallelSpan?: ParallelSpanPayload }
+   * >}
+   */
+  async function recordSubmittedActivityFailure(failure) {
+    const { error, code } = failure;
     const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, code, retryPolicy);
 
     store.append(executionId, {
@@ -1767,7 +1778,16 @@ export async function submitActivityOutcome(options) {
       name: "ExecutionFailed",
       payload: { executionId, error },
     });
-    return { status: "failed", error, finalState: latestStateFromHistory(store.listByExecution(executionId)) };
+    return {
+      status: "failed",
+      error,
+      finalState: latestStateFromHistory(store.listByExecution(executionId)),
+      ...(code !== undefined ? { code } : {}),
+    };
+  }
+
+  if (!outcome.ok) {
+    return recordSubmittedActivityFailure({ error: outcome.error, code: outcome.code });
   }
 
   const rawResult = outcome.result;
@@ -1778,6 +1798,13 @@ export async function submitActivityOutcome(options) {
   const completedNode = validateWorkflowDefinition(definition).ok
     ? /** @type {{ nodes?: Array<{ id: string; type: string }> }} */ (definition).nodes?.find((n) => n.id === nodeId)
     : undefined;
+
+  const boundaryResult = completedNode
+    ? validateLlmCallOutputAtActivityBoundary(completedNode, resultObj)
+    : { ok: true, output: resultObj };
+  if (!boundaryResult.ok) {
+    return recordSubmittedActivityFailure({ error: boundaryResult.error, code: boundaryResult.code });
+  }
   const pendingNodeType =
     typeof last.payload?.nodeType === "string"
       ? last.payload.nodeType
@@ -1815,7 +1842,7 @@ export async function submitActivityOutcome(options) {
     }
   }
 
-  const storedResult = JSON.parse(JSON.stringify(resultObj));
+  const storedResult = JSON.parse(JSON.stringify(boundaryResult.output));
   if (isDelegateSubmit) {
     delete storedResult.delegateCorrelationId;
     delete storedResult.externalTaskId;

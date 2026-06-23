@@ -105,7 +105,7 @@ const activityExecutor = new LlmActivityExecutor({
 });
 ```
 
-Inject a custom **`LlmProvider`** for tests or non-OpenAI backends; the default uses fetch against `/chat/completions` with no extra SDK. Structured outputs are validated with AJV when `output_schema` is set. Failures return stable codes: `LLM_CONFIG_INVALID`, `LLM_CREDENTIALS_MISSING`, `LLM_PROVIDER_ERROR`, `LLM_OUTPUT_VALIDATION_FAILED` (surfaced as `ActivityFailed` in execution history).
+Inject a custom **`LlmProvider`** for tests or non-OpenAI backends; the default uses fetch against `/chat/completions` with no extra SDK. Structured outputs are validated with AJV when `output_schema` is set. In-process executor failures use `LLM_OUTPUT_VALIDATION_FAILED`; at the activity boundary (in-process and host-mediated submit) schema violations surface as **`OUTPUT_SCHEMA_VIOLATION`** on `ActivityFailed`. Other stable executor codes: `LLM_CONFIG_INVALID`, `LLM_CREDENTIALS_MISSING`, `LLM_PROVIDER_ERROR`.
 
 #### Prompt resolution (`buildLlmChatMessages`)
 
