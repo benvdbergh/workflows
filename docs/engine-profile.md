@@ -109,7 +109,7 @@ After reducer application, engines **SHOULD** validate state against `state_sche
 
 ## 5. Retry, timeout, checkpointing
 
-- **Retry and timeout** on nodes follow [RFC-03 §3.8](RFC/rfc-03-workflow-definition-schema.md#38-retry-and-timeout); this profile **MUST** accept at least `retry.max_attempts` (≥ 1) and common duration forms the engine documents.
+- **Retry and timeout** on nodes follow [RFC-03 §3.8](RFC/rfc-03-workflow-definition-schema.md#38-retry-and-timeout); this profile **MUST** accept at least `retry.max_attempts` (≥ 1) and common duration forms the engine documents. The reference engine **applies** both for `step`, `llm_call`, and `tool_call` (in-process race; host-mediated `timeoutMs` on `ActivityRequested`).
 - **Checkpointing** ([RFC-03 §3.9](RFC/rfc-03-workflow-definition-schema.md#39-checkpointing-block), [RFC-04 §4.10](RFC/rfc-04-execution-model.md#410-checkpointing)) — the reference engine emits `CheckpointWritten` after selected node boundaries (switch completion, interrupt raised, parallel join, wait, `set_state`, and post-resume steps). The optional top-level `checkpointing` object **MAY** set execution policy:
   - `strategy` (or alias `policy`): `after_each_node` (default when omitted or when `checkpointing` is absent), `every_n_nodes` (requires integer `n` ≥ 1), or `disabled` (no checkpoints).
   - For `every_n_nodes`, checkpoint emission uses the same boundary points as `after_each_node`, but only every *n*th opportunity (deterministic ordering of boundaries as implemented by the engine).

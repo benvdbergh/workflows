@@ -12,7 +12,7 @@ All nodes may include:
 | `type` | string | Discriminator (see below) |
 | `config` | object | Type-specific |
 | `retry` | object | Applied by engine (`max_attempts`, backoff, `non_retryable_errors`) |
-| `timeout` | object | Accepted by schema; **not applied** by engine yet |
+| `timeout` | string | Per-activity deadline (`30s`, `500ms`, …); enforced in-process; advertised on `ActivityRequested` for host-mediated |
 | `metadata` | object | Opaque annotations |
 
 ---

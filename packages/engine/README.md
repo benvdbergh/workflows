@@ -312,7 +312,7 @@ Phases: **validate** (bundled workflow schema + reject `state_schema.properties.
 
 **Retry:** Per-node **`retry`** settings (`max_attempts`, `initial_interval`, `backoff_coefficient`, `max_interval`, `non_retryable_errors`) are applied for `step`, `llm_call`, and `tool_call` in the graph walker and linear runner. Intermediate failures emit `ActivityFailed` with `attempt` (1-based) and `willRetry: true`; the next attempt emits `ActivityRequested` with an incremented `attempt`. Replay uses the last `ActivityCompleted` per node and does not re-invoke the activity port.
 
-**Limitation:** Per-node **`timeout`** settings from the workflow definition are **not** applied by this runner yet.
+**Timeout:** Per-node **`timeout`** duration strings (`500ms`, `30s`, `1m`, `1h`) are enforced for the same activity node types. In-process execution races the activity port against the deadline and records `ActivityFailed` with code **`TIMEOUT`** when exceeded. **`McpManifestActivityExecutor`** passes `min(node timeout, defaultTimeoutMs)` to MCP `tools/call`. Host-mediated runs include **`timeoutMs`** on `ActivityRequested` so the host can fail the submit with code **`TIMEOUT`** if work exceeds the deadline (see [`docs/user/host-mediated-activities.md`](../../docs/user/host-mediated-activities.md)).
 
 **Node types in this runner:** `start`, `end`, and **`step` / `llm_call` / `tool_call`** behind the activity executor. Default stub outputs are `{}`; override per node id with `stubActivityOutputs[nodeId]` (merged into state via reducers).
 

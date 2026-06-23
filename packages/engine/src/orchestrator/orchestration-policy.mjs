@@ -1,5 +1,5 @@
 /**
- * Node-level orchestration policy helpers (retry backoff; timeout is BEN-107).
+ * Node-level orchestration policy helpers (retry backoff and activity timeouts).
  */
 
 /**
@@ -98,4 +98,43 @@ export function shouldRetryAfterFailure(attempt, maxAttempts, code, retryPolicy)
  */
 export function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * @param {{ timeout?: string }} node
+ * @returns {number | undefined}
+ */
+export function resolveNodeTimeoutMs(node) {
+  const raw = node?.timeout;
+  if (typeof raw !== "string" || !raw.trim()) {
+    return undefined;
+  }
+  return parseDurationMs(raw);
+}
+
+/**
+ * Invokes the activity port, racing against a node-level deadline when `timeoutMs` is set.
+ *
+ * @param {import("./activity-executor.mjs").ActivityExecutor} executor
+ * @param {import("./activity-executor.mjs").ActivityExecutorContext} ctx
+ * @param {number | undefined} timeoutMs
+ * @returns {Promise<import("./activity-executor.mjs").ActivityExecutorResult>}
+ */
+export async function executeActivityWithTimeout(executor, ctx, timeoutMs) {
+  const ctxWithTimeout = timeoutMs !== undefined ? { ...ctx, timeoutMs } : ctx;
+  if (timeoutMs === undefined) {
+    return executor.executeActivity(ctxWithTimeout);
+  }
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
+  const timeoutPromise = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      resolve({ ok: false, error: "Activity timed out", code: "TIMEOUT" });
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([executor.executeActivity(ctxWithTimeout), timeoutPromise]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }

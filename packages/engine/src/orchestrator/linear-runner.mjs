@@ -8,8 +8,10 @@ import { StubActivityExecutor } from "./activity-executor.mjs";
 import {
   computeRetryBackoffMs,
   delay as policyDelay,
+  executeActivityWithTimeout,
   getRetryPolicy,
   resolveMaxAttempts,
+  resolveNodeTimeoutMs,
   shouldRetryAfterFailure,
 } from "./orchestration-policy.mjs";
 
@@ -338,15 +340,25 @@ export async function runLinearWorkflow(options) {
       } else if (PLACEHOLDER_TYPES.has(node.type)) {
         const maxAttempts = resolveMaxAttempts(/** @type {{ retry?: object }} */ (node));
         const retryPolicy = getRetryPolicy(/** @type {{ retry?: object }} */ (node));
+        const timeoutMs = resolveNodeTimeoutMs(/** @type {{ timeout?: string }} */ (node));
         let activityResult = /** @type {import("./activity-executor.mjs").ActivityExecutorResult | undefined} */ (undefined);
 
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-          appendEvt("ActivityRequested", { nodeId, nodeType: node.type, attempt });
-          activityResult = await executor.executeActivity({
-            executionId,
-            node: /** @type {{ id: string; type: string; config?: object }} */ (node),
-            state,
+          appendEvt("ActivityRequested", {
+            nodeId,
+            nodeType: node.type,
+            attempt,
+            ...(timeoutMs !== undefined ? { timeoutMs } : {}),
           });
+          activityResult = await executeActivityWithTimeout(
+            executor,
+            {
+              executionId,
+              node: /** @type {{ id: string; type: string; config?: object; timeout?: string }} */ (node),
+              state,
+            },
+            timeoutMs
+          );
           if (!activityResult.ok) {
             const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, activityResult.code, retryPolicy);
             appendEvt("ActivityFailed", {

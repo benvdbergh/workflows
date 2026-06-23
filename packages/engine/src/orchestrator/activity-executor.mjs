@@ -7,8 +7,9 @@
  *
  * @typedef {object} ActivityExecutorContext
  * @property {string} executionId
- * @property {{ id: string; type: string; config?: object }} node Full node from the workflow definition (`id`, `type`, optional `config`).
+ * @property {{ id: string; type: string; config?: object; timeout?: string }} node Full node from the workflow definition (`id`, `type`, optional `config`, optional `timeout`).
  * @property {Record<string, unknown>} state Workflow state at the boundary (treat as read-only; do not rely on orchestrator seeing mutations).
+ * @property {number} [timeoutMs] Resolved per-node deadline in milliseconds when the walker enforces `node.timeout`.
  */
 
 /**

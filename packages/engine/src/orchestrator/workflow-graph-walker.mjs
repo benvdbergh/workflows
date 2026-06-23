@@ -12,6 +12,7 @@ import {
   delay as policyDelay,
   getRetryPolicy,
   resolveMaxAttempts,
+  resolveNodeTimeoutMs,
   shouldRetryAfterFailure,
 } from "./orchestration-policy.mjs";
 import {
@@ -1692,11 +1693,12 @@ export async function submitActivityOutcome(options) {
   if (!outcome.ok) {
     const { error, code } = outcome;
     const attempt = typeof last.payload?.attempt === "number" && last.payload.attempt >= 1 ? last.payload.attempt : 1;
-    const activityNode = /** @type {{ nodes?: Array<{ id: string; retry?: object }> }} */ (definition).nodes?.find(
+    const activityNode = /** @type {{ nodes?: Array<{ id: string; retry?: object; timeout?: string }> }} */ (definition).nodes?.find(
       (n) => n.id === nodeId
     );
     const maxAttempts = resolveMaxAttempts(activityNode ?? {});
     const retryPolicy = getRetryPolicy(activityNode ?? {});
+    const timeoutMs = resolveNodeTimeoutMs(activityNode ?? {});
     const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, code, retryPolicy);
 
     store.append(executionId, {
@@ -1731,6 +1733,7 @@ export async function submitActivityOutcome(options) {
           nodeId,
           ...(pendingNodeType ? { nodeType: pendingNodeType } : {}),
           attempt: nextAttempt,
+          ...(timeoutMs !== undefined ? { timeoutMs } : {}),
           ...(isParallelSpanPayload(reqSpan) ? { parallelSpan: { ...reqSpan } } : {}),
           ...(typeof last.payload?.delegateCorrelationId === "string"
             ? { delegateCorrelationId: last.payload.delegateCorrelationId }

@@ -5,8 +5,10 @@
 import {
   computeRetryBackoffMs,
   delay as policyDelay,
+  executeActivityWithTimeout,
   getRetryPolicy,
   resolveMaxAttempts,
+  resolveNodeTimeoutMs,
   shouldRetryAfterFailure,
 } from "./orchestration-policy.mjs";
 
@@ -186,9 +188,14 @@ export async function runPlaceholderActivityStep(args) {
 
   const maxAttempts = resolveMaxAttempts(/** @type {{ retry?: object }} */ (node));
   const retryPolicy = getRetryPolicy(/** @type {{ retry?: object }} */ (node));
+  const timeoutMs = resolveNodeTimeoutMs(/** @type {{ timeout?: string }} */ (node));
 
   /** @type {Record<string, unknown>} */
-  const baseReqPayload = { nodeId: node.id, nodeType: node.type };
+  const baseReqPayload = {
+    nodeId: node.id,
+    nodeType: node.type,
+    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+  };
   if (
     parallelSpan &&
     typeof parallelSpan.parallelNodeId === "string" &&
@@ -217,11 +224,15 @@ export async function runPlaceholderActivityStep(args) {
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     appendEvt("ActivityRequested", { ...baseReqPayload, attempt });
 
-    const activityResult = await executor.executeActivity({
-      executionId,
-      node: /** @type {{ id: string; type: string; config?: object }} */ (node),
-      state,
-    });
+    const activityResult = await executeActivityWithTimeout(
+      executor,
+      {
+        executionId,
+        node: /** @type {{ id: string; type: string; config?: object; timeout?: string }} */ (node),
+        state,
+      },
+      timeoutMs
+    );
     if (!activityResult.ok) {
       const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, activityResult.code, retryPolicy);
       appendEvt("ActivityFailed", {
