@@ -77,6 +77,16 @@ function loadLighthouse() {
   return JSON.parse(readFileSync(fixturePath, "utf8"));
 }
 
+/** Lighthouse classify has output_schema; ambiguous path needs schema-valid stub output. */
+function lighthouseAmbiguousPort(store) {
+  return createWorkflowApplicationPort({
+    store,
+    activityExecutor: new StubActivityExecutor({
+      classify: { intent: "ambiguous", confidence: 0.3 },
+    }),
+  });
+}
+
 function loadRepoJson(relPath) {
   const root = findWorkflowRepoRoot(__dirname);
   return JSON.parse(readFileSync(path.join(root, relPath), "utf8"));
@@ -136,7 +146,7 @@ describe("MCP workflow adapter tool handlers", () => {
   it("workflow_status deterministically projects interrupted phase and cursor from persisted history", async () => {
     const definition = loadLighthouse();
     const store = new MemoryExecutionHistoryStore();
-    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const handlers = createMcpWorkflowToolHandlers(lighthouseAmbiguousPort(store));
 
     const started = await handlers.workflow_start({
       execution_id: "exec-status-1",
@@ -221,7 +231,7 @@ describe("MCP workflow adapter tool handlers", () => {
   it("workflow_resume completes interrupted executions with valid payloads", async () => {
     const definition = loadLighthouse();
     const store = new MemoryExecutionHistoryStore();
-    const handlers = createMcpWorkflowToolHandlers(createWorkflowApplicationPort({ store }));
+    const handlers = createMcpWorkflowToolHandlers(lighthouseAmbiguousPort(store));
 
     const started = await handlers.workflow_start({
       execution_id: "exec-resume-happy",
@@ -239,7 +249,7 @@ describe("MCP workflow adapter tool handlers", () => {
     assert.equal(response.isError, undefined);
     assert.equal(response.structuredContent.execution_id, "exec-resume-happy");
     assert.equal(response.structuredContent.status, "completed");
-    assert.deepEqual(response.structuredContent.result, { intent: "billing", confidence: null });
+    assert.deepEqual(response.structuredContent.result, { intent: "billing", confidence: 0.3 });
   });
 
   it("workflow_resume maps invalid resume payload engine failures to INVALID_RESUME_PAYLOAD", async () => {

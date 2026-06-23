@@ -9,6 +9,7 @@ import { DefinitionRegistry } from "../src/adapters/rest/definition-registry.mjs
 import { MCP_ADAPTER_ERROR } from "../src/adapters/mcp/errors.mjs";
 import { buildControlPlaneAuthConfig } from "../src/security/control-plane-auth.mjs";
 import { createWorkflowApplicationPort } from "../src/application/workflow-application-port.mjs";
+import { StubActivityExecutor } from "../src/orchestrator/activity-executor.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
 import { findWorkflowRepoRoot } from "../src/validate.mjs";
 
@@ -70,12 +71,18 @@ function loadLighthouse() {
 
 /**
  * @param {(port: number) => Promise<void>} run
- * @param {{ authConfig?: import("../src/security/control-plane-auth.mjs").ControlPlaneAuthConfig }} [options]
+ * @param {{
+ *   authConfig?: import("../src/security/control-plane-auth.mjs").ControlPlaneAuthConfig;
+ *   activityExecutor?: import("../orchestrator/activity-executor.mjs").ActivityExecutor;
+ * }} [options]
  */
 async function withRestServer(run, options = {}) {
   const store = new MemoryExecutionHistoryStore();
   const definitionRegistry = new DefinitionRegistry();
-  const workflowPort = createWorkflowApplicationPort({ store });
+  const workflowPort = createWorkflowApplicationPort({
+    store,
+    ...(options.activityExecutor ? { activityExecutor: options.activityExecutor } : {}),
+  });
   const handler = createRestWorkflowHandler(workflowPort, {
     definitionRegistry,
     store,
@@ -191,23 +198,30 @@ describe("REST workflow adapter", () => {
   });
 
   it("resumes interrupted lighthouse execution", async () => {
-    await withRestServer(async (port) => {
-      const definition = loadLighthouse();
-      const registered = await requestJson(port, "POST", "/v1/workflows", { definition });
-      const started = await requestJson(port, "POST", `/v1/workflows/${registered.body.wf_id}/executions`, {
-        execution_id: "rest-resume-1",
-        input: { ticket_text: "unclear" },
-      });
-      assert.equal(started.body.status, "interrupted");
+    await withRestServer(
+      async (port) => {
+        const definition = loadLighthouse();
+        const registered = await requestJson(port, "POST", "/v1/workflows", { definition });
+        const started = await requestJson(port, "POST", `/v1/workflows/${registered.body.wf_id}/executions`, {
+          execution_id: "rest-resume-1",
+          input: { ticket_text: "unclear" },
+        });
+        assert.equal(started.body.status, "interrupted");
 
-      const resumed = await requestJson(port, "POST", "/v1/executions/rest-resume-1:resume", {
-        definition,
-        resume_payload: { intent: "billing" },
-      });
-      assert.equal(resumed.status, 200);
-      assert.equal(resumed.body.status, "completed");
-      assert.deepEqual(resumed.body.result, { intent: "billing", confidence: null });
-    });
+        const resumed = await requestJson(port, "POST", "/v1/executions/rest-resume-1:resume", {
+          definition,
+          resume_payload: { intent: "billing" },
+        });
+        assert.equal(resumed.status, 200);
+        assert.equal(resumed.body.status, "completed");
+        assert.deepEqual(resumed.body.result, { intent: "billing", confidence: 0.3 });
+      },
+      {
+        activityExecutor: new StubActivityExecutor({
+          classify: { intent: "ambiguous", confidence: 0.3 },
+        }),
+      }
+    );
   });
 
   it("maps stale resume attempts to INVALID_RESUME_PAYLOAD", async () => {
