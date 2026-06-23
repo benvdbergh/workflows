@@ -22,14 +22,14 @@ What the reference engine (`@agent-workflow/engine`) supports today versus what 
 | Checkpointing + `definitionHash` | Core | Supported | Resume/submit verify definition |
 | `interrupt` in `parallel` branch | Refused | Validate + runtime refuse | `INTERRUPT_IN_PARALLEL_BRANCH` |
 | `wait` `kind: signal` | Optional (host) | Runtime error without host | Needs `workflow_signal` host |
-| Per-node `retry` / `timeout` | Optional | **Not applied** | Schema accepts; walker ignores |
+| Per-node `retry` / `timeout` | Optional | **Applied** | Walker honors `retry.max_attempts`, backoff, and per-node `timeout` |
 | `tool_call` delegation bridge | Optional (legacy) | Supported | Prefer `agent_delegate` |
 | Definition signing | Optional | Not implemented | R4 security story |
 | REST / SDK parity | Optional | Partial | MCP stdio is reference surface |
 
 ## Author guidance
 
-1. **Validates ≠ runs** — `retry`, `timeout`, and `wait.signal` may pass schema but fail or no-op at runtime.
+1. **Validates ≠ runs** — `wait.signal` may pass schema but fail at runtime without a signal host. `retry` and `timeout` are applied for activity nodes.
 2. **Register subworkflow refs** — packaged npm installs do not auto-discover child URNs from disk.
 3. **Delegate protocols** — production A2A, MCP, and SDK delegate executors ship in the package; wire via application port or MCP operator profile. Mock A2A remains the zero-config default.
 

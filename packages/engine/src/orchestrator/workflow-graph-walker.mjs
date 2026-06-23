@@ -8,6 +8,14 @@ import { createRequire } from "node:module";
 import { validateWorkflowDefinition } from "../validate.mjs";
 import { StubActivityExecutor } from "./activity-executor.mjs";
 import {
+  computeRetryBackoffMs,
+  delay as policyDelay,
+  getRetryPolicy,
+  resolveMaxAttempts,
+  resolveNodeTimeoutMs,
+  shouldRetryAfterFailure,
+} from "./orchestration-policy.mjs";
+import {
   assertNoCustomReducers,
   applyOutputWithReducers,
   stateSchemaForValidation,
@@ -767,7 +775,6 @@ export async function runGraphWorkflow(options) {
         }
         if (step.kind === "failed") {
           const { error, code } = step;
-          appendEvt("ActivityFailed", { nodeId: current, error, ...(code !== undefined ? { code } : {}) });
           appendCmd("FailNode", {
             nodeId: current,
             reason: "activity_failed",
@@ -1483,7 +1490,6 @@ export async function resumeGraphWorkflow(options) {
         }
         if (step.kind === "failed") {
           const { error, code } = step;
-          appendEvt("ActivityFailed", { nodeId: current, error, ...(code !== undefined ? { code } : {}) });
           appendCmd("FailNode", {
             nodeId: current,
             reason: "activity_failed",
@@ -1686,11 +1692,65 @@ export async function submitActivityOutcome(options) {
 
   if (!outcome.ok) {
     const { error, code } = outcome;
+    const attempt = typeof last.payload?.attempt === "number" && last.payload.attempt >= 1 ? last.payload.attempt : 1;
+    const activityNode = /** @type {{ nodes?: Array<{ id: string; retry?: object; timeout?: string }> }} */ (definition).nodes?.find(
+      (n) => n.id === nodeId
+    );
+    const maxAttempts = resolveMaxAttempts(activityNode ?? {});
+    const retryPolicy = getRetryPolicy(activityNode ?? {});
+    const timeoutMs = resolveNodeTimeoutMs(activityNode ?? {});
+    const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, code, retryPolicy);
+
     store.append(executionId, {
       kind: "event",
       name: "ActivityFailed",
-      payload: { executionId, nodeId, error, ...(code !== undefined ? { code } : {}) },
+      payload: {
+        executionId,
+        nodeId,
+        error,
+        attempt,
+        ...(code !== undefined ? { code } : {}),
+        ...(willRetry ? { willRetry: true } : {}),
+      },
     });
+
+    if (willRetry) {
+      const backoffMs = computeRetryBackoffMs(attempt, retryPolicy);
+      if (backoffMs > 0) await policyDelay(backoffMs);
+
+      const nextAttempt = attempt + 1;
+      const pendingNodeType =
+        typeof last.payload?.nodeType === "string"
+          ? last.payload.nodeType
+          : activityNode && "type" in activityNode && typeof activityNode.type === "string"
+            ? activityNode.type
+            : undefined;
+      store.append(executionId, {
+        kind: "event",
+        name: "ActivityRequested",
+        payload: {
+          executionId,
+          nodeId,
+          ...(pendingNodeType ? { nodeType: pendingNodeType } : {}),
+          attempt: nextAttempt,
+          ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+          ...(isParallelSpanPayload(reqSpan) ? { parallelSpan: { ...reqSpan } } : {}),
+          ...(typeof last.payload?.delegateCorrelationId === "string"
+            ? { delegateCorrelationId: last.payload.delegateCorrelationId }
+            : {}),
+        },
+      });
+
+      const histState = latestStateFromHistory(store.listByExecution(executionId));
+      return {
+        status: "awaiting_activity",
+        executionId,
+        nodeId,
+        state: histState ? { ...histState } : { ...input },
+        ...(isParallelSpanPayload(reqSpan) ? { parallelSpan: { ...reqSpan } } : {}),
+      };
+    }
+
     store.append(executionId, {
       kind: "command",
       name: "FailNode",

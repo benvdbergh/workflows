@@ -5,6 +5,15 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { createRequire } from "node:module";
 import { validateWorkflowDefinition } from "../validate.mjs";
 import { StubActivityExecutor } from "./activity-executor.mjs";
+import {
+  computeRetryBackoffMs,
+  delay as policyDelay,
+  executeActivityWithTimeout,
+  getRetryPolicy,
+  resolveMaxAttempts,
+  resolveNodeTimeoutMs,
+  shouldRetryAfterFailure,
+} from "./orchestration-policy.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -329,28 +338,65 @@ export async function runLinearWorkflow(options) {
       if (node.type === "start" || node.type === "end") {
         output = {};
       } else if (PLACEHOLDER_TYPES.has(node.type)) {
-        appendEvt("ActivityRequested", { nodeId, nodeType: node.type });
-        const activityResult = await executor.executeActivity({
-          executionId,
-          node: /** @type {{ id: string; type: string; config?: object }} */ (node),
-          state,
-        });
-        if (!activityResult.ok) {
-          const { error, code } = activityResult;
-          appendEvt("ActivityFailed", { nodeId, error, ...(code !== undefined ? { code } : {}) });
-          appendCmd("FailNode", {
+        const maxAttempts = resolveMaxAttempts(/** @type {{ retry?: object }} */ (node));
+        const retryPolicy = getRetryPolicy(/** @type {{ retry?: object }} */ (node));
+        const timeoutMs = resolveNodeTimeoutMs(/** @type {{ timeout?: string }} */ (node));
+        let activityResult = /** @type {import("./activity-executor.mjs").ActivityExecutorResult | undefined} */ (undefined);
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          appendEvt("ActivityRequested", {
             nodeId,
-            reason: "activity_failed",
-            message: error,
-            ...(code !== undefined ? { code } : {}),
+            nodeType: node.type,
+            attempt,
+            ...(timeoutMs !== undefined ? { timeoutMs } : {}),
           });
-          appendEvt("ExecutionFailed", { error });
-          return {
-            status: "failed",
-            error,
-            finalState: state,
-          };
+          activityResult = await executeActivityWithTimeout(
+            executor,
+            {
+              executionId,
+              node: /** @type {{ id: string; type: string; config?: object; timeout?: string }} */ (node),
+              state,
+            },
+            timeoutMs
+          );
+          if (!activityResult.ok) {
+            const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, activityResult.code, retryPolicy);
+            appendEvt("ActivityFailed", {
+              nodeId,
+              error: activityResult.error,
+              attempt,
+              ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+              ...(willRetry ? { willRetry: true } : {}),
+            });
+            if (!willRetry) {
+              appendCmd("FailNode", {
+                nodeId,
+                reason: "activity_failed",
+                message: activityResult.error,
+                ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+              });
+              appendEvt("ExecutionFailed", { error: activityResult.error });
+              return {
+                status: "failed",
+                error: activityResult.error,
+                finalState: state,
+              };
+            }
+            const backoffMs = computeRetryBackoffMs(attempt, retryPolicy);
+            if (backoffMs > 0) await policyDelay(backoffMs);
+            continue;
+          }
+          break;
         }
+
+        if (!activityResult?.ok) {
+          const error = activityResult?.error ?? "activity failed after exhausting retry attempts";
+          appendEvt("ActivityFailed", { nodeId, error, attempt: maxAttempts });
+          appendCmd("FailNode", { nodeId, reason: "activity_failed", message: error });
+          appendEvt("ExecutionFailed", { error });
+          return { status: "failed", error, finalState: state };
+        }
+
         output = activityResult.output;
         appendEvt("ActivityCompleted", { nodeId, result: output });
       } else {

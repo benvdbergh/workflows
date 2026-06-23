@@ -11,8 +11,8 @@ All nodes may include:
 | `id` | string | Unique in document |
 | `type` | string | Discriminator (see below) |
 | `config` | object | Type-specific |
-| `retry` | object | Accepted by schema; **not applied** by engine yet |
-| `timeout` | object | Accepted by schema; **not applied** by engine yet |
+| `retry` | object | Applied by engine (`max_attempts`, backoff, `non_retryable_errors`) |
+| `timeout` | string | Per-activity deadline (`30s`, `500ms`, …); enforced in-process; advertised on `ActivityRequested` for host-mediated |
 | `metadata` | object | Opaque annotations |
 
 ---

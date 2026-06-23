@@ -252,7 +252,6 @@ export function createParallelJoinRuntime(params) {
         }
         if (!activityResult.ok) {
           const { error, code } = activityResult;
-          hooks.appendEvt("ActivityFailed", { nodeId: cur, error, ...(code !== undefined ? { code } : {}) });
           hooks.appendCmd("FailNode", {
             nodeId: cur,
             reason: "activity_failed",

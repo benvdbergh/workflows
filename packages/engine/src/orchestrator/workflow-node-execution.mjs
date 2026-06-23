@@ -2,6 +2,15 @@
  * Node-level execution helpers for the workflow graph walker (switch routing, timers,
  * set_state, and the activity boundary for step / llm_call / tool_call).
  */
+import {
+  computeRetryBackoffMs,
+  delay as policyDelay,
+  executeActivityWithTimeout,
+  getRetryPolicy,
+  resolveMaxAttempts,
+  resolveNodeTimeoutMs,
+  shouldRetryAfterFailure,
+} from "./orchestration-policy.mjs";
 
 /**
  * @param {unknown} jqResult
@@ -177,8 +186,16 @@ export async function runPlaceholderActivityStep(args) {
     return { kind: "completed", output };
   }
 
+  const maxAttempts = resolveMaxAttempts(/** @type {{ retry?: object }} */ (node));
+  const retryPolicy = getRetryPolicy(/** @type {{ retry?: object }} */ (node));
+  const timeoutMs = resolveNodeTimeoutMs(/** @type {{ timeout?: string }} */ (node));
+
   /** @type {Record<string, unknown>} */
-  const reqPayload = { nodeId: node.id, nodeType: node.type };
+  const baseReqPayload = {
+    nodeId: node.id,
+    nodeType: node.type,
+    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+  };
   if (
     parallelSpan &&
     typeof parallelSpan.parallelNodeId === "string" &&
@@ -186,11 +203,11 @@ export async function runPlaceholderActivityStep(args) {
     typeof parallelSpan.branchName === "string" &&
     typeof parallelSpan.branchEntryNodeId === "string"
   ) {
-    reqPayload.parallelSpan = { ...parallelSpan };
+    baseReqPayload.parallelSpan = { ...parallelSpan };
   }
-  appendEvt("ActivityRequested", reqPayload);
 
   if (activityExecutionMode === "host_mediated") {
+    appendEvt("ActivityRequested", { ...baseReqPayload, attempt: 1 });
     return {
       kind: "awaiting_activity",
       nodeId: node.id,
@@ -204,20 +221,43 @@ export async function runPlaceholderActivityStep(args) {
     };
   }
 
-  const activityResult = await executor.executeActivity({
-    executionId,
-    node: /** @type {{ id: string; type: string; config?: object }} */ (node),
-    state,
-  });
-  if (!activityResult.ok) {
-    return {
-      kind: "failed",
-      error: activityResult.error,
-      ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
-    };
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    appendEvt("ActivityRequested", { ...baseReqPayload, attempt });
+
+    const activityResult = await executeActivityWithTimeout(
+      executor,
+      {
+        executionId,
+        node: /** @type {{ id: string; type: string; config?: object; timeout?: string }} */ (node),
+        state,
+      },
+      timeoutMs
+    );
+    if (!activityResult.ok) {
+      const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, activityResult.code, retryPolicy);
+      appendEvt("ActivityFailed", {
+        nodeId: node.id,
+        error: activityResult.error,
+        attempt,
+        ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+        ...(willRetry ? { willRetry: true } : {}),
+      });
+      if (!willRetry) {
+        return {
+          kind: "failed",
+          error: activityResult.error,
+          ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+        };
+      }
+      const backoffMs = computeRetryBackoffMs(attempt, retryPolicy);
+      if (backoffMs > 0) await policyDelay(backoffMs);
+      continue;
+    }
+    appendEvt("ActivityCompleted", { nodeId: node.id, result: activityResult.output });
+    return { kind: "completed", output: activityResult.output };
   }
-  appendEvt("ActivityCompleted", { nodeId: node.id, result: activityResult.output });
-  return { kind: "completed", output: activityResult.output };
+
+  return { kind: "failed", error: "activity failed after exhausting retry attempts" };
 }
 
 /**

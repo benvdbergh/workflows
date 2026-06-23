@@ -15,6 +15,7 @@ import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { resolveNodeTimeoutMs } from "./orchestration-policy.mjs";
 
 /** Basenames allowed when WORKFLOW_ENGINE_MCP_ALLOW_COMMANDS is unset. */
 export const DEFAULT_MCP_COMMAND_ALLOWLIST = new Set(["node", "npx"]);
@@ -253,8 +254,11 @@ export class McpManifestActivityExecutor {
         ? /** @type {Record<string, unknown>} */ ({ ...cfg.arguments })
         : {};
     const signal = this.getAbortSignal?.();
+    const nodeTimeoutMs = ctx.timeoutMs ?? resolveNodeTimeoutMs(/** @type {{ timeout?: string }} */ (node));
+    const timeoutMs =
+      nodeTimeoutMs !== undefined ? Math.min(nodeTimeoutMs, this.defaultTimeoutMs) : this.defaultTimeoutMs;
     return callMcpToolStdio(serverDef, toolName, toolArguments, {
-      timeoutMs: this.defaultTimeoutMs,
+      timeoutMs,
       signal,
       clientName: this.clientName,
       clientVersion: this.clientVersion,

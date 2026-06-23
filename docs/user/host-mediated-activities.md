@@ -56,7 +56,7 @@ Expected response: `status: "awaiting_activity"` with `node_id: "classify"` (fir
 
 For each activity boundary the engine yields **`awaiting_activity`**. The host loop is:
 
-1. **Read pending context** — from the tool result or `workflow_status`: `execution_id`, `node_id`, optional `parallel_span`, workflow `state`, and for **`agent_delegate`** nodes also `agent_id`, `protocol`, `delegate_input`, and `delegate_correlation_id`.
+1. **Read pending context** — from the tool result or `workflow_status`: `execution_id`, `node_id`, optional `parallel_span`, workflow `state`, optional **`timeout_ms`** (deadline for this activity when the node defines `timeout`), and for **`agent_delegate`** nodes also `agent_id`, `protocol`, `delegate_input`, and `delegate_correlation_id`.
 2. **Resolve the node** — look up `node_id` in the same `definition` object passed to `workflow_start` (type: `step`, `llm_call`, `tool_call`, or `agent_delegate`; `config` holds model, tool, handler URN, or delegate target).
 3. **Perform work out of band** — invoke the host's LLM API, MCP `tools/call`, registered step handler, or external agent runtime (A2A/MCP/SDK per `agent_delegate` `protocol`). Credentials and side effects stay on the host; the engine does not call your tools or agents in this mode.
 4. **Submit the outcome** — call `workflow_submit_activity` with the **same** `definition` and `input` as the original start, matching `node_id`, and a typed `outcome`.
@@ -79,6 +79,16 @@ For each activity boundary the engine yields **`awaiting_activity`**. The host l
 ```
 
 Success outcomes use `{ "ok": true, "result": { ... } }` (merged into workflow state per node completion). Failures use `{ "ok": false, "error": "...", "code": "..." }`.
+
+## Per-node timeout (host responsibility)
+
+When the workflow node defines **`timeout`** (duration string, e.g. `30s`), the engine records **`timeoutMs`** (milliseconds) on the pending **`ActivityRequested`** event and exposes it on `awaiting_activity` / `workflow_status` responses. The engine does **not** cancel host-side work in this mode — the host **SHOULD**:
+
+1. Track the deadline from `timeout_ms` / `timeoutMs` when the activity is requested.
+2. If work cannot complete in time, stop or abandon the external call and submit `{ "ok": false, "error": "Activity timed out", "code": "TIMEOUT" }` via `workflow_submit_activity`.
+3. On retry (`ActivityRequested` with a higher `attempt`), apply the same deadline policy to the new attempt (each request carries a fresh `timeoutMs`).
+
+In-process runs (`activity_execution_mode: "in_process"`) enforce the same deadline inside the engine by racing the activity port.
 
 For **`agent_delegate`** nodes, include the **`delegate_correlation_id`** from the pending `ActivityRequested` (also exposed on start/status responses). Optionally pass **`external_task_id`** for the host-side agent task reference. The engine validates that the submitted correlation id matches the pending request before recording `ActivityCompleted`.
 

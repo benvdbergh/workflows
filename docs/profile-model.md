@@ -38,7 +38,7 @@ This document formalizes what adopters **must** implement for **core profile** i
 | `CheckpointWritten` + `definitionHash` binding | Core | Supported | Canonical JSON hash; resume/submit/continuation verify definition. See BEN-78. |
 | `interrupt` inside `parallel` branch | Refused | Validate + runtime refuse | Code `INTERRUPT_IN_PARALLEL_BRANCH`; invariant in `workflow-graph-invariants.mjs`. See BEN-77. |
 | `wait` `kind: signal` | Optional (host) | Runtime error without host | Requires host `workflow_signal`; not bare engine. |
-| Per-node `retry` / `timeout` | Optional | **Not applied** | Schema accepts; walker does not schedule retries or node timeouts yet. |
+| Per-node `retry` / `timeout` | Optional | **Applied** | Walker enforces `timeout` on activity nodes; retries per `retry.max_attempts` |
 | Top-level `checkpointing` policy | Optional | Supported | Default `after_each_node`; `disabled` / `every_n_nodes`. |
 | `tool_call` delegation bridge | Optional (legacy) | Supported | Prefer native `agent_delegate` for GA; see migration doc. |
 | Definition signing | Optional | Not implemented | R4 security story (BEN-10). |
@@ -50,7 +50,7 @@ This document formalizes what adopters **must** implement for **core profile** i
 ## Runtime gaps called out for GA adopters
 
 1. **`wait.signal`** — Document and validate; execute only with a host that implements signal delivery and correlation (RFC-04 `EmitSignal` / host contract). Bare engine fails fast with a clear message.
-2. **`retry` / `timeout`** — Treat as forward-compatible document fields until the walker implements policy engines and conformance vectors for backoff and deadlines.
+2. **`retry` / `timeout`** — Both are applied by the walker for `step`, `llm_call`, and `tool_call`. `timeout` is a duration string; in-process runs race the activity port; host-mediated runs include `timeoutMs` on `ActivityRequested` for the host to honor.
 3. **`interrupt` in `parallel`** — Do not author; validators and runtime refuse. Resume-safe correlation inside branches is a follow-on (separate story if promoted to optional).
 
 ---

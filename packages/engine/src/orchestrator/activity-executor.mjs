@@ -7,8 +7,9 @@
  *
  * @typedef {object} ActivityExecutorContext
  * @property {string} executionId
- * @property {{ id: string; type: string; config?: object }} node Full node from the workflow definition (`id`, `type`, optional `config`).
+ * @property {{ id: string; type: string; config?: object; timeout?: string }} node Full node from the workflow definition (`id`, `type`, optional `config`, optional `timeout`).
  * @property {Record<string, unknown>} state Workflow state at the boundary (treat as read-only; do not rely on orchestrator seeing mutations).
+ * @property {number} [timeoutMs] Resolved per-node deadline in milliseconds when the walker enforces `node.timeout`.
  */
 
 /**
@@ -63,5 +64,38 @@ export class RejectingActivityExecutor {
       error: `CONFORMANCE_ACTIVITY_PORT_INVOKED: executeActivity was called for node ${ctx.node.id} (expected replay to use recorded ActivityCompleted only).`,
       code: "CONFORMANCE_ACTIVITY_PORT_INVOKED",
     };
+  }
+}
+
+/**
+ * Fails the first `failCount` invocations, then returns success. Used in retry conformance and unit tests.
+ *
+ * @implements {ActivityExecutor}
+ */
+export class RetryCountingStepExecutor {
+  /**
+   * @param {{ failCount?: number; successOutput?: Record<string, unknown>; errorCode?: string }} [options]
+   */
+  constructor(options = {}) {
+    this.failCount = options.failCount ?? 2;
+    this.successOutput = options.successOutput ?? {};
+    this.errorCode = options.errorCode ?? "TRANSIENT";
+    this.invocationCount = 0;
+  }
+
+  /**
+   * @param {ActivityExecutorContext} ctx
+   * @returns {Promise<ActivityExecutorResult>}
+   */
+  async executeActivity(ctx) {
+    this.invocationCount += 1;
+    if (this.invocationCount <= this.failCount) {
+      return {
+        ok: false,
+        error: `transient failure on invocation ${this.invocationCount}`,
+        code: this.errorCode,
+      };
+    }
+    return { ok: true, output: { ...this.successOutput } };
   }
 }
