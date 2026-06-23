@@ -75,6 +75,29 @@ This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `wo
 
 Operator smoke runbook: `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`.
 
+### Execution history store (`workflows-engine-mcp`)
+
+By default the MCP stdio bin uses an **in-memory** execution history store (non-persistent; history is lost when the process exits). For durable runs across restarts, enable SQLite:
+
+```bash
+workflows-engine-mcp --store sqlite --store-path /path/to/runs.sqlite
+```
+
+Environment equivalents (CLI flags override env):
+
+| Variable | Role |
+|----------|------|
+| `WORKFLOW_ENGINE_STORE` | `memory` (default) or `sqlite` |
+| `WORKFLOW_ENGINE_STORE_PATH` | SQLite database file path when store is `sqlite` |
+
+On startup the process logs the selected backend to stderr, for example `[engine-mcp-stdio] execution history store: sqlite (/path/to/runs.sqlite)`.
+
+**Shared-host risks:** A SQLite file is a single-writer append log. Do not point multiple MCP engine processes at the same database file unless you accept coordination risk (WAL helps readers but concurrent writers on the same `executionId` can still corrupt monotonic `seq` assumptions). Restrict filesystem permissions on the database path; backups and migration are operator responsibilities. Treat the file like any local secret-adjacent artifact on shared machines.
+
+**Migrating from in-memory:** Stop the in-memory server (history in that process cannot be exported). Start a new process with `--store sqlite --store-path <path>` (or env equivalents). In-flight executions cannot be resumed across the switch; clients must use new `execution_id` values or replay from exported history if you built a custom export path via the library store API.
+
+Requires **Node.js ≥ 22.5.0** (`node:sqlite`). See **Execution history** below for library embedder details and table layout.
+
 **Assistant hosts** that own LLM/tool credentials should pass `activity_execution_mode: "host_mediated"` and complete activities via `workflow_submit_activity`. End-user guide: [`docs/user/host-mediated-activities.md`](../../docs/user/host-mediated-activities.md) ([ADR-0002](../../docs/architecture/adr/ADR-0002-host-mediated-activity-execution.md)).
 
 ### Engine-direct `tool_call` execution (optional)

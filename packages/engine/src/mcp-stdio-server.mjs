@@ -6,18 +6,35 @@ import {
   formatMcpManifestValidationErrors,
   loadProductionActivityExecutor,
   loadProductionDelegateExecutor,
+  resolveExecutionHistoryStoreOptions,
   resolveTransportValidationOptionsFromEnv,
   resolveWorkflowEngineMcpConfigPath,
 } from "./adapters/mcp/stdio-server-config.mjs";
 import { MemoryExecutionHistoryStore } from "./persistence/memory-history-store.mjs";
 import { loadControlPlaneAuthConfigFromEnv } from "./security/control-plane-auth.mjs";
 
+/**
+ * @param {import("./adapters/mcp/stdio-server-config.mjs").ExecutionHistoryStoreResolveResult & { ok: true }} options
+ */
+async function createExecutionHistoryStoreFromOptions(options) {
+  if (options.kind === "memory") {
+    return new MemoryExecutionHistoryStore();
+  }
+  const { SqliteExecutionHistoryStore } = await import("./persistence/sqlite-history-store.mjs");
+  return new SqliteExecutionHistoryStore({ path: options.path });
+}
+
 async function main() {
   const args = process.argv.slice(2);
   if (args.includes("--help") || args.includes("-h")) {
     process.stdout.write(
-      "Usage: workflows-engine-mcp [--mcp-config <path>]\n" +
+      "Usage: workflows-engine-mcp [--mcp-config <path>] [--store memory|sqlite] [--store-path <path>]\n" +
         "Starts MCP stdio adapter with workflow_start/workflow_status/workflow_resume/workflow_submit_activity/workflow_signal/workflow_cancel/workflow_list tools.\n" +
+        "\n" +
+        "Execution history store:\n" +
+        "  --store memory|sqlite — persistence backend (default memory; env WORKFLOW_ENGINE_STORE)\n" +
+        "  --store-path <path> — SQLite database file when --store sqlite (env WORKFLOW_ENGINE_STORE_PATH)\n" +
+        "  CLI flags override env. SQLite requires Node.js >= 22.5.0 (node:sqlite).\n" +
         "\n" +
         "Production activity execution (composite router):\n" +
         "  WORKFLOW_ENGINE_MCP_CONFIG — operator MCP manifest for tool_call (or --mcp-config <path>).\n" +
@@ -88,7 +105,19 @@ async function main() {
     return;
   }
 
-  const store = new MemoryExecutionHistoryStore();
+  const storeOptions = resolveExecutionHistoryStoreOptions(process.argv);
+  if (!storeOptions.ok) {
+    process.stderr.write(`[engine-mcp-stdio] ${storeOptions.error}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  const store = await createExecutionHistoryStoreFromOptions(storeOptions);
+  if (storeOptions.kind === "sqlite") {
+    process.stderr.write(`[engine-mcp-stdio] execution history store: sqlite (${storeOptions.path})\n`);
+  } else {
+    process.stderr.write("[engine-mcp-stdio] execution history store: memory\n");
+  }
+
   const workflowPort = createWorkflowApplicationPort({
     store,
     ...(activityExecutor ? { activityExecutor } : {}),
