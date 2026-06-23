@@ -356,16 +356,22 @@ Parallel branches may attach **`parallelSpan`** on the checkpoint payload. Each 
 
 ### Workflow references
 
-`subworkflow` nodes resolve `config.workflow_ref` at runtime through an in-process registry (`src/orchestrator/workflow-ref-resolver.mjs`).
+`subworkflow` nodes resolve `config.workflow_ref` at runtime through `src/orchestrator/workflow-ref-resolver.mjs`.
 
 - **`registerWorkflowRef(workflowRef, definition)`** — register a parsed child definition object before running a parent that references `workflowRef`. Registrations last for the process lifetime.
-- **`clearWorkflowRefs()`** — reset the registry (tests and long-lived hosts).
+- **`resolveWorkflowRef(workflowRef, { versionPin? })`** — resolve a registry URN, built-in URN (monorepo checkout), or **HTTP(S) URL**. Optional `versionPin` (from `config.version_pin`) must match the SHA-256 hash of the child definition’s canonical JSON.
+- **`computeWorkflowDefinitionHash(definition)`** — SHA-256 of canonical JSON (same algorithm as checkpoint `definitionHash`).
+- **`setWorkflowRefFetchImpl(fetch)`** — inject `fetch` for tests or restricted hosts.
+- **`clearWorkflowRefs()`** — reset registry and fetch cache (tests and long-lived hosts).
 
-Import these helpers from `workflow-ref-resolver.mjs` (they are not re-exported from the package entrypoint today).
+Exported from the package entrypoint (`@agent-workflow/engine`).
 
 **Monorepo checkout:** one built-in reference resolves from disk when the **workflows** repository root is discoverable (`findWorkflowRepoRoot()`): `urn:awp:wf:unit-tests` → `examples/r3-unit-tests-child.workflow.json`.
 
-**Published npm install:** the tarball ships only `src/`, `schemas/`, and this README (`examples/` is not bundled). Built-in URNs do not resolve on disk; register every `workflow_ref` your definitions use via `registerWorkflowRef`, or load child JSON from your own artifact store and register it before `runGraphWorkflow` / MCP `workflow_start`.
+**Published npm install:** the tarball ships only `src/`, `schemas/`, and this README (`examples/` is not bundled). Built-in URNs do not resolve on disk. Choose one of:
+
+1. **`registerWorkflowRef`** — load child JSON from your artifact store (or bundle it in your app) and register each `workflow_ref` before `runGraphWorkflow` / MCP `workflow_start`.
+2. **HTTP(S) `workflow_ref`** — point `config.workflow_ref` at a hosted definition URL; the engine fetches and caches definitions keyed by ref + `version_pin`. Pin with `config.version_pin` set to `computeWorkflowDefinitionHash(childDefinition)` so cache hits and refetches are verified.
 
 Operator-oriented summary: [arc42 cross-cutting — workflow reference resolution](../../docs/architecture/arc42/08-cross-cutting-concepts.md#88-workflow-reference-resolution-subworkflow). Release notes: [alpha — known limitations](../../docs/releases/alpha-release-notes.md#known-limitations).
 

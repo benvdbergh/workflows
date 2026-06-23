@@ -113,9 +113,12 @@ export async function executeSubworkflowNode(args) {
     return { kind: "failed", error: "subworkflow child invocation not allowed in this run" };
   }
 
+  const versionPin =
+    typeof cfg.version_pin === "string" && cfg.version_pin.trim() ? cfg.version_pin.trim() : undefined;
+
   let childDefinition;
   try {
-    childDefinition = resolveWorkflowRef(workflowRef);
+    childDefinition = await resolveWorkflowRef(workflowRef, { versionPin });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { kind: "failed", error: msg };
