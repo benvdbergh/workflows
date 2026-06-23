@@ -82,6 +82,17 @@ function storeInFetchCache(workflowRef, definition, versionPin) {
 
 /**
  * @param {string} workflowRef
+ */
+function invalidateFetchCacheForRef(workflowRef) {
+  for (const key of fetchCache.keys()) {
+    if (key === workflowRef || key.startsWith(`${workflowRef}\0`)) {
+      fetchCache.delete(key);
+    }
+  }
+}
+
+/**
+ * @param {string} workflowRef
  * @param {object} definition
  */
 export function registerWorkflowRef(workflowRef, definition) {
@@ -92,6 +103,7 @@ export function registerWorkflowRef(workflowRef, definition) {
     throw new Error("definition must be a non-null object");
   }
   registry.set(workflowRef, definition);
+  invalidateFetchCacheForRef(workflowRef);
 }
 
 export function clearWorkflowRefs() {

@@ -54,6 +54,20 @@ describe("workflow-ref-resolver", () => {
     );
   });
 
+  it("registerWorkflowRef invalidates cached resolutions for the same ref", async () => {
+    const child = loadJson("examples/r3-unit-tests-child.workflow.json");
+    const updated = structuredClone(child);
+    updated.document = { ...updated.document, name: "r3-unit-tests-child-v2" };
+
+    registerWorkflowRef("urn:test:child", child);
+    const first = await resolveWorkflowRef("urn:test:child");
+    assert.equal(first.document.name, "r3-unit-tests-child");
+
+    registerWorkflowRef("urn:test:child", updated);
+    const second = await resolveWorkflowRef("urn:test:child");
+    assert.equal(second.document.name, "r3-unit-tests-child-v2");
+  });
+
   it("fetches HTTP(S) workflow_ref and caches by ref + version_pin", async () => {
     const child = loadJson("examples/r3-unit-tests-child.workflow.json");
     const url = "https://example.test/child.workflow.json";
