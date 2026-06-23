@@ -11,6 +11,10 @@ import {
   resolveNodeTimeoutMs,
   shouldRetryAfterFailure,
 } from "./orchestration-policy.mjs";
+import {
+  mapLlmActivityFailureCode,
+  validateLlmCallOutputAtActivityBoundary,
+} from "./llm-output-schema-boundary.mjs";
 
 /**
  * @param {unknown} jqResult
@@ -234,27 +238,45 @@ export async function runPlaceholderActivityStep(args) {
       timeoutMs
     );
     if (!activityResult.ok) {
-      const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, activityResult.code, retryPolicy);
+      const failureCode = mapLlmActivityFailureCode(node, activityResult.code);
+      const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, failureCode, retryPolicy);
       appendEvt("ActivityFailed", {
         nodeId: node.id,
         error: activityResult.error,
         attempt,
-        ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+        ...(failureCode !== undefined ? { code: failureCode } : {}),
         ...(willRetry ? { willRetry: true } : {}),
       });
       if (!willRetry) {
         return {
           kind: "failed",
           error: activityResult.error,
-          ...(activityResult.code !== undefined ? { code: activityResult.code } : {}),
+          ...(failureCode !== undefined ? { code: failureCode } : {}),
         };
       }
       const backoffMs = computeRetryBackoffMs(attempt, retryPolicy);
       if (backoffMs > 0) await policyDelay(backoffMs);
       continue;
     }
-    appendEvt("ActivityCompleted", { nodeId: node.id, result: activityResult.output });
-    return { kind: "completed", output: activityResult.output };
+    const boundaryResult = validateLlmCallOutputAtActivityBoundary(node, activityResult.output);
+    if (!boundaryResult.ok) {
+      const willRetry = shouldRetryAfterFailure(attempt, maxAttempts, boundaryResult.code, retryPolicy);
+      appendEvt("ActivityFailed", {
+        nodeId: node.id,
+        error: boundaryResult.error,
+        attempt,
+        code: boundaryResult.code,
+        ...(willRetry ? { willRetry: true } : {}),
+      });
+      if (!willRetry) {
+        return { kind: "failed", error: boundaryResult.error, code: boundaryResult.code };
+      }
+      const backoffMs = computeRetryBackoffMs(attempt, retryPolicy);
+      if (backoffMs > 0) await policyDelay(backoffMs);
+      continue;
+    }
+    appendEvt("ActivityCompleted", { nodeId: node.id, result: boundaryResult.output });
+    return { kind: "completed", output: boundaryResult.output };
   }
 
   return { kind: "failed", error: "activity failed after exhausting retry attempts" };

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, it, beforeEach } from "node:test";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import { findWorkflowRepoRoot, validateWorkflowDefinition } from "../src/validate.mjs";
 import { MemoryExecutionHistoryStore } from "../src/persistence/memory-history-store.mjs";
 import { runGraphWorkflow } from "../src/orchestrator/workflow-graph-walker.mjs";
@@ -10,7 +10,10 @@ import { hydrateReplayContext } from "../src/orchestrator/replay-loader.mjs";
 import { mintChildExecutionId } from "../src/orchestrator/subworkflow-runtime.mjs";
 import {
   clearWorkflowRefs,
+  computeWorkflowDefinitionHash,
   registerWorkflowRef,
+  resolveWorkflowRef,
+  setWorkflowRefFetchImpl,
 } from "../src/orchestrator/workflow-ref-resolver.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +26,11 @@ function loadJson(rel) {
 describe("subworkflow", () => {
   beforeEach(() => {
     clearWorkflowRefs();
+    setWorkflowRefFetchImpl(null);
+  });
+
+  afterEach(() => {
+    setWorkflowRefFetchImpl(null);
   });
 
   it("runs parent with nested child execution and merges child state", async () => {
@@ -252,5 +260,43 @@ describe("subworkflow", () => {
     assert.equal(out.status, "completed");
     assert.equal(out.finalState?.tests_passed, true);
     assert.equal(store.listByExecution(childExecutionId).length, 0);
+  });
+
+  it("resolves HTTP workflow_ref with version_pin during parent run", async () => {
+    const parent = loadJson("examples/conformance-subworkflow-parent.workflow.json");
+    const child = loadJson("examples/r3-unit-tests-child.workflow.json");
+    const childUrl = "https://example.test/r3-unit-tests-child.workflow.json";
+    const versionPin = computeWorkflowDefinitionHash(child);
+
+    const parentWithHttpRef = structuredClone(parent);
+    const verifyNode = parentWithHttpRef.nodes.find((n) => n.id === "verify");
+    assert.ok(verifyNode);
+    verifyNode.config.workflow_ref = childUrl;
+    verifyNode.config.version_pin = versionPin;
+
+    setWorkflowRefFetchImpl(async (url) => {
+      assert.equal(url, childUrl);
+      return {
+        ok: true,
+        async json() {
+          return child;
+        },
+      };
+    });
+
+    const store = new MemoryExecutionHistoryStore();
+    const out = await runGraphWorkflow({
+      definition: parentWithHttpRef,
+      input: { repo: "acme/widget" },
+      executionId: "test-subworkflow-http-ref",
+      store,
+      stubActivityOutputs: {
+        run_tests: { tests_passed: true },
+      },
+    });
+
+    assert.equal(out.status, "completed");
+    assert.equal(out.finalState?.tests_passed, true);
+    assert.equal(out.finalState?.done, true);
   });
 });

@@ -75,6 +75,29 @@ This starts a dedicated MCP stdio adapter layer with tools `workflow_start`, `wo
 
 Operator smoke runbook: `docs/architecture/arc42-assets/runbooks/mcp-stdio-host-smoke.md`.
 
+### Execution history store (`workflows-engine-mcp`)
+
+By default the MCP stdio bin uses an **in-memory** execution history store (non-persistent; history is lost when the process exits). For durable runs across restarts, enable SQLite:
+
+```bash
+workflows-engine-mcp --store sqlite --store-path /path/to/runs.sqlite
+```
+
+Environment equivalents (CLI flags override env):
+
+| Variable | Role |
+|----------|------|
+| `WORKFLOW_ENGINE_STORE` | `memory` (default) or `sqlite` |
+| `WORKFLOW_ENGINE_STORE_PATH` | SQLite database file path when store is `sqlite` |
+
+On startup the process logs the selected backend to stderr, for example `[engine-mcp-stdio] execution history store: sqlite (/path/to/runs.sqlite)`.
+
+**Shared-host risks:** A SQLite file is a single-writer append log. Do not point multiple MCP engine processes at the same database file unless you accept coordination risk (WAL helps readers but concurrent writers on the same `executionId` can still corrupt monotonic `seq` assumptions). Restrict filesystem permissions on the database path; backups and migration are operator responsibilities. Treat the file like any local secret-adjacent artifact on shared machines.
+
+**Migrating from in-memory:** Stop the in-memory server (history in that process cannot be exported). Start a new process with `--store sqlite --store-path <path>` (or env equivalents). In-flight executions cannot be resumed across the switch; clients must use new `execution_id` values or replay from exported history if you built a custom export path via the library store API.
+
+Requires **Node.js ≥ 22.5.0** (`node:sqlite`). See **Execution history** below for library embedder details and table layout.
+
 **Assistant hosts** that own LLM/tool credentials should pass `activity_execution_mode: "host_mediated"` and complete activities via `workflow_submit_activity`. End-user guide: [`docs/user/host-mediated-activities.md`](../../docs/user/host-mediated-activities.md) ([ADR-0002](../../docs/architecture/adr/ADR-0002-host-mediated-activity-execution.md)).
 
 ### Engine-direct `tool_call` execution (optional)
@@ -105,7 +128,7 @@ const activityExecutor = new LlmActivityExecutor({
 });
 ```
 
-Inject a custom **`LlmProvider`** for tests or non-OpenAI backends; the default uses fetch against `/chat/completions` with no extra SDK. Structured outputs are validated with AJV when `output_schema` is set. Failures return stable codes: `LLM_CONFIG_INVALID`, `LLM_CREDENTIALS_MISSING`, `LLM_PROVIDER_ERROR`, `LLM_OUTPUT_VALIDATION_FAILED` (surfaced as `ActivityFailed` in execution history).
+Inject a custom **`LlmProvider`** for tests or non-OpenAI backends; the default uses fetch against `/chat/completions` with no extra SDK. Structured outputs are validated with AJV when `output_schema` is set. In-process executor failures use `LLM_OUTPUT_VALIDATION_FAILED`; at the activity boundary (in-process and host-mediated submit) schema violations surface as **`OUTPUT_SCHEMA_VIOLATION`** on `ActivityFailed`. Other stable executor codes: `LLM_CONFIG_INVALID`, `LLM_CREDENTIALS_MISSING`, `LLM_PROVIDER_ERROR`.
 
 #### Prompt resolution (`buildLlmChatMessages`)
 
@@ -356,16 +379,22 @@ Parallel branches may attach **`parallelSpan`** on the checkpoint payload. Each 
 
 ### Workflow references
 
-`subworkflow` nodes resolve `config.workflow_ref` at runtime through an in-process registry (`src/orchestrator/workflow-ref-resolver.mjs`).
+`subworkflow` nodes resolve `config.workflow_ref` at runtime through `src/orchestrator/workflow-ref-resolver.mjs`.
 
 - **`registerWorkflowRef(workflowRef, definition)`** — register a parsed child definition object before running a parent that references `workflowRef`. Registrations last for the process lifetime.
-- **`clearWorkflowRefs()`** — reset the registry (tests and long-lived hosts).
+- **`resolveWorkflowRef(workflowRef, { versionPin? })`** — resolve a registry URN, built-in URN (monorepo checkout), or **HTTP(S) URL**. Optional `versionPin` (from `config.version_pin`) must match the SHA-256 hash of the child definition’s canonical JSON.
+- **`computeWorkflowDefinitionHash(definition)`** — SHA-256 of canonical JSON (same algorithm as checkpoint `definitionHash`).
+- **`setWorkflowRefFetchImpl(fetch)`** — inject `fetch` for tests or restricted hosts.
+- **`clearWorkflowRefs()`** — reset registry and fetch cache (tests and long-lived hosts).
 
-Import these helpers from `workflow-ref-resolver.mjs` (they are not re-exported from the package entrypoint today).
+Exported from the package entrypoint (`@agent-workflow/engine`).
 
 **Monorepo checkout:** one built-in reference resolves from disk when the **workflows** repository root is discoverable (`findWorkflowRepoRoot()`): `urn:awp:wf:unit-tests` → `examples/r3-unit-tests-child.workflow.json`.
 
-**Published npm install:** the tarball ships only `src/`, `schemas/`, and this README (`examples/` is not bundled). Built-in URNs do not resolve on disk; register every `workflow_ref` your definitions use via `registerWorkflowRef`, or load child JSON from your own artifact store and register it before `runGraphWorkflow` / MCP `workflow_start`.
+**Published npm install:** the tarball ships only `src/`, `schemas/`, and this README (`examples/` is not bundled). Built-in URNs do not resolve on disk. Choose one of:
+
+1. **`registerWorkflowRef`** — load child JSON from your artifact store (or bundle it in your app) and register each `workflow_ref` before `runGraphWorkflow` / MCP `workflow_start`.
+2. **HTTP(S) `workflow_ref`** — point `config.workflow_ref` at a hosted definition URL; the engine fetches and caches definitions keyed by ref + `version_pin`. Pin with `config.version_pin` set to `computeWorkflowDefinitionHash(childDefinition)` so cache hits and refetches are verified.
 
 Operator-oriented summary: [arc42 cross-cutting — workflow reference resolution](../../docs/architecture/arc42/08-cross-cutting-concepts.md#88-workflow-reference-resolution-subworkflow). Release notes: [alpha — known limitations](../../docs/releases/alpha-release-notes.md#known-limitations).
 

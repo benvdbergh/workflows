@@ -63,13 +63,23 @@ Deterministic activity boundary. `config` must reference an implementation handl
 
 Model invocation. Early demos may stub transcripts without changing document shape.
 
+Optional `config.output_schema` (JSON Schema object) is validated at the **activity boundary** after completion (in-process executor or host `submitActivityOutcome`). Violations emit `ActivityFailed` with code **`OUTPUT_SCHEMA_VIOLATION`**.
+
 ```json
 {
   "id": "classify",
   "type": "llm_call",
   "config": {
     "model": "gpt-4",
-    "prompt": "Classify intent from: {{state.ticket_text}}"
+    "prompt": "Classify intent from: {{state.ticket_text}}",
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "intent": { "type": "string" },
+        "confidence": { "type": "number" }
+      },
+      "required": ["intent", "confidence"]
+    }
   }
 }
 ```

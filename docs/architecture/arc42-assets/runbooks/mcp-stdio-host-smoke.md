@@ -42,6 +42,19 @@ To exercise **real** MCP `tools/call` for `tool_call` workflow nodes (instead of
 
 If the manifest cannot be read or fails schema validation, the process **exits with code 1** before listening on stdio (diagnostics on stderr). This path is **opt-in**; omit both to keep default in-process stub behavior.
 
+### Optional: SQLite execution history
+
+By default the stdio entrypoint keeps execution history **in memory** (non-persistent). For durable runs across process restarts:
+
+- **CLI:** `--store sqlite --store-path /absolute/or/relative/runs.sqlite`
+- **Environment:** `WORKFLOW_ENGINE_STORE=sqlite` and `WORKFLOW_ENGINE_STORE_PATH=/path/to/runs.sqlite` (CLI wins when both are set)
+
+Startup logs the selected store on stderr (`execution history store: memory` or `sqlite (<path>)`).
+
+**Shared-host risks:** one SQLite file should have a **single writer process** under normal operation. Multiple hosts or engine processes appending to the same file can break per-execution `seq` monotonicity. Restrict filesystem permissions on the database path.
+
+**Migrating from in-memory:** history in a running in-memory process is not portable. Stop the server, start with SQLite flags/env, and use new `execution_id` values for new runs (or integrate library export if you need custom migration).
+
 Trust boundaries, secrets, and when to prefer host-mediated execution: [ADR-0003](../../adr/ADR-0003-engine-direct-mcp-activity-execution.md). The host-mediated smoke steps below are unchanged; engine-direct does not replace `workflow_submit_activity` for `activity_execution_mode: host_mediated`.
 
 ## 2) Connect from an MCP-capable host (copy/paste)
@@ -250,7 +263,7 @@ Current posture for this smoke path:
 
 - Local-only stdio transport between host and adapter process.
 - No authentication or authorization layer in the adapter.
-- In-memory execution history store in the stdio entrypoint process (non-persistent and single-process POC behavior).
+- Default in-memory execution history store in the stdio entrypoint (non-persistent); optional SQLite via `--store sqlite --store-path <path>` for durable single-host runs (see section 1).
 
 Deferred hardening tracks to RFC-07:
 

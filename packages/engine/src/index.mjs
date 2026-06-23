@@ -108,6 +108,13 @@ export {
 } from "./orchestrator/linear-runner.mjs";
 export { runGraphWorkflow, resumeGraphWorkflow, submitActivityOutcome, deliverSignalOutcome, cancelExecutionOutcome } from "./orchestrator/workflow-graph-walker.mjs";
 export { hydrateReplayContext } from "./orchestrator/replay-loader.mjs";
+export {
+  clearWorkflowRefs,
+  computeWorkflowDefinitionHash,
+  registerWorkflowRef,
+  resolveWorkflowRef,
+  setWorkflowRefFetchImpl,
+} from "./orchestrator/workflow-ref-resolver.mjs";
 export { createWorkflowApplicationPort } from "./application/workflow-application-port.mjs";
 export { createMcpWorkflowStdioServer } from "./adapters/mcp/stdio-server.mjs";
 export { createMcpWorkflowToolHandlers } from "./adapters/mcp/workflow-tools.mjs";

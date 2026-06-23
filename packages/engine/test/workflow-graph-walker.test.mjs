@@ -590,6 +590,245 @@ describe("runGraphWorkflow (host-mediated activities)", () => {
     assert.equal(executionCompleted.length, 1);
   });
 
+  it("host_mediated llm_call validates output_schema on submit (OUTPUT_SCHEMA_VIOLATION)", async () => {
+    /** @type {object} */
+    const definition = {
+      document: {
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
+        name: "host-llm-schema",
+        version: "1.0.0",
+      },
+      state_schema: {
+        type: "object",
+        properties: {
+          intent: { type: "string" },
+          confidence: { type: "number" },
+        },
+      },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "classify",
+          type: "llm_call",
+          config: {
+            model: "stub",
+            system_prompt: "classify",
+            output_schema: {
+              type: "object",
+              properties: {
+                intent: { type: "string" },
+                confidence: { type: "number" },
+              },
+              required: ["intent", "confidence"],
+            },
+          },
+          retry: { max_attempts: 1 },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".intent" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "classify" },
+        { source: "classify", target: "end" },
+      ],
+    };
+    assert.equal(validateWorkflowDefinition(definition).ok, true);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-host-llm-schema";
+    const input = { ticket_text: "help" };
+
+    const awaiting = await runGraphWorkflow({
+      definition,
+      input,
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(awaiting.status, "awaiting_activity");
+    assert.equal(awaiting.nodeId, "classify");
+
+    const invalid = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "classify",
+      outcome: { ok: true, result: { intent: "billing" } },
+    });
+    assert.equal(invalid.status, "failed");
+    assert.equal(invalid.code, "OUTPUT_SCHEMA_VIOLATION");
+
+    const rows = store.listByExecution(executionId);
+    const failedEvt = rows.find((r) => r.kind === "event" && r.name === "ActivityFailed");
+    assert.ok(failedEvt);
+    assert.equal(failedEvt.payload?.code, "OUTPUT_SCHEMA_VIOLATION");
+    assert.equal(
+      rows.filter((r) => r.kind === "event" && r.name === "ActivityCompleted" && r.payload?.nodeId === "classify")
+        .length,
+      0
+    );
+  });
+
+  it("host_mediated llm_call accepts valid output_schema on submit", async () => {
+    /** @type {object} */
+    const definition = {
+      document: {
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
+        name: "host-llm-schema-ok",
+        version: "1.0.0",
+      },
+      state_schema: {
+        type: "object",
+        properties: {
+          intent: { type: "string" },
+          confidence: { type: "number" },
+        },
+      },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "classify",
+          type: "llm_call",
+          config: {
+            model: "stub",
+            system_prompt: "classify",
+            output_schema: {
+              type: "object",
+              properties: {
+                intent: { type: "string" },
+                confidence: { type: "number" },
+              },
+              required: ["intent", "confidence"],
+            },
+          },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".intent" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "classify" },
+        { source: "classify", target: "end" },
+      ],
+    };
+    assert.equal(validateWorkflowDefinition(definition).ok, true);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-host-llm-schema-ok";
+    const input = { ticket_text: "help" };
+
+    const awaiting = await runGraphWorkflow({
+      definition,
+      input,
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(awaiting.status, "awaiting_activity");
+
+    const done = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "classify",
+      outcome: { ok: true, result: { intent: "technical", confidence: 0.9 } },
+    });
+    assert.equal(done.status, "completed");
+    assert.equal(done.result, "technical");
+  });
+
+  it("lighthouse classify host_mediated submit passes output_schema validation", async () => {
+    const definition = loadLighthouse();
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-lighthouse-host-classify";
+    const input = { ticket_text: "VPN will not connect" };
+
+    const awaiting = await runGraphWorkflow({
+      definition,
+      input,
+      executionId,
+      store,
+      activityExecutionMode: "host_mediated",
+    });
+    assert.equal(awaiting.status, "awaiting_activity");
+    assert.equal(awaiting.nodeId, "classify");
+
+    const done = await submitActivityOutcome({
+      definition,
+      executionId,
+      store,
+      input,
+      nodeId: "classify",
+      outcome: { ok: true, result: { intent: "technical", confidence: 0.9 } },
+    });
+    assert.equal(done.status, "awaiting_activity");
+    assert.notEqual(done.nodeId, "classify");
+  });
+
+  it("in-process llm_call maps executor schema failure to OUTPUT_SCHEMA_VIOLATION", async () => {
+    /** @type {object} */
+    const definition = {
+      document: {
+        schema: "https://agent-workflow.dev/schemas/workflow-definition.json",
+        name: "inproc-llm-schema",
+        version: "1.0.0",
+      },
+      state_schema: {
+        type: "object",
+        properties: {
+          intent: { type: "string" },
+        },
+      },
+      nodes: [
+        { id: "start", type: "start" },
+        {
+          id: "classify",
+          type: "llm_call",
+          config: {
+            model: "stub",
+            output_schema: {
+              type: "object",
+              properties: { intent: { type: "string" }, confidence: { type: "number" } },
+              required: ["intent", "confidence"],
+            },
+          },
+          retry: { max_attempts: 1 },
+        },
+        { id: "end", type: "end", config: { output_mapping: ".intent" } },
+      ],
+      edges: [
+        { source: "__start__", target: "start" },
+        { source: "start", target: "classify" },
+        { source: "classify", target: "end" },
+      ],
+    };
+    assert.equal(validateWorkflowDefinition(definition).ok, true);
+
+    const store = new MemoryExecutionHistoryStore();
+    const executionId = "exec-inproc-llm-schema";
+    const executor = {
+      async executeActivity() {
+        return { ok: false, error: "schema mismatch", code: "LLM_OUTPUT_VALIDATION_FAILED" };
+      },
+    };
+
+    const result = await runGraphWorkflow({
+      definition,
+      input: {},
+      executionId,
+      store,
+      activityExecutor: executor,
+    });
+    assert.equal(result.status, "failed");
+
+    const failedEvt = store
+      .listByExecution(executionId)
+      .find((r) => r.kind === "event" && r.name === "ActivityFailed");
+    assert.ok(failedEvt);
+    assert.equal(failedEvt.payload?.code, "OUTPUT_SCHEMA_VIOLATION");
+  });
+
   it("submit continuation rejects mismatched input keys vs ExecutionStarted", async () => {
     /** @type {object} */
     const definition = {

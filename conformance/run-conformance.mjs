@@ -1,5 +1,6 @@
 import { discoverVectors, runVector } from "./runner.mjs";
 import { runSdkParitySmoke } from "./sdk-parity-smoke.mjs";
+import { runSqliteStoreSmoke } from "./sqlite-store-smoke.mjs";
 
 const discovered = discoverVectors();
 const results = await Promise.all(discovered.map(runVector));
@@ -14,6 +15,19 @@ if (sdkSmoke.passed) {
     category: "sdk-parity-fail",
     passed: false,
     reason: sdkSmoke.reason,
+  });
+}
+const sqliteSmoke = await runSqliteStoreSmoke();
+if (sqliteSmoke.passed) {
+  console.error("PASS [sqlite-store-smoke] SqliteExecutionHistoryStore persistence");
+} else {
+  console.error(`FAIL [sqlite-store-smoke] ${sqliteSmoke.reason}`);
+  results.push({
+    id: "sqlite-store-smoke",
+    file: "conformance/sqlite-store-smoke.mjs",
+    category: "sqlite-store-fail",
+    passed: false,
+    reason: sqliteSmoke.reason,
   });
 }
 const failed = results.filter((result) => !result.passed);
@@ -51,6 +65,7 @@ const summary = {
     parityPending: results.filter((result) => result.category === "parity-pending").length,
     parityFail: results.filter((result) => result.category === "parity-fail").length,
     sdkParityFail: results.filter((result) => result.category === "sdk-parity-fail").length,
+    sqliteStoreFail: results.filter((result) => result.category === "sqlite-store-fail").length,
     unexpected: results.filter((result) => result.category === "unexpected").length,
   },
   vectors: results,

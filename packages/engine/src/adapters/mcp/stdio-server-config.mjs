@@ -62,6 +62,69 @@ export function resolveWorkflowEngineMcpConfigPath(argv, cwd = process.cwd()) {
 }
 
 /**
+ * @typedef {{ ok: true; kind: "memory" } | { ok: true; kind: "sqlite"; path: string } | { ok: false; error: string }} ExecutionHistoryStoreResolveResult
+ */
+
+/**
+ * Resolves execution history store options for `workflows-engine-mcp`.
+ * CLI `--store` / `--store-path` win over `WORKFLOW_ENGINE_STORE` / `WORKFLOW_ENGINE_STORE_PATH`.
+ * Default: in-memory store (backward compatible).
+ *
+ * @param {string[]} argv process.argv
+ * @param {NodeJS.ProcessEnv} [env]
+ * @param {string} [cwd]
+ * @returns {ExecutionHistoryStoreResolveResult}
+ */
+export function resolveExecutionHistoryStoreOptions(argv, env = process.env, cwd = process.cwd()) {
+  const sliced = argv.slice(2);
+  /** @type {string | null} */
+  let storeKind = null;
+  /** @type {string | null} */
+  let storePath = null;
+
+  for (let i = 0; i < sliced.length; i++) {
+    if (sliced[i] === "--store" && i + 1 < sliced.length) {
+      storeKind = sliced[i + 1];
+      i++;
+      continue;
+    }
+    if (sliced[i] === "--store-path" && i + 1 < sliced.length) {
+      storePath = sliced[i + 1];
+      i++;
+    }
+  }
+
+  if (!storeKind) {
+    const envStore = env.WORKFLOW_ENGINE_STORE;
+    if (envStore && String(envStore).trim() !== "") {
+      storeKind = String(envStore).trim();
+    }
+  }
+  if (!storePath) {
+    const envPath = env.WORKFLOW_ENGINE_STORE_PATH;
+    if (envPath && String(envPath).trim() !== "") {
+      storePath = String(envPath).trim();
+    }
+  }
+
+  const kind = storeKind ? String(storeKind).trim().toLowerCase() : "memory";
+  if (kind === "memory") {
+    return { ok: true, kind: "memory" };
+  }
+  if (kind === "sqlite") {
+    if (!storePath || String(storePath).trim() === "") {
+      return {
+        ok: false,
+        error: "SQLite store requires --store-path <path> or WORKFLOW_ENGINE_STORE_PATH",
+      };
+    }
+    const p = String(storePath).trim();
+    return { ok: true, kind: "sqlite", path: path.isAbsolute(p) ? p : path.resolve(cwd, p) };
+  }
+  return { ok: false, error: `Unknown store kind "${storeKind}"; expected memory or sqlite` };
+}
+
+/**
  * @param {string} raw Env value (inline JSON object or file path).
  * @param {string} cwd
  * @param {string} label Env var name for error messages.
