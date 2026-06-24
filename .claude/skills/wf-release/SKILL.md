@@ -66,7 +66,7 @@ No MCP server is required for the default release path.
 4. Verify `packages/engine/package.json` version matches tag base (e.g. tag `v0.1.3-alpha.1` → package `0.1.3`).
 5. Update `docs/releases/alpha-release-notes.md` and `docs/user/` when operator guidance changes.
 6. Run local gates: `check-engine-schema-sync`, `validate-workflows`, `conformance`, `test`, `npm pack --dry-run --workspace @agent-workflow/engine`.
-   - **GA baseline (`v0.y.z`, no `-alpha.N`):** also run `conformance:v1` and `e2e:lighthouse` per `docs/governance/ga-release-checklist.md` (stub audit gate).
+   - **GA baseline (`v0.y.z`, no `-alpha.N`):** also run `conformance:v1`, `e2e:lighthouse`, and `e2e:r3` per `docs/governance/ga-release-checklist.md` (stub audit gate).
 7. Open PR for version + release notes (preferred) or confirm working tree is release-only.
 8. Merge and re-confirm CI green on the release commit.
 

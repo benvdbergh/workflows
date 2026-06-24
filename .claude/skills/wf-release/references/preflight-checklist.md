@@ -52,6 +52,7 @@ npm run check-engine-schema-sync
 npm run validate-workflows
 npm run conformance:v1
 npm run e2e:lighthouse
+npm run e2e:r3
 npm test
 npm pack --dry-run --workspace @agent-workflow/engine
 ```
@@ -62,6 +63,7 @@ Before pushing a non-alpha tag, confirm:
 
 - [ ] `npm run conformance:v1` passes (`status: "pass"`, `profile: "v1"` in JSON summary)
 - [ ] `npm run e2e:lighthouse` passes
+- [ ] `npm run e2e:r3` passes
 - [ ] `npm audit --audit-level=high` passes (CI runs this automatically)
 
 See `docs/governance/ga-release-checklist.md` for full v1 pass criteria.

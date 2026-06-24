@@ -11,6 +11,7 @@ npm run check-engine-schema-sync
 npm run validate-workflows
 npm run conformance:v1
 npm run e2e:lighthouse
+npm run e2e:r3
 npm test
 npm pack --dry-run --workspace @agent-workflow/engine
 ```
@@ -32,6 +33,7 @@ Before pushing a GA tag, confirm:
 
 - [ ] `npm run conformance:v1` passes (v1 profile conformance)
 - [ ] `npm run e2e:lighthouse` passes (host-mediated lighthouse E2E)
+- [ ] `npm run e2e:r3` passes (real A2A delegation E2E)
 - [ ] `npm audit --audit-level=high` passes (mirrored in CI reusable workflow)
 - [ ] `packages/engine/package.json` version matches tag base (`v0.2.0` → `0.2.0`)
 - [ ] Release notes section exists for the tag
