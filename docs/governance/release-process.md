@@ -36,4 +36,5 @@ If an alpha release is broken or mislabeled: stop promotion, document the impact
 
 - [alpha-versioning-and-release-commit-flow.md](alpha-versioning-and-release-commit-flow.md) — SemVer, checklist, changelog template
 - [alpha-ci-cd-packaging-governance.md](alpha-ci-cd-packaging-governance.md) — workflow permissions, check names, troubleshooting
+- [ga-release-checklist.md](ga-release-checklist.md) — v1 conformance and GA preflight gates
 - [alpha-release-notes.md](../releases/alpha-release-notes.md) — shipped version history (feeds GitHub Releases)

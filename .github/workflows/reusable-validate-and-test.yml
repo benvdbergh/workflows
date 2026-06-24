@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: true
+      conformance_profile:
+        description: "Conformance profile tag (e.g. v1); empty runs all vectors"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -87,7 +92,15 @@ jobs:
         run: npm run validate-workflows
 
       - name: Run conformance harness
-        run: npm run conformance
+        env:
+          CONFORMANCE_PROFILE: ${{ inputs.conformance_profile }}
+        run: node conformance/run-conformance.mjs
+
+      - name: Run lighthouse host-mediated E2E
+        run: npm run e2e:lighthouse
+
+      - name: Run R3 multi-agent delegation E2E
+        run: npm run e2e:r3
 
       - name: Run package tests
         if: ${{ inputs.run_tests }}

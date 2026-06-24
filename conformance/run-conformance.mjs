@@ -2,7 +2,27 @@ import { discoverVectors, runVector } from "./runner.mjs";
 import { runSdkParitySmoke } from "./sdk-parity-smoke.mjs";
 import { runSqliteStoreSmoke } from "./sqlite-store-smoke.mjs";
 
-const discovered = discoverVectors();
+/**
+ * @returns {string | undefined}
+ */
+function parseProfile() {
+  for (const arg of process.argv.slice(2)) {
+    if (arg.startsWith("--profile=")) {
+      return arg.slice("--profile=".length);
+    }
+  }
+  const envProfile = process.env.CONFORMANCE_PROFILE;
+  return envProfile && envProfile.length > 0 ? envProfile : undefined;
+}
+
+const profile = parseProfile();
+const discovered = discoverVectors({ profile });
+if (profile && discovered.length === 0) {
+  console.error(`FAIL [profile] No conformance vectors match profile "${profile}"`);
+  console.log(JSON.stringify({ status: "fail", profile, total: 0, passed: 0, failed: 1, reason: "no_vectors_for_profile" }, null, 2));
+  process.exitCode = 1;
+  process.exit(1);
+}
 const results = await Promise.all(discovered.map(runVector));
 const sdkSmoke = await runSdkParitySmoke();
 if (sdkSmoke.passed) {
@@ -53,6 +73,7 @@ for (const result of results) {
 
 const summary = {
   status: failed.length === 0 ? "pass" : "fail",
+  profile: profile ?? null,
   total: results.length,
   passed: results.length - failed.length,
   failed: failed.length,

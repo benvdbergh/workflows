@@ -43,7 +43,7 @@ Alpha milestones often modeled agent work as MCP-shaped **`tool_call`** nodes (`
 3. Re-run conformance/replay fixtures; event prefixes should remain valid when lifecycle timing is preserved (`docs/engine-profile.md` §2.2).
 4. Keep `tool_call` for non-agent tools (CRM, search, calculators); remove agent-shaped tools once hosts support delegate.
 
-Reference engine: in-process mock A2A for `protocol: "a2a"`; MCP/SDK paths may still use host-mediated activities.
+Reference engine: in-process mock A2A for `protocol: "a2a"`; MCP/SDK paths may still use host-mediated activities. Verify the native delegate path with `npm run e2e:r3` (see [r3-multi-agent-delegation-e2e.md](../architecture/arc42-assets/runbooks/r3-multi-agent-delegation-e2e.md)).
 
 ---
 
@@ -79,16 +79,18 @@ Reference engine: in-process mock A2A for `protocol: "a2a"`; MCP/SDK paths may s
 npm run check-engine-schema-sync
 npm run validate-workflows
 npm test
-npm run conformance
+npm run conformance:v1
+npm run e2e:lighthouse
+npm run e2e:r3
 ```
 
-Record conformance summary JSON in release notes when tagging GA artifacts.
+Record conformance summary JSON (`"profile": "v1"`, `"status": "pass"`) in release notes when tagging GA artifacts.
 
 ---
 
 ## Open items (stub)
 
 - [ ] Published GA semver and npm dist-tag policy  
-- [ ] Conformance profile name and badge (`passes-v1-core`)  
+- [x] Conformance profile name and badge (`v1` profile; `npm run conformance:v1`; release gate in `release.yml`)  
 - [ ] Changelog entries for any breaking MCP error code changes  
 - [ ] HTTP version negotiation (deferred; see [profile-model.md](./profile-model.md))
