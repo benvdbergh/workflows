@@ -13,7 +13,7 @@ This is the **canonical operator guide** for running `@agent-workflow/engine` th
 The package exposes **two** bins. Always pass **`-p` / `--package`** with `npx` so npm resolves the executable:
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.5 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@1.0.0 workflows-engine-mcp
 ```
 
 Without `-p`, you may see `npm error could not determine executable to run`.
@@ -29,7 +29,7 @@ npx -y -p @agent-workflow/engine@alpha workflows-engine-mcp
 **Pinned reproducible version:**
 
 ```bash
-npx -y -p @agent-workflow/engine@0.1.5 workflows-engine-mcp
+npx -y -p @agent-workflow/engine@1.0.0 workflows-engine-mcp
 ```
 
 Use `@alpha` for fast feedback; pin an exact version for bug reports and demos.
@@ -46,7 +46,7 @@ Generic MCP client JSON:
       "args": [
         "-y",
         "-p",
-        "@agent-workflow/engine@0.1.5",
+        "@agent-workflow/engine@1.0.0",
         "workflows-engine-mcp"
       ]
     }
@@ -54,7 +54,7 @@ Generic MCP client JSON:
 }
 ```
 
-Replace `0.1.5` with your target version or `@alpha`.
+Replace `1.0.0` with your target version or `@latest`.
 
 ### Optional environment
 

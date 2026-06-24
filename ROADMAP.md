@@ -1,6 +1,6 @@
 # Agent Workflow Protocol Roadmap
 
-Last updated: 2026-06-04 (synced with [Linear workflows project](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview) and `docs/releases/alpha-release-notes.md`)
+Last updated: 2026-06-24 (synced with [Linear workflows project](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview) and `docs/releases/alpha-release-notes.md`)
 
 This roadmap translates the full RFC scope (`docs/RFC/`) into sequenced, workable releases after the delivered POC alpha scope (7 epics, summarized in `docs/releases/alpha-release-notes.md`).
 
@@ -10,16 +10,16 @@ This roadmap translates the full RFC scope (`docs/RFC/`) into sequenced, workabl
 |---|---|---|
 | **POC alpha** | **Delivered** — lighthouse + conformance baseline (`docs/releases/alpha-release-notes.md`, pre-`v0.1.1` cuts) | Not tracked in Linear (pre-migration scope) |
 | **R2 Beta** | **Delivered** — `@agent-workflow/engine@0.1.1` (`parallel`, `wait`, `set_state`, unified graph walker) | Not tracked in Linear |
-| **R3 RC** | **Partially delivered** — native `agent_delegate` + `subworkflow` in `@agent-workflow/engine@0.1.2`; mock A2A; R3 fixtures and replay/parity vectors in CI. **Open:** REST/SDK parity, production A2A adapter, interop guides, full adapter contract harness | Not tracked in Linear |
-| **R4 GA 1.0** | **Not started** (planning backlog) | Milestone **R4 GA 1.0** — 0% progress; issues [BEN-5](https://linear.app/ben-van-den-bergh/issue/BEN-5), [BEN-8](https://linear.app/ben-van-den-bergh/issue/BEN-8), [BEN-10](https://linear.app/ben-van-den-bergh/issue/BEN-10), [BEN-11](https://linear.app/ben-van-den-bergh/issue/BEN-11) — all **Backlog** |
+| **R3 RC** | **Delivered** — native `agent_delegate` + `subworkflow`, REST/SDK parity, production A2A adapter, interop guides, v1 conformance vectors in CI | Milestone **R3 RC — Interop & delegation closure** — complete |
+| **R4 GA 1.0** | **Delivered** — `@agent-workflow/engine@1.0.0` (`v1.0.0` tag): runtime stub replacement, security v1, control plane, GA E2E + v1 conformance gate | Milestone **R4 GA 1.0** — [BEN-81](https://linear.app/ben-van-den-bergh/issue/BEN-81) epic tree complete; umbrella [BEN-5](https://linear.app/ben-van-den-bergh/issue/BEN-5) closes on release |
 | **R5 1.1** | **Not started** (later horizon) | Milestone **R5 1.1** — 0% progress; issues [BEN-6](https://linear.app/ben-van-den-bergh/issue/BEN-6), [BEN-7](https://linear.app/ben-van-den-bergh/issue/BEN-7), [BEN-9](https://linear.app/ben-van-den-bergh/issue/BEN-9), [BEN-12](https://linear.app/ben-van-den-bergh/issue/BEN-12) — all **Backlog** |
 
 Linear currently holds **R4–R5 only** (migrated from GitHub); R2/R3 completion is reflected here and in release notes, not as Linear milestones. See `.project-planning.yaml` and `.claude/skills/wf-plan/references/linear-project-operating-model.md`.
 
 ## Planning assumptions
 
-- **Current baseline:** [`@agent-workflow/engine@0.1.5`](https://www.npmjs.com/package/@agent-workflow/engine) implements the profile in [`docs/engine-profile.md`](docs/engine-profile.md): POC core nodes, **R2** orchestration (`parallel`, `wait`, `set_state`), and **R3** native delegation/composition (`agent_delegate`, `subworkflow`) with in-process mock A2A. Host-mediated and engine-direct activity execution per [ADR-0003](docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md). Schema validation and conformance harness (`npm run conformance`) are green on `main`.
-- **Next planning focus:** **R4 GA 1.0** (v1 contract freeze, security baseline, adoption bar). Finish remaining **R3 RC** interop surfaces (REST/SDK, real A2A, integration guides) as runway or explicit R3 carryover before treating R4 items as implementation-ready.
+- **Current baseline:** [`@agent-workflow/engine@1.0.0`](https://www.npmjs.com/package/@agent-workflow/engine) implements the v1 profile in [`docs/engine-profile.md`](docs/engine-profile.md): full core orchestration, native delegation/composition, REST/SDK/MCP integration surfaces, security v1, and GA conformance (`npm run conformance:v1`). Host-mediated and engine-direct activity execution per [ADR-0003](docs/architecture/adr/ADR-0003-engine-direct-mcp-activity-execution.md).
+- **Next planning focus:** **R5 1.1** (scale, operations, production operability). Runway items (e.g. [BEN-118](https://linear.app/ben-van-den-bergh/issue/BEN-118)) carry to post-GA.
 - This roadmap prioritizes vertical value slices while maintaining architectural runway for durability, interoperability, and governance.
 - Release names are planning labels; semantic versions are assigned during release planning.
 
@@ -29,8 +29,8 @@ Linear currently holds **R4–R5 only** (migrated from GitHub); R2/R3 completion
 |---|---|---|---|
 | Done | **POC alpha** | Delivered | RFC subset, reference engine, MCP stdio, lighthouse demo |
 | Done | **R2 Beta - Full Core Orchestration** | Delivered (`v0.1.1`) | `parallel`, `wait`, `set_state`, replay/checkpoint hardening |
-| In progress | **R3 RC - Delegation and Composition** | Engine delivered (`v0.1.2`); interop open | Native `agent_delegate` / `subworkflow`; REST/SDK and production adapters remain |
-| **Now** | **R4 GA 1.0 - Protocol and Runtime Stabilization** | Not started (Linear backlog) | Freeze v1 contracts, security baseline, conformance bar, adoption DX |
+| In progress | **R3 RC - Delegation and Composition** | Delivered (`v0.1.2`–`v1.0.0`) | Native `agent_delegate` / `subworkflow`; REST/SDK; production A2A; v1 conformance |
+| **Done** | **R4 GA 1.0 - Protocol and Runtime Stabilization** | Delivered (`v1.0.0`) | v1 contract freeze, security baseline, conformance bar, adoption DX |
 | Later | **R5 1.1 - Scale and Operations** | Not started (Linear backlog) | Production operability, performance, tenancy, policy controls |
 | Longer term | **Future prospects** | — | Ecosystem and standards expansion once v1 is stable and adopted |
 
@@ -103,7 +103,7 @@ Enable multi-agent and nested orchestration patterns while preserving replayabil
 
 ## R4 GA 1.0 - Protocol and Runtime Stabilization
 
-**Status: not started.** Linear milestone [R4 GA 1.0](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview) — 0% progress; umbrella [BEN-5](https://linear.app/ben-van-den-bergh/issue/BEN-5) and stories [BEN-8](https://linear.app/ben-van-den-bergh/issue/BEN-8) (schema/profile/compatibility), [BEN-10](https://linear.app/ben-van-den-bergh/issue/BEN-10) (security baseline + signing), [BEN-11](https://linear.app/ben-van-den-bergh/issue/BEN-11) (compat + threat-model CI gates) are **Backlog**. Treat as **next commitment horizon** after R3 interop gaps are explicit.
+**Status: delivered** (`@agent-workflow/engine@1.0.0`, 2026-06-24). Linear milestone [R4 GA 1.0](https://linear.app/ben-van-den-bergh/project/workflows-a5eb475ff80e/overview) — [BEN-81](https://linear.app/ben-van-den-bergh/issue/BEN-81) epic tree complete; release gate [BEN-89](https://linear.app/ben-van-den-bergh/issue/BEN-89) merged in PR #100.
 
 ### Outcome
 

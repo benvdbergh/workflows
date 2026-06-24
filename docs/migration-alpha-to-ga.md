@@ -1,7 +1,7 @@
-# Migration: alpha (`@agent-workflow/engine@0.1.5`) → GA v1
+# Migration: alpha (`@agent-workflow/engine@0.1.5`) → GA v1 (`@agent-workflow/engine@1.0.0`)
 
-**Last reviewed:** 2026-06-16  
-**Status:** Stub — expanded as R4 GA approaches.  
+**Last reviewed:** 2026-06-24  
+**Status:** GA v1 published (`v1.0.0`).  
 **Profile model:** [profile-model.md](./profile-model.md)  
 **Alpha changelog:** [releases/alpha-release-notes.md](releases/alpha-release-notes.md)
 

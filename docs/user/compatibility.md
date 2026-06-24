@@ -10,7 +10,7 @@ What the reference engine (`@agent-workflow/engine`) supports today versus what 
 
 ## Feature matrix
 
-| Feature | Tier | Engine `0.1.5` | Notes |
+| Feature | Tier | Engine `1.0.0` | Notes |
 |---------|------|----------------|-------|
 | `document`, `state_schema`, `nodes`, `edges` | Core | Supported | No top-level `extensions` |
 | `start`, `end`, `step`, `llm_call`, `tool_call`, `switch`, `interrupt` | Core | Supported | Graph walker + linear runner |

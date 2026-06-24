@@ -1,6 +1,6 @@
 {
   "name": "@agent-workflow/engine",
-  "version": "0.1.5",
+  "version": "1.0.0",
   "description": "Agent Workflow Protocol — reference engine (definition validation and execution)",
   "license": "Apache-2.0",
   "repository": {

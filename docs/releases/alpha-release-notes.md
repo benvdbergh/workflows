@@ -1,8 +1,58 @@
 # Alpha changelog (pre-1.0)
 
-**Last reviewed:** 2026-06-17
+**Last reviewed:** 2026-06-24
 
-**Current engine:** `@agent-workflow/engine@0.1.5`. Maintainer process: [release-process.md](../governance/release-process.md). Roadmap: [ROADMAP.md](../../ROADMAP.md).
+**Current engine:** `@agent-workflow/engine@1.0.0` (GA v1). Maintainer process: [release-process.md](../governance/release-process.md). Roadmap: [ROADMAP.md](../../ROADMAP.md). Migration from alpha: [migration-alpha-to-ga.md](../migration-alpha-to-ga.md).
+
+## v1.0.0 — 2026-06-24
+
+### Added
+
+- **GA v1 conformance profile** — `npm run conformance:v1` gates tagged releases; 60 vectors pass under `profile: "v1"` (BEN-89, BEN-112).
+- **Lighthouse E2E** — `npm run e2e:lighthouse` exercises host-mediated activity completion on `examples/lighthouse-customer-routing.workflow.json` (BEN-111).
+- **R3 delegation E2E** — `npm run e2e:r3` exercises real `A2ADelegateExecutor` against mock A2A server on `examples/r3-multi-agent-coding.workflow.json` (BEN-113).
+- **REST/OpenAPI control plane** — `workflows-engine-rest` bin and RFC-05 adapter (BEN-84, BEN-97).
+- **`@agent-workflow/sdk`** — TypeScript client with REST and in-process port parity (BEN-84, BEN-98).
+- **Control plane MCP tools** — `workflow_signal`, `workflow_cancel`, `workflow_list`; `wait(kind=signal)` runtime (BEN-85).
+- **Security v1** — `secret_ref` resolver at activity boundary, JWS Ed25519 definition signing, scoped MCP/REST auth tokens (BEN-86).
+- **Orchestration policy** — node `retry` and `timeout` enforcement in graph walker (BEN-87).
+- **Composition** — HTTP/URI `workflow_ref` registry, `llm_call` `output_schema` validation at activity boundary, optional SQLite-backed MCP store (BEN-88).
+
+### Changed
+
+- **npm `latest`** promotes `@agent-workflow/engine@1.0.0` on tag `v1.0.0` (non-alpha baseline).
+- Release automation runs `conformance:v1` (not full alpha conformance) when `promote_latest` is true.
+- GA preflight checklist documents real-path audit gates (`docs/governance/ga-release-checklist.md`).
+
+### Fixed
+
+- Lighthouse parity stub aligned with `output_schema` validation (BEN-109).
+- `workflow_ref` fetch cache invalidates on re-register (BEN-108).
+
+### Docs
+
+- [Migration: alpha → GA](../migration-alpha-to-ga.md) updated for v1 operator path.
+- E2E runbooks: [lighthouse host-mediated](../architecture/arc42-assets/runbooks/lighthouse-e2e-host-mediated.md), [R3 multi-agent delegation](../architecture/arc42-assets/runbooks/r3-multi-agent-delegation-e2e.md).
+
+### Breaking/Impact Notes
+
+- **Major (`1.0.0`):** first stable semver for `@agent-workflow/engine`. Alpha `0.1.x` adopters should pin `1.0.0`, re-validate workflows against the canonical schema URI, and review [migration-alpha-to-ga.md](../migration-alpha-to-ga.md). Default MCP stdio wiring still requires operator config for production executors; stubs remain for smoke tests only.
+
+### Validation run
+
+- `npm run check-engine-schema-sync`
+- `npm run validate-workflows`
+- `npm run conformance:v1` — `status: "pass"`, `profile: "v1"`, 60/60 vectors
+- `npm run e2e:lighthouse`
+- `npm run e2e:r3`
+- `npm test` — 318 tests
+- `npm pack --dry-run --workspace @agent-workflow/engine`
+- `npm audit --audit-level=high` — 0 vulnerabilities
+
+### Published URLs
+
+- User docs: https://benvdbergh.github.io/workflows/latest/
+- Schema mirror: https://benvdbergh.github.io/workflows/schemas/1.0.0/workflow-definition.json
 
 ## v0.1.5 — 2026-06-17
 
