@@ -89,6 +89,9 @@ jobs:
       - name: Run conformance harness
         run: npm run conformance
 
+      - name: Run lighthouse host-mediated E2E
+        run: npm run e2e:lighthouse
+
       - name: Run package tests
         if: ${{ inputs.run_tests }}
         run: npm test
