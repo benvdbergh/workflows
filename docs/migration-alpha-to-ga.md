@@ -43,7 +43,7 @@ Alpha milestones often modeled agent work as MCP-shaped **`tool_call`** nodes (`
 3. Re-run conformance/replay fixtures; event prefixes should remain valid when lifecycle timing is preserved (`docs/engine-profile.md` §2.2).
 4. Keep `tool_call` for non-agent tools (CRM, search, calculators); remove agent-shaped tools once hosts support delegate.
 
-Reference engine: in-process mock A2A for `protocol: "a2a"`; MCP/SDK paths may still use host-mediated activities.
+Reference engine: in-process mock A2A for `protocol: "a2a"`; MCP/SDK paths may still use host-mediated activities. Verify the native delegate path with `npm run e2e:r3` (see [r3-multi-agent-delegation-e2e.md](../architecture/arc42-assets/runbooks/r3-multi-agent-delegation-e2e.md)).
 
 ---
 

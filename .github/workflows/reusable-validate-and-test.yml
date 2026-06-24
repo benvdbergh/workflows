@@ -104,6 +104,9 @@ jobs:
       - name: Run lighthouse host-mediated E2E
         run: npm run e2e:lighthouse
 
+      - name: Run R3 multi-agent delegation E2E
+        run: npm run e2e:r3
+
       - name: Run package tests
         if: ${{ inputs.run_tests }}
         run: npm test

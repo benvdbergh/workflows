@@ -21,6 +21,7 @@
     "conformance": "node conformance/run-conformance.mjs",
     "conformance:v1": "node conformance/run-conformance.mjs --profile=v1",
     "e2e:lighthouse": "node scripts/e2e-lighthouse-host-mediated.mjs",
+    "e2e:r3": "node scripts/e2e-r3-multi-agent-delegation.mjs",
     "conformance:parity-sdk": "node conformance/sdk-parity-smoke.mjs",
     "test": "npm test --workspace=@agent-workflow/engine",
     "sdk:test": "npm test --workspace=@agent-workflow/sdk",
