@@ -51,6 +51,7 @@ jobs:
       checkout_ref: ${{ needs.resolve-release.outputs.tag }}
       node_version: "24"
       run_tests: true
+      conformance_profile: ${{ needs.resolve-release.outputs.promote_latest == 'true' && 'v1' || '' }}
     permissions:
       contents: read
 

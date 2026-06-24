@@ -18,6 +18,14 @@ Optional (local only): allow `pending: true` parity vectors to pass:
 CONFORMANCE_ALLOW_PENDING=1 npm run conformance
 ```
 
+**GA v1 profile** (release gate for non-alpha tags):
+
+```bash
+npm run conformance:v1
+```
+
+Pass criteria: exit code `0`, JSON summary `status: "pass"` with `profile: "v1"`. Includes all vectors without a `profiles` field (default GA surface) plus sdk-parity and sqlite-store smokes. Vectors tagged with a `profiles` array are included only when the array contains `"v1"`. See [docs/governance/ga-release-checklist.md](../docs/governance/ga-release-checklist.md).
+
 Expected behavior:
 
 - Exit code `0` when all vectors match expected outcomes.
@@ -60,6 +68,7 @@ Each vector file is JSON. Schema vector example:
 
 - `id`: stable identifier used in logs and CI output.
 - `kind`: vector executor (`schema`, `replay`, or `parity`).
+- `profiles` (optional): profile tags (e.g. `["v1"]`). When omitted, the vector runs in **all** profiles including `v1`. When set, the vector runs only when the active profile is listed.
 - `definition`: path relative to repository root.
 - `expect.ok`: expected validation outcome.
 - `expect.diagnostics` (optional): stable failure signals for expected-invalid vectors.
@@ -110,7 +119,7 @@ Replay fields:
 
 ## Discovery contract
 
-Vectors are discovered by recursively scanning `conformance/vectors/` for `*.vector.json` and sorting by lexical path order before execution.
+Vectors are discovered by recursively scanning `conformance/vectors/` for `*.vector.json` and sorting by lexical path order before execution. When a profile is requested (`--profile=v1` or `CONFORMANCE_PROFILE`), vectors are filtered: include when `profiles` is omitted or when `profiles` contains the requested tag.
 
 This guarantees deterministic ordering across local and CI runs.
 

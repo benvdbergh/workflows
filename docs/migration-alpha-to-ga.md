@@ -79,16 +79,16 @@ Reference engine: in-process mock A2A for `protocol: "a2a"`; MCP/SDK paths may s
 npm run check-engine-schema-sync
 npm run validate-workflows
 npm test
-npm run conformance
+npm run conformance:v1
 ```
 
-Record conformance summary JSON in release notes when tagging GA artifacts.
+Record conformance summary JSON (`"profile": "v1"`, `"status": "pass"`) in release notes when tagging GA artifacts.
 
 ---
 
 ## Open items (stub)
 
 - [ ] Published GA semver and npm dist-tag policy  
-- [ ] Conformance profile name and badge (`passes-v1-core`)  
+- [x] Conformance profile name and badge (`v1` profile; `npm run conformance:v1`; release gate in `release.yml`)  
 - [ ] Changelog entries for any breaking MCP error code changes  
 - [ ] HTTP version negotiation (deferred; see [profile-model.md](./profile-model.md))

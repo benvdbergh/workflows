@@ -35,6 +35,8 @@ Per `docs/governance/alpha-versioning-and-release-commit-flow.md`:
 
 ## 4. Local quality gates (mirror CI)
 
+**Alpha iteration (`v0.y.z-alpha.N`):**
+
 ```bash
 npm run check-engine-schema-sync
 npm run validate-workflows
@@ -42,6 +44,27 @@ npm run conformance
 npm test
 npm pack --dry-run --workspace @agent-workflow/engine
 ```
+
+**GA baseline (`v0.y.z`, promotes `latest`):**
+
+```bash
+npm run check-engine-schema-sync
+npm run validate-workflows
+npm run conformance:v1
+npm run e2e:lighthouse
+npm test
+npm pack --dry-run --workspace @agent-workflow/engine
+```
+
+### GA stub audit gate
+
+Before pushing a non-alpha tag, confirm:
+
+- [ ] `npm run conformance:v1` passes (`status: "pass"`, `profile: "v1"` in JSON summary)
+- [ ] `npm run e2e:lighthouse` passes
+- [ ] `npm audit --audit-level=high` passes (CI runs this automatically)
+
+See `docs/governance/ga-release-checklist.md` for full v1 pass criteria.
 
 - [ ] All commands pass
 - [ ] Schema breaking change ack present if required (`SCHEMA_BREAKING_CHANGE_ACK` or `schemas/.schema-breaking-change-ack`)

@@ -60,6 +60,7 @@ const vectorsRoot = path.join(__dirname, "vectors");
  *   signingPolicy?: { mode: "optional" | "require" };
  *   publicKeys?: Record<string, string>;
  *   tamperSignatureValue?: boolean;
+ *   profiles?: string[];
  *   expect:
  *     | {
  *         ok: boolean;
@@ -106,15 +107,35 @@ function walk(directory) {
 }
 
 /**
+ * @param {{ profile?: string }} [options]
+ * @returns {boolean}
+ */
+function vectorMatchesProfile(vector, profile) {
+  if (!profile) {
+    return true;
+  }
+  const profiles = vector.profiles;
+  if (profiles === undefined) {
+    return true;
+  }
+  return Array.isArray(profiles) && profiles.includes(profile);
+}
+
+/**
  * Deterministic vector discovery in lexical path order.
+ * When `profile` is set, includes vectors with no `profiles` field (all profiles)
+ * or whose `profiles` array contains the requested tag (e.g. `"v1"`).
+ * @param {{ profile?: string }} [options]
  * @returns {{ file: string, vector: ConformanceVector }[]}
  */
-export function discoverVectors() {
+export function discoverVectors({ profile } = {}) {
   const vectorFiles = walk(vectorsRoot).sort((a, b) => a.localeCompare(b));
-  return vectorFiles.map((file) => {
-    const vector = JSON.parse(readFileSync(file, "utf8"));
-    return { file, vector };
-  });
+  return vectorFiles
+    .map((file) => {
+      const vector = JSON.parse(readFileSync(file, "utf8"));
+      return { file, vector };
+    })
+    .filter(({ vector }) => vectorMatchesProfile(vector, profile));
 }
 
 /**

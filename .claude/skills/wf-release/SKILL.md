@@ -1,12 +1,12 @@
 ---
 name: wf-release
 description: >-
-  Orchestrates alpha release preflight, version-tag creation, and postflight
+  Orchestrates alpha and GA release preflight, version-tag creation, and postflight
   verification for the workflows repository. Guides maintainers through
   checklist gates, tag push to trigger automated packaging/npm/docs/GitHub
   Release, and break-glass recovery. Use when cutting a release, preparing
   v0.y.z or v0.y.z-alpha.N tags, running release preflight, verifying publish
-  outcomes, or recovering a failed release workflow.
+  outcomes, GA v1 conformance gates, or recovering a failed release workflow.
 license: MIT
 metadata:
   author: workflows
@@ -23,7 +23,7 @@ metadata:
 - **Release identity:** annotated git tag `v*` on a green `master` commit (or short-lived `release/v0.y.z` tip for RC iterations)
 - **Automation trigger:** push tag → `.github/workflows/release.yml` (gates → pack → npm → docs → GitHub Release)
 - **Break-glass:** manual `release-packaging.yml`, `release-npm-publish.yml`, `docs-publish.yml`
-- **Policy docs:** `docs/governance/alpha-versioning-and-release-commit-flow.md`, `docs/governance/alpha-ci-cd-packaging-governance.md`, `docs/governance/release-process.md`
+- **Policy docs:** `docs/governance/alpha-versioning-and-release-commit-flow.md`, `docs/governance/alpha-ci-cd-packaging-governance.md`, `docs/governance/release-process.md`, `docs/governance/ga-release-checklist.md`
 
 ## Scope
 
@@ -66,6 +66,7 @@ No MCP server is required for the default release path.
 4. Verify `packages/engine/package.json` version matches tag base (e.g. tag `v0.1.3-alpha.1` → package `0.1.3`).
 5. Update `docs/releases/alpha-release-notes.md` and `docs/user/` when operator guidance changes.
 6. Run local gates: `check-engine-schema-sync`, `validate-workflows`, `conformance`, `test`, `npm pack --dry-run --workspace @agent-workflow/engine`.
+   - **GA baseline (`v0.y.z`, no `-alpha.N`):** also run `conformance:v1` and `e2e:lighthouse` per `docs/governance/ga-release-checklist.md` (stub audit gate).
 7. Open PR for version + release notes (preferred) or confirm working tree is release-only.
 8. Merge and re-confirm CI green on the release commit.
 
@@ -85,8 +86,8 @@ No MCP server is required for the default release path.
 2. Monitor `.github/workflows/release.yml` (`gh run watch`).
 
 3. Tag suffix drives automation defaults (`references/tag-and-publish.md`):
-   - `v0.y.z-alpha.N` → npm `alpha`, docs version only
-   - `v0.y.z` → npm `latest`, docs `latest` alias
+   - `v0.y.z-alpha.N` → npm `alpha`, docs version only, full `conformance` in release gates
+   - `v0.y.z` → npm `latest`, docs `latest` alias, **`conformance:v1` required** in release gates
 
 **Triggers:** "push release tag", "cut release", "publish v0.x"
 

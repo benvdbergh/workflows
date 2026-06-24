@@ -2,7 +2,21 @@ import { discoverVectors, runVector } from "./runner.mjs";
 import { runSdkParitySmoke } from "./sdk-parity-smoke.mjs";
 import { runSqliteStoreSmoke } from "./sqlite-store-smoke.mjs";
 
-const discovered = discoverVectors();
+/**
+ * @returns {string | undefined}
+ */
+function parseProfile() {
+  for (const arg of process.argv.slice(2)) {
+    if (arg.startsWith("--profile=")) {
+      return arg.slice("--profile=".length);
+    }
+  }
+  const envProfile = process.env.CONFORMANCE_PROFILE;
+  return envProfile && envProfile.length > 0 ? envProfile : undefined;
+}
+
+const profile = parseProfile();
+const discovered = discoverVectors({ profile });
 const results = await Promise.all(discovered.map(runVector));
 const sdkSmoke = await runSdkParitySmoke();
 if (sdkSmoke.passed) {
@@ -53,6 +67,7 @@ for (const result of results) {
 
 const summary = {
   status: failed.length === 0 ? "pass" : "fail",
+  profile: profile ?? null,
   total: results.length,
   passed: results.length - failed.length,
   failed: failed.length,
