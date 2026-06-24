@@ -94,12 +94,7 @@ jobs:
       - name: Run conformance harness
         env:
           CONFORMANCE_PROFILE: ${{ inputs.conformance_profile }}
-        run: |
-          if [ -n "$CONFORMANCE_PROFILE" ]; then
-            npm run "conformance:${CONFORMANCE_PROFILE}"
-          else
-            npm run conformance
-          fi
+        run: node conformance/run-conformance.mjs
 
       - name: Run lighthouse host-mediated E2E
         run: npm run e2e:lighthouse

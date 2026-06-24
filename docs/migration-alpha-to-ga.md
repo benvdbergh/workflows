@@ -80,6 +80,8 @@ npm run check-engine-schema-sync
 npm run validate-workflows
 npm test
 npm run conformance:v1
+npm run e2e:lighthouse
+npm run e2e:r3
 ```
 
 Record conformance summary JSON (`"profile": "v1"`, `"status": "pass"`) in release notes when tagging GA artifacts.

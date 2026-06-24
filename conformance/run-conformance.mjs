@@ -17,6 +17,12 @@ function parseProfile() {
 
 const profile = parseProfile();
 const discovered = discoverVectors({ profile });
+if (profile && discovered.length === 0) {
+  console.error(`FAIL [profile] No conformance vectors match profile "${profile}"`);
+  console.log(JSON.stringify({ status: "fail", profile, total: 0, passed: 0, failed: 1, reason: "no_vectors_for_profile" }, null, 2));
+  process.exitCode = 1;
+  process.exit(1);
+}
 const results = await Promise.all(discovered.map(runVector));
 const sdkSmoke = await runSdkParitySmoke();
 if (sdkSmoke.passed) {

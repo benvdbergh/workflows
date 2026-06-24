@@ -27,13 +27,13 @@ npm pack --dry-run --workspace @agent-workflow/engine
 
 Vectors without a `profiles` field are included in v1 (backward compatible). Future experimental vectors may set `"profiles": ["alpha-only"]` to exclude them from this gate.
 
-### Stub audit gate (GA preflight)
+### Real-path audit gate (GA preflight)
 
-Before pushing a GA tag, confirm:
+Before pushing a GA tag, confirm production-relevant execution paths are exercised (not default stub/mock-only):
 
 - [ ] `npm run conformance:v1` passes (v1 profile conformance)
-- [ ] `npm run e2e:lighthouse` passes (host-mediated lighthouse E2E)
-- [ ] `npm run e2e:r3` passes (real A2A delegation E2E)
+- [ ] `npm run e2e:lighthouse` passes (host-mediated activity completion)
+- [ ] `npm run e2e:r3` passes (real `A2ADelegateExecutor` against mock A2A server; child `run_tests` may use in-process stub)
 - [ ] `npm audit --audit-level=high` passes (mirrored in CI reusable workflow)
 - [ ] `packages/engine/package.json` version matches tag base (`v0.2.0` → `0.2.0`)
 - [ ] Release notes section exists for the tag
