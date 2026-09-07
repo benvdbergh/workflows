@@ -39,6 +39,6 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "ajv": "^8.20.0",
     "jq-wasm": "^1.1.0-jq-1.8.1",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   }
 }
