@@ -1,0 +1,161 @@
+{
+  "document": {
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
+    "name": "wf-execute-feature",
+    "version": "1.0.0",
+    "description": "Per-story execution subworkflow for wf-execute: Linear in-progress hygiene, host-mediated prompt composition, feature implementation delegate, commit, and Linear close-out. Intended for host_mediated runs where the Cursor host spawns a Task sub-agent on implement_feature. workflow_ref: urn:awp:wf:wf-execute-feature."
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "issue_id": { "type": "string" },
+      "issue_identifier": { "type": "string" },
+      "title": { "type": "string" },
+      "description": { "type": "string" },
+      "acceptance_criteria": { "type": "string" },
+      "epic_id": { "type": "string" },
+      "branch": { "type": "string" },
+      "repo": { "type": "string" },
+      "planning_manifest_path": { "type": "string" },
+      "feature_prompt": { "type": "string" },
+      "commit_sha": { "type": "string" },
+      "commit_message": { "type": "string" },
+      "linear_status": { "type": "string" },
+      "implementation_summary": { "type": "string" }
+    }
+  },
+  "nodes": [
+    {
+      "id": "feature_start",
+      "type": "start",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "issue_id": { "type": "string" },
+            "issue_identifier": { "type": "string" },
+            "title": { "type": "string" },
+            "description": { "type": "string" },
+            "acceptance_criteria": { "type": "string" },
+            "epic_id": { "type": "string" },
+            "branch": { "type": "string" },
+            "repo": { "type": "string" },
+            "planning_manifest_path": { "type": "string" }
+          },
+          "required": ["issue_identifier", "title", "branch", "repo"]
+        }
+      }
+    },
+    {
+      "id": "linear_mark_in_progress",
+      "type": "tool_call",
+      "config": {
+        "server": "linear",
+        "tool": "save_issue",
+        "arguments": {}
+      },
+      "metadata": {
+        "wf_execute": "Set Linear issue to in-progress before implementation. Host maps state.issue_id or state.issue_identifier and state In Progress."
+      }
+    },
+    {
+      "id": "compose_feature_prompt",
+      "type": "llm_call",
+      "config": {
+        "model": "host-selected",
+        "system_prompt": "Compose a single actionable development prompt for a Cursor coding sub-agent. Include Linear acceptance criteria, scope pointers (.project-planning.yaml source_globs, RFC, docs/engine-profile.md), branch name, wf-execute conventions (one commit, no PR until epic end), and validation commands (npm test, npm run conformance when applicable). Output JSON with feature_prompt string.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "feature_prompt": { "type": "string" }
+          },
+          "required": ["feature_prompt"]
+        }
+      },
+      "timeout": "10m",
+      "metadata": {
+        "host_mediated": "Template from state (title, description, acceptance_criteria, branch, repo, planning_manifest_path) before calling the host LLM."
+      }
+    },
+    {
+      "id": "implement_feature",
+      "type": "agent_delegate",
+      "config": {
+        "agent_id": "urn:awp:agents:cursor.feature-implementer",
+        "protocol": "sdk",
+        "input_mapping": {
+          "issue_identifier": "${ .issue_identifier }",
+          "title": "${ .title }",
+          "branch": "${ .branch }",
+          "repo": "${ .repo }",
+          "feature_prompt": "${ .feature_prompt }",
+          "acceptance_criteria": "${ .acceptance_criteria }"
+        }
+      },
+      "timeout": "4h",
+      "metadata": {
+        "skills": ["wf-execute", "minimalist-coding"],
+        "host_action": "Launch Cursor Task sub-agent; implement on branch; return implementation_summary and files_changed."
+      }
+    },
+    {
+      "id": "commit_feature",
+      "type": "agent_delegate",
+      "config": {
+        "agent_id": "urn:awp:agents:cursor.git-committer",
+        "protocol": "sdk",
+        "input_mapping": {
+          "issue_identifier": "${ .issue_identifier }",
+          "branch": "${ .branch }",
+          "repo": "${ .repo }",
+          "implementation_summary": "${ .implementation_summary }"
+        }
+      },
+      "timeout": "15m",
+      "metadata": {
+        "host_action": "Create one git commit per feature with message referencing the Linear identifier; return commit_sha and commit_message."
+      }
+    },
+    {
+      "id": "linear_mark_done",
+      "type": "tool_call",
+      "config": {
+        "server": "linear",
+        "tool": "save_issue",
+        "arguments": {}
+      },
+      "metadata": {
+        "wf_execute": "Move issue to done (or review per team policy) after successful commit."
+      }
+    },
+    {
+      "id": "linear_execution_comment",
+      "type": "tool_call",
+      "config": {
+        "server": "linear",
+        "tool": "save_comment",
+        "arguments": {}
+      },
+      "metadata": {
+        "wf_execute": "Post Execution update comment with commit_sha, validation status, and next action."
+      }
+    },
+    {
+      "id": "feature_end",
+      "type": "end",
+      "config": {
+        "output_mapping": "{ issue_identifier: .issue_identifier, commit_sha: .commit_sha, commit_message: .commit_message, feature_prompt: .feature_prompt, linear_status: .linear_status, implementation_summary: .implementation_summary }"
+      }
+    }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "feature_start" },
+    { "source": "feature_start", "target": "linear_mark_in_progress" },
+    { "source": "linear_mark_in_progress", "target": "compose_feature_prompt" },
+    { "source": "compose_feature_prompt", "target": "implement_feature" },
+    { "source": "implement_feature", "target": "commit_feature" },
+    { "source": "commit_feature", "target": "linear_mark_done" },
+    { "source": "linear_mark_done", "target": "linear_execution_comment" },
+    { "source": "linear_execution_comment", "target": "feature_end" }
+  ]
+}

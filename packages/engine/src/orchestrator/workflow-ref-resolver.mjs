@@ -118,6 +118,7 @@ function builtinRefs() {
   if (!builtinFilenameByRef) {
     builtinFilenameByRef = {
       "urn:awp:wf:unit-tests": "r3-unit-tests-child.workflow.json",
+      "urn:awp:wf:wf-execute-feature": "wf-execute-feature.workflow.json",
     };
   }
   return builtinFilenameByRef;

@@ -1,0 +1,330 @@
+{
+  "document": {
+    "schema": "https://agent-workflow.dev/schemas/workflow-definition.json",
+    "name": "wf-execute-epic-orchestrator",
+    "version": "1.0.0",
+    "description": "Epic-level wf-execute orchestrator: Linear admin, execution-plan composition, optional human approval, batched per-feature implementation (host runs urn:awp:wf:wf-execute-feature per story), epic validation, PR creation, and code-review delegate. Run with activity_execution_mode host_mediated and Linear MCP on the Cursor host."
+  },
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "epic_milestone": { "type": "string" },
+      "epic_id": { "type": "string" },
+      "epic_issue_identifier": { "type": "string" },
+      "project_name": { "type": "string" },
+      "repo": { "type": "string" },
+      "branch": { "type": "string" },
+      "planning_manifest_path": { "type": "string" },
+      "issues_raw": { "type": "object" },
+      "features": {
+        "type": "array",
+        "items": { "type": "object" }
+      },
+      "feature_prompts": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "plan_summary": { "type": "string" },
+      "approve": { "type": "boolean" },
+      "commits": {
+        "type": "array",
+        "items": { "type": "object" },
+        "reducer": "append"
+      },
+      "tests_passed": { "type": "boolean" },
+      "test_summary": { "type": "string" },
+      "pr_url": { "type": "string" },
+      "review_ok": { "type": "boolean" },
+      "review_notes": { "type": "string" },
+      "phase": { "type": "string" },
+      "outcome": { "type": "string" }
+    }
+  },
+  "nodes": [
+    {
+      "id": "epic_start",
+      "type": "start",
+      "config": {
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "epic_milestone": { "type": "string" },
+            "epic_id": { "type": "string" },
+            "epic_issue_identifier": { "type": "string" },
+            "project_name": { "type": "string" },
+            "repo": { "type": "string" },
+            "branch": { "type": "string" },
+            "planning_manifest_path": { "type": "string" }
+          },
+          "required": ["epic_milestone", "repo", "branch"]
+        }
+      }
+    },
+    {
+      "id": "fetch_epic_issues",
+      "type": "tool_call",
+      "config": {
+        "server": "linear",
+        "tool": "list_issues",
+        "arguments": {
+          "project": "workflows",
+          "orderBy": "createdAt"
+        }
+      },
+      "metadata": {
+        "host_action": "List epic stories: filter by state.epic_issue_identifier parentId or milestone name from state.epic_milestone; preserve execution order from Linear."
+      }
+    },
+    {
+      "id": "normalize_features",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "phase": { "literal": "planning" },
+          "project_name": { "jq": ".project_name // \"workflows\"" },
+          "planning_manifest_path": { "jq": ".planning_manifest_path // \".project-planning.yaml\"" }
+        }
+      }
+    },
+    {
+      "id": "compose_execution_plan",
+      "type": "llm_call",
+      "config": {
+        "model": "host-selected",
+        "system_prompt": "Build an ordered epic execution plan from Linear issues and .project-planning.yaml context. Output JSON: features (ordered array of {issue_id, issue_identifier, title, description, acceptance_criteria}), feature_prompts (parallel array of draft prompts), plan_summary (markdown). Respect indicated story order and wf-execute build-ready preconditions.",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "features": { "type": "array" },
+            "feature_prompts": { "type": "array", "items": { "type": "string" } },
+            "plan_summary": { "type": "string" }
+          },
+          "required": ["features", "plan_summary"]
+        }
+      },
+      "timeout": "15m",
+      "metadata": {
+        "host_mediated": "Host supplies issues_raw, epic_milestone, and planning manifest excerpts before LLM call."
+      }
+    },
+    {
+      "id": "approve_plan",
+      "type": "interrupt",
+      "config": {
+        "prompt": "Review the epic execution plan (features order and draft prompts). Approve to start implementation, or reject to revise.",
+        "resume_schema": {
+          "type": "object",
+          "properties": {
+            "approve": { "type": "boolean" },
+            "notes": { "type": "string" }
+          },
+          "required": ["approve"]
+        }
+      }
+    },
+    {
+      "id": "route_plan_approval",
+      "type": "switch",
+      "config": {
+        "cases": [
+          {
+            "when": ".approve == true",
+            "target": "mark_epic_in_progress"
+          }
+        ],
+        "default": "record_plan_rejection"
+      }
+    },
+    {
+      "id": "record_plan_rejection",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "phase": { "literal": "plan_rejected" },
+          "outcome": { "literal": "plan_not_approved" }
+        }
+      }
+    },
+    {
+      "id": "mark_epic_in_progress",
+      "type": "tool_call",
+      "config": {
+        "server": "linear",
+        "tool": "save_issue",
+        "arguments": {}
+      },
+      "metadata": {
+        "host_action": "Set epic umbrella issue or milestone tracking issue to in-progress when epic_issue_identifier is set."
+      }
+    },
+    {
+      "id": "implement_features",
+      "type": "agent_delegate",
+      "config": {
+        "agent_id": "urn:awp:agents:cursor.epic-implementer",
+        "protocol": "sdk",
+        "input_mapping": {
+          "features": "${ .features }",
+          "feature_prompts": "${ .feature_prompts }",
+          "epic_id": "${ .epic_id }",
+          "epic_milestone": "${ .epic_milestone }",
+          "branch": "${ .branch }",
+          "repo": "${ .repo }",
+          "planning_manifest_path": "${ .planning_manifest_path }",
+          "feature_workflow_ref": "urn:awp:wf:wf-execute-feature"
+        }
+      },
+      "timeout": "24h",
+      "metadata": {
+        "skills": ["wf-execute", "minimalist-coding"],
+        "host_action": "For each feature in order: workflow_start feature subworkflow (host_mediated) or Task sub-agent equivalent; one commit per feature; update Linear before and after each story."
+      }
+    },
+    {
+      "id": "run_epic_tests",
+      "type": "agent_delegate",
+      "config": {
+        "agent_id": "urn:awp:agents:cursor.epic-verifier",
+        "protocol": "sdk",
+        "input_mapping": {
+          "repo": "${ .repo }",
+          "branch": "${ .branch }"
+        }
+      },
+      "timeout": "2h",
+      "metadata": {
+        "host_action": "Main agent runs npm test, npm run validate-workflows, and npm run conformance; return tests_passed and test_summary."
+      }
+    },
+    {
+      "id": "route_tests",
+      "type": "switch",
+      "config": {
+        "cases": [
+          {
+            "when": ".tests_passed == true",
+            "target": "create_pr"
+          }
+        ],
+        "default": "record_test_failure"
+      }
+    },
+    {
+      "id": "record_test_failure",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "phase": { "literal": "tests_failed" },
+          "outcome": { "literal": "tests_failed" }
+        }
+      }
+    },
+    {
+      "id": "create_pr",
+      "type": "agent_delegate",
+      "config": {
+        "agent_id": "urn:awp:agents:cursor.pr-creator",
+        "protocol": "sdk",
+        "input_mapping": {
+          "repo": "${ .repo }",
+          "branch": "${ .branch }",
+          "epic_milestone": "${ .epic_milestone }",
+          "epic_issue_identifier": "${ .epic_issue_identifier }",
+          "commits": "${ .commits }",
+          "plan_summary": "${ .plan_summary }"
+        }
+      },
+      "timeout": "30m",
+      "metadata": {
+        "host_action": "gh pr create on benvdbergh/workflows; link Linear epic; complete PR template spec/architecture traceability."
+      }
+    },
+    {
+      "id": "code_review",
+      "type": "agent_delegate",
+      "config": {
+        "agent_id": "urn:awp:agents:cursor.code-reviewer",
+        "protocol": "sdk",
+        "input_mapping": {
+          "pr_url": "${ .pr_url }",
+          "repo": "${ .repo }"
+        }
+      },
+      "timeout": "2h",
+      "metadata": {
+        "skills": ["code-review-skill"],
+        "host_action": "Launch Task sub-agent with code-review-skill on the PR diff; return review_ok and review_notes."
+      }
+    },
+    {
+      "id": "route_review",
+      "type": "switch",
+      "config": {
+        "cases": [
+          {
+            "when": ".review_ok == true",
+            "target": "finalize_epic"
+          }
+        ],
+        "default": "record_review_failure"
+      }
+    },
+    {
+      "id": "record_review_failure",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "phase": { "literal": "review_failed" },
+          "outcome": { "literal": "review_failed" }
+        }
+      }
+    },
+    {
+      "id": "finalize_epic",
+      "type": "tool_call",
+      "config": {
+        "server": "linear",
+        "tool": "save_issue",
+        "arguments": {}
+      },
+      "metadata": {
+        "host_action": "Move epic to review/done; attach pr_url link; post Execution update on epic thread."
+      }
+    },
+    {
+      "id": "mark_success",
+      "type": "set_state",
+      "config": {
+        "assignments": {
+          "phase": { "literal": "completed" },
+          "outcome": { "literal": "success" }
+        }
+      }
+    },
+    {
+      "id": "epic_end",
+      "type": "end",
+      "config": {
+        "output_mapping": "{ outcome: .outcome, phase: .phase, epic_milestone: .epic_milestone, branch: .branch, pr_url: .pr_url, commits: .commits, tests_passed: .tests_passed, review_ok: .review_ok, review_notes: .review_notes, plan_summary: .plan_summary }"
+      }
+    }
+  ],
+  "edges": [
+    { "source": "__start__", "target": "epic_start" },
+    { "source": "epic_start", "target": "fetch_epic_issues" },
+    { "source": "fetch_epic_issues", "target": "normalize_features" },
+    { "source": "normalize_features", "target": "compose_execution_plan" },
+    { "source": "compose_execution_plan", "target": "approve_plan" },
+    { "source": "approve_plan", "target": "route_plan_approval" },
+    { "source": "mark_epic_in_progress", "target": "implement_features" },
+    { "source": "implement_features", "target": "run_epic_tests" },
+    { "source": "run_epic_tests", "target": "route_tests" },
+    { "source": "record_test_failure", "target": "epic_end" },
+    { "source": "create_pr", "target": "code_review" },
+    { "source": "code_review", "target": "route_review" },
+    { "source": "record_review_failure", "target": "epic_end" },
+    { "source": "finalize_epic", "target": "mark_success" },
+    { "source": "mark_success", "target": "epic_end" },
+    { "source": "record_plan_rejection", "target": "epic_end" }
+  ]
+}
