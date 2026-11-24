@@ -1,0 +1,33 @@
+{
+  "$comment": "Written by `blueprint init`. Hashes of the files it installed, so `blueprint upgrade` can update files you haven't changed. Commit this file.",
+  "version": "0.3.0",
+  "providers": [
+    "claude",
+    "cursor"
+  ],
+  "installedAt": "2026-11-24",
+  "updatedAt": "2026-11-24",
+  "files": {
+    ".claude/commands/blueprint-audit.md": "a261f786205d72bddcae195e23fbcdd3c306258db605c78d6ba535634313853d",
+    ".claude/commands/blueprint-define-feature.md": "91da8e5bdaf208425311ea89c977c0de28964e64b6a0a8a67a3f6418b217a924",
+    ".claude/commands/blueprint-onboard.md": "7e5a7a0b6029a923e7c52b93bf73810ca0d797d3559ab68e1ba187cc3d2d1d53",
+    ".claude/commands/blueprint-review.md": "88e0c1df39d65bdd1bfc3d9d4fb95c28a151058a3c8b57bf3b538f5547645dc5",
+    ".claude/commands/blueprint-sync.md": "494c7cdf5df9b97610b5f70334cfa260448264d100e2bf3516a6add520e8bef7",
+    ".cursor/rules/blueprint.mdc": "ea72817908e1e586e239ee359fed14aedbd75cb2888eee12975a8257f92fe5f6",
+    "AGENTS.md": "35f63ccb9aff41e03b265e88b2021a6806ce3a5b5777a0962d22289316a9ab06",
+    "blueprint/00-product-core.md": "7f65fb04e9c5ea63b5b1d43b0fb1b0a211adf99c662839893189684fec2c34d2",
+    "blueprint/01-product.md": "ed0fb528907686641bf1e76e6adf9bcb60f29f2dd556417dce57cf673c90cffe",
+    "blueprint/02-ux-design.md": "845c7cbcc8a88c527527a8871206ea9d4875b8f40ebef6c3335afff39a8e42bb",
+    "blueprint/03-domain-data.md": "6bd24cdbc5529cccfe989cac5ab393b262ac793b0ec2d26e7466806ddebe5d2a",
+    "blueprint/04-architecture.md": "f706979720831080c216e33354941a3f07a1fd898d2f3d0a92025863a91bf206",
+    "blueprint/05-interfaces.md": "004812e10431bf18075eb4729f9b2084edfdba0ece2b53064de953795a7daf34",
+    "blueprint/06-deployment.md": "cb8ee42f7242d9152d93e6a4a47286d6d8ad493f1bacdebc32eded236e204360",
+    "blueprint/07-roadmap.md": "712a1bc4294c3dec6c6e337a69f1d1f5dffc7a69376d8c207d47e2bbbf178d75",
+    "blueprint/README.md": "9b9fac8693deb0b76c2c03d5adace4a8773dde69c2525c868e6baa57a89b36be",
+    "blueprint/workflows/audit.md": "d5c90e0d5169278e5630c1b7e683a991827786a25f15304490fd999bf37d8fc3",
+    "blueprint/workflows/define-feature.md": "67fa7c01935bea2fbb6b1d0f90edb3b1e5f83a5c7ef6af62600913f10c81ae7e",
+    "blueprint/workflows/onboard.md": "3ef7b6a52ff63fdc8c49b630606fdc7e16e59507ccbc8bec55aa3a782b4c4eda",
+    "blueprint/workflows/review.md": "d19f73059a0a1dd38de387afa962e5ea843a8b55ef17bcc9f0595153455f1462",
+    "blueprint/workflows/sync.md": "a1225aa57638317eda377a27e6a83bbc0195cd6b0449e3d382e1eae35fc762cf"
+  }
+}

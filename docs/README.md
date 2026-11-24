@@ -1,7 +1,9 @@
 # Developer documentation index
 
-**Last reviewed:** 2026-06-15  
+**Last reviewed:** 2026-11-24  
 **Audience:** Contributors, engine implementers, and AI agents working in this repository.
+
+**Product-intent spine:** [`blueprint/`](../blueprint/) — Product Core through Roadmap (proposed drafts). Normative RFC, engine profile, schema, and arc42 remain the technical SSOT below; the blueprint links to them.
 
 End-user documentation (operators, workflow authors, evaluators) is published separately:
 
@@ -15,6 +17,7 @@ This index covers **in-repo developer and maintainer material** on GitHub.
 
 | Topic | Location |
 |-------|----------|
+| Product intent (blueprint) | [blueprint/README.md](../blueprint/README.md) |
 | Repository onboarding | [README.md](../README.md) |
 | Engine profile (normative subset) | [engine-profile.md](engine-profile.md) |
 | JSON Schema bundle | [schemas/README.md](../schemas/README.md) |

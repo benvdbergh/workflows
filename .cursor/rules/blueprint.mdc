@@ -1,0 +1,12 @@
+---
+description: Blueprint rules: keep the product documents and the code in line
+alwaysApply: true
+---
+
+Follow `AGENTS.md` at the repository root. It is the single source of instructions for all agents and people in this repo.
+
+Short version:
+- Read `blueprint/00-product-core.md` and the blueprint documents relevant to the task before changing code.
+- When your change makes a blueprint statement wrong, update it in the same change, or say which document needs a follow-up.
+- Never edit `blueprint/00-product-core.md`. Propose changes to `approved` documents; don't make them silently.
+- Workflows (sync, audit, review, define-feature, onboard) are plain instructions in `blueprint/workflows/`. Follow the file when asked to run one.
