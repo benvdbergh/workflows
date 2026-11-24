@@ -104,3 +104,12 @@ When changing the engine profile contract (scope note, schema, or fixtures), upd
 ## Post-alpha roadmap
 
 `ROADMAP.md` defines the post-POC release plan: R2 Beta (full core orchestration: `parallel`, `wait`, `set_state`), R3 RC (delegation and composition: `agent_delegate`, `subworkflow`, REST + SDK parity), R4 GA (v1 contract freeze), and R5+ (scale and ecosystem). Read `ROADMAP.md` before scoping new epics or stories.
+
+<!-- blueprint:start (managed by `blueprint init`; edits inside this block are replaced on upgrade) -->
+@AGENTS.md
+
+## Claude Code specifics
+- The workflows are also slash commands: `/blueprint-sync`, `/blueprint-audit`, `/blueprint-review`, `/blueprint-define-feature`, `/blueprint-onboard`. Each one only points to its file in `blueprint/workflows/`.
+- To run one on a schedule, create a scheduled task with the prompt "Follow `blueprint/workflows/<name>.md`".
+- Don't add instructions here that belong to every agent. Put them in `AGENTS.md`.
+<!-- blueprint:end -->
